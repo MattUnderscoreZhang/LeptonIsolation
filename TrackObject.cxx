@@ -110,7 +110,9 @@ StatusCode TrackObject::fillTrackContainer(std::string sys_name)
     // Impact parameters
     tracklet->d0     = TrackObject::getD0(track);
     // TODO: pass PV and event info
-    //tracklet->z0     = TrackObject::getZ0(track,primVertex);
+    const xAOD::EventInfo* eventInfo          = 0;
+    const xAOD::VertexContainer* primVertex   = 0;
+    //tracklet->z0     = TrackObject::getZ0(track,primVertexContainer);
     //tracklet->d0Err  = TrackObject::getD0Err(track,eventInfo);
     tracklet->z0Err  = TrackObject::getZ0Err(track);
     

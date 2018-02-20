@@ -1,5 +1,5 @@
-#ifndef SusySkimHiggsino_LeptonTrackSelector_h
-#define SusySkimHiggsino_LeptonTrackSelector_h
+#ifndef SusySkim2LJetsLegacy_LeptonTrackSelector_h
+#define SusySkim2LJetsLegacy_LeptonTrackSelector_h
 
 //RootCore
 #include "SusySkimMaker/BaseUser.h"

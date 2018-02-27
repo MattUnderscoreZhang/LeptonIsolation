@@ -21,8 +21,8 @@ lep_features = [
     ("lep_truthType", "int")]
 
 # truthType info
-isolatedTypes = [2, 6] # e, mu
-HFTypes = [3, 7] # e, mu
+isolated_types = [2, 6] # e, mu
+HF_types = [3, 7] # e, mu
 
 track_features = [
     ("track_q", "float"),

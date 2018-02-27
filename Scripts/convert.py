@@ -1,14 +1,53 @@
-import sys
-sys.dont_write_bytecode=True
 import numpy as np
 import sys, ast
 import ROOT
 import pickle
-import features
 
 ############
 # Features #
 ############
+
+lep_features = [
+    ("lep_q", "int"),
+    ("lep_pt", "float"),
+    ("lep_eta", "float"),
+    ("lep_phi", "float"),
+    ("lep_m", "float"),
+    ("lep_d0", "float"),
+    ("lep_z0", "float"),
+    ("lep_d0Err", "float"),
+    ("lep_z0Err", "float"),
+    ("lep_pTErr", "float"),
+    ("lep_ptcone20", "float"),
+    ("lep_ptcone30", "float"),
+    ("lep_ptcone40", "float"),
+    ("lep_topoetcone20", "float"),
+    ("lep_topoetcone30", "float"),
+    ("lep_topoetcone40", "float"),
+    ("lep_ptvarcone20", "float"),
+    ("lep_ptvarcone30", "float"),
+    ("lep_ptvarcone40", "float"),
+    ("lep_truthType", "int")]
+
+track_features = [
+    ("track_q", "float"),
+    ("track_pt", "float"),
+    ("track_eta", "float"),
+    ("track_phi", "float"),
+    ("track_m", "float"),
+    ("track_fitQuality", "float"),
+    ("track_d0", "float"),
+    ("track_z0", "float"),
+    ("track_d0Err", "float"),
+    ("track_z0Err", "float"),
+    ("track_nIBLHits", "int"),
+    ("track_nPixHits", "int"),
+    ("track_nPixHoles", "int"),
+    ("track_nPixOutliers", "int"),
+    ("track_nSCTHits", "int"),
+    ("track_nTRTHits", "int")]
+
+all_features = lep_features + track_features
 
 class FeaturesList(object):
 
@@ -34,14 +73,22 @@ def convertFile(inFile, outFile):
 
     max_dR = 0.4
 
-    all_data = []
-    # [lepton]
-    # each lepton has [lep_var1, lep_var2, ... [track container]]
+    # associate feature names with their positions in the list
+    lep_feature = {'lep_associated_tracks': 0}
+    for feature in lep_features:
+        lep_feature[feature[0]] = len(lep_feature)
+    track_feature = {}
+    for feature in track_features:
+        track_feature[feature[0]] = len(track_feature)
+    all_data = [[lep_feature, track_feature]]
+
+    # save features for each lepton, and save features for associated tracks
+    # each lepton has [[track container], lep_var1, lep_var2, ...]
     # each track has [track_var1, track_var2, ...]
     for event in input_file.tree_NoSys:
         # convert ROOT vectors into arrays
         event_features = FeaturesList()
-        for (feature_name, _) in features.all_features:
+        for (feature_name, _) in all_features:
             exec("event_feature_rootvec = event." + feature_name)
             event_feature = []
             for i in range(event_feature_rootvec.size()):
@@ -54,7 +101,7 @@ def convertFile(inFile, outFile):
         track_phis = event_features.get('track_phi')
         for i, (lep_eta, lep_phi) in enumerate(zip(lep_etas, lep_phis)):
             lepton_data = []
-            for (feature_name, _) in features.lep_features:
+            for (feature_name, _) in lep_features:
                 lepton_data.append(event_features.get(feature_name)[i])
             associated_tracks = []
             # get associated tracks for each lepton
@@ -67,14 +114,27 @@ def convertFile(inFile, outFile):
                 dR = np.sqrt(dEta*dEta + dPhi*dPhi)
                 if dR <= max_dR:
                     associated_track = []
-                    for (feature_name, _) in features.track_features:
+                    for (feature_name, _) in track_features:
                         associated_track.append(event_features.get(feature_name)[j])
                     associated_tracks.append(associated_track)
             if len(associated_tracks) > 0:
-                lepton_data.append(associated_tracks)
+                lepton_data.insert(0, associated_tracks)
                 all_data.append(lepton_data)
 
-    # Save features to a pickle file
+    # add new lepton features
+    isolated_types = [2, 6] # e, mu
+    HF_types = [3, 7] # e, mu
+    all_data[0][0]['lep_isolated'] = len(all_data[0][0])
+    for i, lepton in enumerate(all_data):
+        if i==0: continue
+        if lepton[lep_feature['lep_truthType']] in isolated_types:
+            all_data[i].append(1)
+        elif lepton[lep_feature['lep_truthType']] in HF_types:
+            all_data[i].append(0)
+        else:
+            all_data[i].append(-1) # not a recognized type
+
+    # save features to a pickle file
     with open(outFile, 'w') as f:
         # should save as dictionary with lepton info too
         pickle.dump(all_data, f)

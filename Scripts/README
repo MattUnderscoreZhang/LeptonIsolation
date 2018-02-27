@@ -1,0 +1,2 @@
+convert.py converts from ROOT to a pickled list that I can work with in Python. It also calculates new features.
+compare.py makes plots of features compared between prompt and HF leptons. It also compares calculated and stored ptcone features.

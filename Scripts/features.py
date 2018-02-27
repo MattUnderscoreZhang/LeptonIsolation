@@ -20,6 +20,10 @@ lep_features = [
     ("lep_ptvarcone40", "float"),
     ("lep_truthType", "int")]
 
+# truthType info
+isolatedTypes = [2, 6] # e, mu
+HFTypes = [3, 7] # e, mu
+
 track_features = [
     ("track_q", "float"),
     ("track_pt", "float"),

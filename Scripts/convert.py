@@ -4,7 +4,7 @@ import numpy as np
 import sys, ast
 import ROOT
 import pickle
-from features import *
+import features
 
 ############
 # Features #
@@ -35,13 +35,13 @@ def convertFile(inFile, outFile):
     max_dR = 0.4
 
     all_data = []
-    # [event][lepton]
+    # [lepton]
     # each lepton has [lep_var1, lep_var2, ... [track container]]
     # each track has [track_var1, track_var2, ...]
     for event in input_file.tree_NoSys:
         # convert ROOT vectors into arrays
         event_features = FeaturesList()
-        for (feature_name, _) in all_features:
+        for (feature_name, _) in features.all_features:
             exec("event_feature_rootvec = event." + feature_name)
             event_feature = []
             for i in range(event_feature_rootvec.size()):
@@ -52,10 +52,9 @@ def convertFile(inFile, outFile):
         lep_phis = event_features.get('lep_phi')
         track_etas = event_features.get('track_eta')
         track_phis = event_features.get('track_phi')
-        event_data = []
         for i, (lep_eta, lep_phi) in enumerate(zip(lep_etas, lep_phis)):
             lepton_data = []
-            for (feature_name, _) in lep_features:
+            for (feature_name, _) in features.lep_features:
                 lepton_data.append(event_features.get(feature_name)[i])
             associated_tracks = []
             # get associated tracks for each lepton
@@ -68,14 +67,12 @@ def convertFile(inFile, outFile):
                 dR = np.sqrt(dEta*dEta + dPhi*dPhi)
                 if dR <= max_dR:
                     associated_track = []
-                    for (feature_name, _) in track_features:
+                    for (feature_name, _) in features.track_features:
                         associated_track.append(event_features.get(feature_name)[j])
                     associated_tracks.append(associated_track)
             if len(associated_tracks) > 0:
                 lepton_data.append(associated_tracks)
-                event_data.append(lepton_data)
-        if len(event_data) > 0:
-            all_data.append(event_data)
+                all_data.append(lepton_data)
 
     # Save features to a pickle file
     with open(outFile, 'w') as f:

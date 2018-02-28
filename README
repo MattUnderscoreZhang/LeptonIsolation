@@ -1,4 +1,6 @@
 SusySkim_LeptonTrackSelector/ contains portions of SusySkim code that I use to store lepton and track variables.
+I also used https://twiki.cern.ch/twiki/bin/view/AtlasProtected/InDetTrackSelectionTool to add a track selection tool to SusySkimMaker/TrackObject.cxx according to https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/Run2IsolationHarmonisation#etcone.
 Use this to generate ROOT files from DAOD MC samples.
+build; run_xAODNtMaker -s "/afs/cern.ch/work/m/mazhang/LepIso/MC/393407" -d "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/393407" -selector LeptonTrackSelector
 
 Scripts/ contains conversion, feature calculation, and plotting scripts.

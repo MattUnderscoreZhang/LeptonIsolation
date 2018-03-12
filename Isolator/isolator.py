@@ -43,13 +43,13 @@ class RNN(nn.Module):
 
     def train(self, truth, tracks):
         hidden = Variable(torch.zeros(1, self.n_hidden_neurons))
-        rnn.zero_grad()
+        self.zero_grad()
         for i in range(tracks.size()[0]):
             output, hidden = self.forward(tracks[i], hidden)
         loss = self.loss_function(output, truth)
         loss.backward()
         # Add parameters' gradients to their values, multiplied by learning rate
-        for param in rnn.parameters():
+        for param in self.parameters():
             param.data.add_(-learning_rate, param.grad.data)
         return output, loss.data[0]
 
@@ -59,6 +59,47 @@ class RNN(nn.Module):
             output, hidden = self.forward(tracks[i], hidden)
         loss = self.loss_function(output, truth)
         return output, loss.data[0]
+
+##################
+# TRAIN AND TEST #
+##################
+
+def train_and_test(data, training_split):
+
+    data = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']] != -1] # skip leptons with unrecognized truth
+
+    n_events = len(data)
+    n_training_events = int(training_split * n_events)
+    training_data = data[:n_training_events]
+    test_data = data[n_training_events:]
+
+    rnn = RNN(n_track_features, n_hidden_neurons)
+    training_loss = 0
+    training_acc = 0
+    for lep_n in range(len(training_data)):
+        truth = training_data[lep_n][lep_feature_dict['lepIso_lep_isolated']]
+        truth = Variable(torch.LongTensor([truth]))
+        tracks = training_data[lep_n][0]
+        output, loss = rnn.train(truth, Variable(torch.FloatTensor(tracks)))
+        _, top_i = output.data.topk(1)
+        category = top_i[0][0]
+        training_loss += loss
+        training_acc += (category == truth.data[0])
+        if (lep_n+1) % 100 == 0:
+            print('%d%% trained, avg loss is %.4f, avg acc is %.4f' % (lep_n / len(training_data) * 100, training_loss / (lep_n+1), training_acc / (lep_n+1)))
+
+    test_loss = 0
+    test_acc = 0
+    for lep_n in range(len(test_data)):
+        truth = test_data[lep_n][lep_feature_dict['lepIso_lep_isolated']]
+        truth = Variable(torch.LongTensor([truth]))
+        tracks = test_data[lep_n][0]
+        output, loss = rnn.evaluate(truth, Variable(torch.FloatTensor(tracks)))
+        _, top_i = output.data.topk(1)
+        category = top_i[0][0]
+        test_loss += loss
+        test_acc += (category == truth.data[0])
+    print('Test loss is %.4f, test acc is %.4f' % (test_loss / (lep_n+1), test_acc / (lep_n+1)))
 
 ###############
 # MAIN SCRIPT #
@@ -74,31 +115,4 @@ if __name__ == "__main__":
     learning_rate = 0.005
     training_split = 0.66
 
-    n_events = len(data)
-    n_training_events = int(training_split * n_events)
-    training_data = data[:n_training_events]
-    test_data = data[n_training_events:]
-
-    rnn = RNN(n_track_features, n_hidden_neurons)
-    training_loss = 0
-    for lep_n in range(len(training_data)):
-        truth = training_data[lep_n][lep_feature_dict['lepIso_lep_isolated']]
-        if (truth == -1): # unrecognized type
-            continue
-        tracks = training_data[lep_n][0]
-        truth = Variable(torch.LongTensor([truth]))
-        output, loss = rnn.train(truth, Variable(torch.FloatTensor(tracks)))
-        training_loss += loss
-        if lep_n % 100 == 0:
-            print('%d%% trained, average loss is %.4f' % (lep_n / len(training_data) * 100, training_loss / (lep_n+1)))
-
-    test_loss = 0
-    for lep_n in range(len(test_data)):
-        truth = test_data[lep_n][lep_feature_dict['lepIso_lep_isolated']]
-        if (truth == -1): # unrecognized type
-            continue
-        tracks = test_data[lep_n][0]
-        truth = Variable(torch.LongTensor([truth]))
-        output, loss = rnn.evaluate(truth, Variable(torch.FloatTensor(tracks)))
-        test_loss += loss
-    print('Test loss is %.4f' % (test_loss / (lep_n+1)))
+    train_and_test(data, training_split)

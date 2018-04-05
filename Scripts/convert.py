@@ -9,44 +9,44 @@ import pickle
 ############
 
 lep_features = [
-    ("lep_q", "int"),
-    ("lep_pt", "float"),
-    ("lep_eta", "float"),
-    ("lep_phi", "float"),
-    ("lep_m", "float"),
-    ("lep_d0", "float"),
-    ("lep_z0", "float"),
-    ("lep_d0Err", "float"),
-    ("lep_z0Err", "float"),
-    ("lep_pTErr", "float"),
-    ("lep_ptcone20", "float"),
-    ("lep_ptcone30", "float"),
-    ("lep_ptcone40", "float"),
-    ("lep_topoetcone20", "float"),
-    ("lep_topoetcone30", "float"),
-    ("lep_topoetcone40", "float"),
-    ("lep_ptvarcone20", "float"),
-    ("lep_ptvarcone30", "float"),
-    ("lep_ptvarcone40", "float"),
-    ("lep_truthType", "int")]
+    ('lepIso_lep_q', 'int'),
+    ('lepIso_lep_pt', 'float'),
+    ('lepIso_lep_eta', 'float'),
+    ('lepIso_lep_phi', 'float'),
+    ('lepIso_lep_m', 'float'),
+    ('lepIso_lep_d0', 'float'),
+    ('lepIso_lep_z0', 'float'),
+    ('lepIso_lep_d0Err', 'float'),
+    ('lepIso_lep_z0Err', 'float'),
+    ('lepIso_lep_pTErr', 'float'),
+    ('lepIso_lep_ptcone20', 'float'),
+    ('lepIso_lep_ptcone30', 'float'),
+    ('lepIso_lep_ptcone40', 'float'),
+    ('lepIso_lep_topoetcone20', 'float'),
+    ('lepIso_lep_topoetcone30', 'float'),
+    ('lepIso_lep_topoetcone40', 'float'),
+    ('lepIso_lep_ptvarcone20', 'float'),
+    ('lepIso_lep_ptvarcone30', 'float'),
+    ('lepIso_lep_ptvarcone40', 'float'),
+    ('lepIso_lep_truthType', 'int')]
 
 track_features = [
-    ("track_q", "float"),
-    ("track_pt", "float"),
-    ("track_eta", "float"),
-    ("track_phi", "float"),
-    ("track_m", "float"),
-    ("track_fitQuality", "float"),
-    ("track_d0", "float"),
-    ("track_z0", "float"),
-    ("track_d0Err", "float"),
-    ("track_z0Err", "float"),
-    ("track_nIBLHits", "int"),
-    ("track_nPixHits", "int"),
-    ("track_nPixHoles", "int"),
-    ("track_nPixOutliers", "int"),
-    ("track_nSCTHits", "int"),
-    ("track_nTRTHits", "int")]
+    ('lepIso_track_q', 'float'),
+    ('lepIso_track_pt', 'float'),
+    ('lepIso_track_eta', 'float'),
+    ('lepIso_track_phi', 'float'),
+    ('lepIso_track_m', 'float'),
+    ('lepIso_track_fitQuality', 'float'),
+    ('lepIso_track_d0', 'float'),
+    ('lepIso_track_z0', 'float'),
+    ('lepIso_track_d0Err', 'float'),
+    ('lepIso_track_z0Err', 'float'),
+    ('lepIso_track_nIBLHits', 'int'),
+    ('lepIso_track_nPixHits', 'int'),
+    ('lepIso_track_nPixHoles', 'int'),
+    ('lepIso_track_nPixOutliers', 'int'),
+    ('lepIso_track_nSCTHits', 'int'),
+    ('lepIso_track_nTRTHits', 'int')]
 
 all_features = lep_features + track_features
 
@@ -81,7 +81,7 @@ def convertFile(inFile, outFile):
     max_dR = 0.4
 
     # associate feature names with their positions in the list
-    lep_feature_dict = {'lep_associated_tracks': 0}
+    lep_feature_dict = {'lepIso_lep_associated_tracks': 0}
     for feature in lep_features:
         lep_feature_dict[feature[0]] = len(lep_feature_dict)
     track_feature_dict = {}
@@ -93,7 +93,7 @@ def convertFile(inFile, outFile):
     # each lepton has [[track container], lep_var1, lep_var2, ...]
     # each track has [track_var1, track_var2, ...]
     # also calculate and store lepton-track dR
-    track_feature_dict['track_lep_dR'] = len(track_feature_dict)
+    track_feature_dict['lepIso_track_lep_dR'] = len(track_feature_dict)
     for event in input_file.tree_NoSys:
         # convert ROOT vectors into arrays
         event_features = FeaturesList()
@@ -104,10 +104,10 @@ def convertFile(inFile, outFile):
                 event_feature.append(event_feature_rootvec[i])
             event_features.add(feature_name, event_feature)
         # get info for each lepton in event
-        lep_etas = event_features.get('lep_eta')
-        lep_phis = event_features.get('lep_phi')
-        track_etas = event_features.get('track_eta')
-        track_phis = event_features.get('track_phi')
+        lep_etas = event_features.get('lepIso_lep_eta')
+        lep_phis = event_features.get('lepIso_lep_phi')
+        track_etas = event_features.get('lepIso_track_eta')
+        track_phis = event_features.get('lepIso_track_phi')
         for i, (lep_eta, lep_phi) in enumerate(zip(lep_etas, lep_phis)):
             lepton_data = []
             for (feature_name, _) in lep_features:
@@ -134,40 +134,40 @@ def convertFile(inFile, outFile):
     # calculate lepton isolation
     isolated_types = [2, 6] # e, mu
     HF_types = [3, 7] # e, mu
-    lep_feature_dict['lep_isolated'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_isolated'] = len(lep_feature_dict)
     for i, lepton in enumerate(all_data):
         if i==0: continue
-        if lepton[lep_feature_dict['lep_truthType']] in isolated_types:
+        if lepton[lep_feature_dict['lepIso_lep_truthType']] in isolated_types:
             all_data[i].append(1)
-        elif lepton[lep_feature_dict['lep_truthType']] in HF_types:
+        elif lepton[lep_feature_dict['lepIso_lep_truthType']] in HF_types:
             all_data[i].append(0)
         else:
             all_data[i].append(-1) # not a recognized type
 
     # calculate ptconeX, ptvarconeX, and topoetconeX, where X is 20, 30, 40
     # also calculate new ptcone features
-    lep_feature_dict['lep_calculated_ptcone20'] = len(lep_feature_dict)
-    lep_feature_dict['lep_calculated_ptcone30'] = len(lep_feature_dict)
-    lep_feature_dict['lep_calculated_ptcone40'] = len(lep_feature_dict)
-    lep_feature_dict['lep_calculated_ptvarcone20'] = len(lep_feature_dict)
-    lep_feature_dict['lep_calculated_ptvarcone30'] = len(lep_feature_dict)
-    lep_feature_dict['lep_calculated_ptvarcone40'] = len(lep_feature_dict)
-    # lep_feature_dict['lep_calculated_topoetcone20'] = len(lep_feature_dict)
-    # lep_feature_dict['lep_calculated_topoetcone30'] = len(lep_feature_dict)
-    # lep_feature_dict['lep_calculated_topoetcone40'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone20_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone30_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone40_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptvarcone20_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptvarcone30_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptvarcone40_squared'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone20_dR_weighted'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone30_dR_weighted'] = len(lep_feature_dict)
-    lep_feature_dict['lep_ptcone40_dR_weighted'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptcone20'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptcone30'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptcone40'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptvarcone20'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptvarcone30'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_calculated_ptvarcone40'] = len(lep_feature_dict)
+    # lep_feature_dict['lepIso_lep_calculated_topoetcone20'] = len(lep_feature_dict)
+    # lep_feature_dict['lepIso_lep_calculated_topoetcone30'] = len(lep_feature_dict)
+    # lep_feature_dict['lepIso_lep_calculated_topoetcone40'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone20_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone30_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone40_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptvarcone20_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptvarcone30_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptvarcone40_squared'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone20_dR_weighted'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone30_dR_weighted'] = len(lep_feature_dict)
+    lep_feature_dict['lepIso_lep_ptcone40_dR_weighted'] = len(lep_feature_dict)
     for i, lepton in enumerate(all_data):
         if i==0: continue
-        associated_tracks = lepton[lep_feature_dict['lep_associated_tracks']]
-        lep_pt = lepton[lep_feature_dict['lep_pt']]
+        associated_tracks = lepton[lep_feature_dict['lepIso_lep_associated_tracks']]
+        lep_pt = lepton[lep_feature_dict['lepIso_lep_pt']]
         ptcone20 = 0
         ptcone30 = 0
         ptcone40 = 0
@@ -186,12 +186,15 @@ def convertFile(inFile, outFile):
         ptcone20_dR_weighted = 0
         ptcone30_dR_weighted = 0
         ptcone40_dR_weighted = 0
-        sorted(associated_tracks, key=lambda l:l[track_feature_dict['track_lep_dR']])
+        # sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
         for j, track in enumerate(associated_tracks):
-            if j==0:
-                continue # skip track closest to lepton (its own track)
-            dR = track[track_feature_dict['track_lep_dR']]
-            track_pt = track[track_feature_dict['track_pt']]
+            # if j==0:
+                # continue # skip track closest to lepton (its own track)
+            # if track[track_feature_dict['lepIso_track_pt']] < 1: continue
+            # if track[track_feature_dict['lepIso_track_z0']] : continue
+            # if track[track_feature_dict['lepIso_track_eta']] : continue
+            dR = track[track_feature_dict['lepIso_track_lep_dR']]
+            track_pt = track[track_feature_dict['lepIso_track_pt']]
             if dR <= 0.2:
                 ptcone20 += track_pt
                 ptcone20_squared += track_pt * track_pt

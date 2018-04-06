@@ -100,7 +100,6 @@ def convertFile(inFile, outFile, outFileReduced):
     for event in input_file.tree_NoSys:
         eventN += 1
         if (eventN%100==0): print eventN, "out of", nEvents, "events"
-        if eventN>1000: break
         # convert ROOT vectors into arrays
         event_features = FeaturesList()
         for (feature_name, _) in all_features:

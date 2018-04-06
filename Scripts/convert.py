@@ -74,7 +74,7 @@ def getFeature(event, feature_name):
     exec("event_feature_rootvec = event." + feature_name)
     return event_feature_rootvec
 
-def convertFile(inFile, outFile):
+def convertFile(inFile, outFile, outFileReduced):
 
     input_file = ROOT.TFile.Open(str(inFile), "read")
 
@@ -93,8 +93,14 @@ def convertFile(inFile, outFile):
     # each lepton has [[track container], lep_var1, lep_var2, ...]
     # each track has [track_var1, track_var2, ...]
     # also calculate and store lepton-track dR
+    nEvents = input_file.tree_NoSys.GetEntries()
+    print "Associating leptons to tracks in", nEvents, "events"
+    eventN = 0
     track_feature_dict['lepIso_track_lep_dR'] = len(track_feature_dict)
     for event in input_file.tree_NoSys:
+        eventN += 1
+        if (eventN%100==0): print eventN, "out of", nEvents, "events"
+        if eventN>1000: break
         # convert ROOT vectors into arrays
         event_features = FeaturesList()
         for (feature_name, _) in all_features:
@@ -132,6 +138,7 @@ def convertFile(inFile, outFile):
                 all_data.append(lepton_data)
 
     # calculate lepton isolation
+    print "Classifying lepton isolation"
     isolated_types = [2, 6] # e, mu
     HF_types = [3, 7] # e, mu
     lep_feature_dict['lepIso_lep_isolated'] = len(lep_feature_dict)
@@ -144,6 +151,7 @@ def convertFile(inFile, outFile):
         else:
             all_data[i].append(-1) # not a recognized type
 
+    print "Calculating ptcone variables"
     # calculate ptconeX, ptvarconeX, and topoetconeX, where X is 20, 30, 40
     # also calculate new ptcone features
     lep_feature_dict['lepIso_lep_calculated_ptcone20'] = len(lep_feature_dict)
@@ -166,6 +174,7 @@ def convertFile(inFile, outFile):
     lep_feature_dict['lepIso_lep_ptcone40_dR_weighted'] = len(lep_feature_dict)
     for i, lepton in enumerate(all_data):
         if i==0: continue
+        if i%100==0: print i, "out of", len(all_data)-1, "leptons"
         associated_tracks = lepton[lep_feature_dict['lepIso_lep_associated_tracks']]
         lep_pt = lepton[lep_feature_dict['lepIso_lep_pt']]
         ptcone20 = 0
@@ -188,8 +197,8 @@ def convertFile(inFile, outFile):
         ptcone40_dR_weighted = 0
         # sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
         for j, track in enumerate(associated_tracks):
-            # if j==0:
-                # continue # skip track closest to lepton (its own track)
+            if j==0:
+                continue # skip track closest to lepton (its own track)
             # if track[track_feature_dict['lepIso_track_pt']] < 1: continue
             # if track[track_feature_dict['lepIso_track_z0']] : continue
             # if track[track_feature_dict['lepIso_track_eta']] : continue
@@ -236,8 +245,25 @@ def convertFile(inFile, outFile):
         all_data[i].append(ptcone30_dR_weighted)
         all_data[i].append(ptcone40_dR_weighted)
 
-    # save features to a pickle file
-    with open(outFile, 'w') as f:
+    # # save features to a pickle file
+    # print "Saving events"
+    # with open(outFile, 'w') as f:
+        # # should save as dictionary with lepton info too
+        # pickle.dump(all_data, f)
+
+    # reduce number of leptons of each type so the numbers match
+    print "Reducing number of events"
+    all_data.pop(0)
+    isolated_leptons = [lepton for lepton in all_data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
+    HF_leptons = [lepton for lepton in all_data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
+    n_leptons = min(len(isolated_leptons), len(HF_leptons))
+    isolated_leptons = isolated_leptons[:n_leptons]
+    HF_leptons = HF_leptons[:n_leptons]
+
+    # save reduced features to a pickle file
+    print "Saving reduced events"
+    all_data = [[lep_feature_dict, track_feature_dict], isolated_leptons + HF_leptons]
+    with open(outFileReduced, 'w') as f:
         # should save as dictionary with lepton info too
         pickle.dump(all_data, f)
     
@@ -246,12 +272,13 @@ def convertFile(inFile, outFile):
 #################
 
 if __name__ == "__main__":
-    inFile = "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/393407.root"
     # inFiles = [
         # "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/393407.root",
         # "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/410472.root"
         # ]
-    outFile = "/afs/cern.ch/work/m/mazhang/LepIso/Pkl/393407.pkl"
+    inFile = "/eos/user/m/mazhang/LepIso/Ntuples/410501_small.root"
+    outFile = "/eos/user/m/mazhang/LepIso/Pkl/410501_small.pkl"
+    outFileReduced = "/eos/user/m/mazhang/LepIso/Pkl/410501_small_reduced.pkl"
     print "Converting file"
-    convertFile(inFile, outFile)
+    convertFile(inFile, outFile, outFileReduced)
     print "Finished"

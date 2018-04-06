@@ -60,6 +60,6 @@ def compareFeatures(inFile, saveDir):
 #################
 
 if __name__ == "__main__":
-    inFile = "/afs/cern.ch/work/m/mazhang/LepIso/Pkl/393407.pkl"
-    saveDir = "/afs/cern.ch/user/m/mazhang/Projects/LepIso/LeptonIsolation/Plots/"
+    inFile = "/eos/user/m/mazhang/LepIso/Pkl/410501_small.pkl"
+    saveDir = "/afs/cern.ch/user/m/mazhang/Projects/LepIso/LeptonIsolation/Plots/410501_small/"
     compareFeatures(inFile, saveDir)

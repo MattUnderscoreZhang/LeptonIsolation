@@ -120,11 +120,10 @@ def convertFile(inFile, outFile, outFileReduced):
             associated_tracks = []
             # get associated tracks for each lepton
             for j, (track_eta, track_phi) in enumerate(zip(track_etas, track_phis)):
-                dEta = pow(lep_eta - track_eta, 2)
+                dEta = lep_eta - track_eta
                 dPhi = abs(lep_phi - track_phi) % (2*np.pi)
                 if dPhi > np.pi:
                     dPhi = (2*np.pi) - dPhi
-                dPhi = pow(dPhi, 2)
                 dR = np.sqrt(dEta*dEta + dPhi*dPhi)
                 if dR <= max_dR:
                     associated_track = []
@@ -194,7 +193,7 @@ def convertFile(inFile, outFile, outFileReduced):
         ptcone20_dR_weighted = 0
         ptcone30_dR_weighted = 0
         ptcone40_dR_weighted = 0
-        # sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
+        sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
         for j, track in enumerate(associated_tracks):
             if j==0:
                 continue # skip track closest to lepton (its own track)
@@ -244,11 +243,11 @@ def convertFile(inFile, outFile, outFileReduced):
         all_data[i].append(ptcone30_dR_weighted)
         all_data[i].append(ptcone40_dR_weighted)
 
-    # # save features to a pickle file
-    # print "Saving events"
-    # with open(outFile, 'w') as f:
-        # # should save as dictionary with lepton info too
-        # pickle.dump(all_data, f)
+    # save features to a pickle file
+    print "Saving events"
+    with open(outFile, 'w') as f:
+        # should save as dictionary with lepton info too
+        pickle.dump(all_data, f)
 
     # reduce number of leptons of each type so the numbers match
     print "Reducing number of events"
@@ -261,7 +260,7 @@ def convertFile(inFile, outFile, outFileReduced):
 
     # save reduced features to a pickle file
     print "Saving reduced events"
-    all_data = [[lep_feature_dict, track_feature_dict], isolated_leptons + HF_leptons]
+    all_data = [lep_feature_dict, track_feature_dict] + isolated_leptons + HF_leptons
     with open(outFileReduced, 'w') as f:
         # should save as dictionary with lepton info too
         pickle.dump(all_data, f)

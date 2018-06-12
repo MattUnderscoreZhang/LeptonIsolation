@@ -9,45 +9,23 @@ import pickle
 ############
 
 lep_features = [
-    ('lepIso_lep_q', 'int'),
-    ('lepIso_lep_pt', 'float'),
-    ('lepIso_lep_eta', 'float'),
-    ('lepIso_lep_phi', 'float'),
-    ('lepIso_lep_m', 'float'),
-    ('lepIso_lep_d0', 'float'),
-    ('lepIso_lep_z0', 'float'),
-    ('lepIso_lep_d0Err', 'float'),
-    ('lepIso_lep_z0Err', 'float'),
-    ('lepIso_lep_pTErr', 'float'),
-    ('lepIso_lep_ptcone20', 'float'),
-    ('lepIso_lep_ptcone30', 'float'),
-    ('lepIso_lep_ptcone40', 'float'),
-    ('lepIso_lep_topoetcone20', 'float'),
-    ('lepIso_lep_topoetcone30', 'float'),
-    ('lepIso_lep_topoetcone40', 'float'),
-    ('lepIso_lep_ptvarcone20', 'float'),
-    ('lepIso_lep_ptvarcone30', 'float'),
-    ('lepIso_lep_ptvarcone40', 'float'),
-    ('lepIso_lep_truthType', 'int')]
+    ('TruthParticlesAux.pdgId', 'int'),
+    ('TruthParticlesAuxDyn.d0', 'float'),
+    ('TruthParticlesAuxDyn.z0', 'float'),
+    ('TruthParticlesAuxDyn.phi', 'float'),
+    ('TruthParticlesAuxDyn.theta', 'float'),
+    ('TruthParticlesAuxDyn.qOverP', 'float')]
 
 track_features = [
-    ('lepIso_track_q', 'float'),
-    ('lepIso_track_pt', 'float'),
-    ('lepIso_track_eta', 'float'),
-    ('lepIso_track_phi', 'float'),
-    ('lepIso_track_m', 'float'),
-    ('lepIso_track_fitQuality', 'float'),
-    ('lepIso_track_d0', 'float'),
-    ('lepIso_track_z0', 'float'),
-    ('lepIso_track_d0Err', 'float'),
-    ('lepIso_track_z0Err', 'float'),
-    ('lepIso_track_nIBLHits', 'int'),
-    ('lepIso_track_nPixHits', 'int'),
-    ('lepIso_track_nPixHoles', 'int'),
-    ('lepIso_track_nSCTHoles', 'int'),
-    ('lepIso_track_nPixOutliers', 'int'),
-    ('lepIso_track_nSCTHits', 'int'),
-    ('lepIso_track_nTRTHits', 'int')]
+    ('InDetTrackParticlesAux.d0', 'float'),
+    ('InDetTrackParticlesAux.z0', 'float'),
+    ('InDetTrackParticlesAux.phi', 'float'),
+    ('InDetTrackParticlesAux.theta', 'float'),
+    ('InDetTrackParticlesAux.qOverP', 'float'),
+    ('InDetTrackParticlesAux.chiSquared', 'float'),
+    ('InDetTrackParticlesAuxDyn.truthOrigin', 'int'),
+    ('InDetTrackParticlesAuxDyn.truthType', 'int'),
+    ('InDetTrackParticlesAuxDyn.truthParticleLink', 'int')]
 
 all_features = lep_features + track_features
 
@@ -292,9 +270,9 @@ if __name__ == "__main__":
         # "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/393407.root",
         # "/afs/cern.ch/work/m/mazhang/LepIso/Ntuples/410472.root"
         # ]
-    inFile = "/eos/user/m/mazhang/LepIso/Ntuples/410501_small.root"
-    outFile = "/eos/user/m/mazhang/LepIso/Pkl/410501_small.pkl"
-    outFileReduced = "/eos/user/m/mazhang/LepIso/Pkl/410501_small_reduced.pkl"
+    inFile = "/Users/mattzhang/Dropbox/Projects/Data/LepIso/IDTIDE/410000.root"
+    outFile = "/Users/mattzhang/Dropbox/Projects/Data/LepIso/IDTIDE/410000.h5"
+    outFileReduced = "/Users/mattzhang/Dropbox/Projects/Data/LepIso/IDTIDE/410000_small.h5"
     print "Converting file"
     convertFile(inFile, outFile, outFileReduced)
     print "Finished"

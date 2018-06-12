@@ -46,12 +46,16 @@ def compareFeatures(inFile, saveDir):
     for feature, calc_feature in ptcone_features:
         lepton_feature_values = [lepton[lep_feature_dict[feature]] for lepton in data]
         lepton_calc_feature_values = [lepton[lep_feature_dict[calc_feature]] for lepton in data]
-        plt.scatter(lepton_feature_values, lepton_calc_feature_values)
+        plt.scatter(lepton_feature_values, lepton_calc_feature_values, s=1)
+        # heatmap, xedges, yedges = np.histogram2d(lepton_feature_values, lepton_calc_feature_values, bins=500)
+        # extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+        # plt.clf()
+        # plt.imshow(heatmap.T, extent=extent, origin='lower')
         plt.title(feature + ' vs. ' + calc_feature)
         plt.xlabel(feature)
         plt.ylabel(calc_feature)
-        plt.xlim(0, 500)
-        plt.ylim(0, 500)
+        plt.xlim(0, 50)
+        plt.ylim(0, 50)
         plt.savefig(saveDir + feature + "_vs_" + calc_feature + ".png", bbox_inches='tight')
         plt.clf()
 

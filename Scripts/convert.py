@@ -44,6 +44,7 @@ track_features = [
     ('lepIso_track_nIBLHits', 'int'),
     ('lepIso_track_nPixHits', 'int'),
     ('lepIso_track_nPixHoles', 'int'),
+    ('lepIso_track_nSCTHoles', 'int'),
     ('lepIso_track_nPixOutliers', 'int'),
     ('lepIso_track_nSCTHits', 'int'),
     ('lepIso_track_nTRTHits', 'int')]
@@ -170,6 +171,7 @@ def convertFile(inFile, outFile, outFileReduced):
     lep_feature_dict['lepIso_lep_ptcone20_dR_weighted'] = len(lep_feature_dict)
     lep_feature_dict['lepIso_lep_ptcone30_dR_weighted'] = len(lep_feature_dict)
     lep_feature_dict['lepIso_lep_ptcone40_dR_weighted'] = len(lep_feature_dict)
+
     for i, lepton in enumerate(all_data):
         if i==0: continue
         if i%100==0: print i, "out of", len(all_data)-1, "leptons"
@@ -193,13 +195,28 @@ def convertFile(inFile, outFile, outFileReduced):
         ptcone20_dR_weighted = 0
         ptcone30_dR_weighted = 0
         ptcone40_dR_weighted = 0
-        sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
+
+        # sorted(associated_tracks, key=lambda l:l[track_feature_dict['lepIso_track_lep_dR']])
         for j, track in enumerate(associated_tracks):
-            if j==0:
-                continue # skip track closest to lepton (its own track)
-            # if track[track_feature_dict['lepIso_track_pt']] < 1: continue
-            # if track[track_feature_dict['lepIso_track_z0']] : continue
-            # if track[track_feature_dict['lepIso_track_eta']] : continue
+
+            # if j==0:
+                # continue # skip track closest to lepton (its own track)
+
+            # track selection criteria already applied in TrackObject.cxx in SusySkimMaker
+            # the stuff below is if I want to calculate these things myself
+
+                # if track[track_feature_dict['lepIso_track_pt']] < 1: continue
+                # float eta = track[track_feature_dict['lepIso_track_eta']];
+                # float theta = arctan(exp(-eta)) * 2;
+                # if abs(track[track_feature_dict['lepIso_track_z0']] * sin(theta)) > 3 : continue
+                # # Loose track critera from https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
+                # if track[track_feature_dict['lepIso_track_pt']] < 0.5: continue
+                # if abs(track[track_feature_dict['lepIso_track_eta']]) > 2.5: continue
+                # if track[track_feature_dict['lepIso_track_nSCTHits']] + track[track_feature_dict['lepIso_track_nPixHits']] < 7: continue
+                # if track[track_feature_dict['lepIso_track_nSharedPixHits']] + track[track_feature_dict['lepIso_track_nSharedSCTHits']]/2 > 1: continue
+                # if track[track_feature_dict['lepIso_track_nPixHoles']] + track[track_feature_dict['lepIso_track_nSCTHoles']] > 2: continue
+                # if track[track_feature_dict['lepIso_track_nPixHoles']] > 1: continue
+
             dR = track[track_feature_dict['lepIso_track_lep_dR']]
             track_pt = track[track_feature_dict['lepIso_track_pt']]
             if dR <= 0.2:
@@ -224,6 +241,7 @@ def convertFile(inFile, outFile, outFileReduced):
                 if dR <= 0.4:
                     ptvarcone40 += track_pt
                     ptvarcone40_squared += track_pt * track_pt
+
         all_data[i].append(ptcone20)
         all_data[i].append(ptcone30)
         all_data[i].append(ptcone40)

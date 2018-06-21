@@ -1,0 +1,8 @@
+Based on https://gitlab.cern.ch/atlas-flavor-tagging-tools/training-dataset-dumper/tree/master
+and https://github.com/dguest/mlbnn
+
+cd build/
+source ../dumpxAOD/setup.sh
+cmake ../dumpxAOD
+make
+./x86_64-slc6-gcc62-opt/bin/dump-xaod /eos/user/m/mazhang/LepIso/MC/IDTIDE/mc16_13TeV.410000.PowhegPythiaEvtGen_P2012_ttbar_hdamp172p5_nonallhad.recon.DAOD_IDTRKVALID.e3698_s2995_r9639/DAOD_IDTRKVALID.11500650._000001.pool.root.1

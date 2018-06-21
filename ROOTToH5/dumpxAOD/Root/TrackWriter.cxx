@@ -11,7 +11,6 @@
 
 TrackWriter::TrackWriter(H5::Group& output_group):
     m_current_track(nullptr),
-    //m_pt("pt"),
     m_writer(nullptr)
 {
     // define the variable filling functions. Each function takes no

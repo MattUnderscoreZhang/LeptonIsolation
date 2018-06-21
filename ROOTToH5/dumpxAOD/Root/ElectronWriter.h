@@ -1,5 +1,5 @@
-#ifndef TRACK_WRITER_H
-#define TRACK_WRITER_H
+#ifndef ELECTRON_WRITER_H
+#define ELECTRON_WRITER_H
 
 // forward declare HDF5 things
 namespace H5 {
@@ -12,32 +12,32 @@ namespace H5Utils {
 
 // forward declare EDM things
 namespace xAOD {
-    class TrackParticle_v1;
-    typedef TrackParticle_v1 TrackParticle;
+    class Electron_v1;
+    typedef Electron_v1 Electron;
 }
 
-class TrackWriter
+class ElectronWriter
 {
     public:
         // constructor: the writer will create the output dataset in some group
-        TrackWriter(H5::Group& output_group);
+        ElectronWriter(H5::Group& output_group);
 
         // destructor (takes care of flushing output file too)
-        ~TrackWriter();
+        ~ElectronWriter();
 
         // we want to disable copying and assignment, it's not trivial to
         // make this play well with output files
-        TrackWriter(TrackWriter&) = delete;
-        TrackWriter operator=(TrackWriter&) = delete;
+        ElectronWriter(ElectronWriter&) = delete;
+        ElectronWriter operator=(ElectronWriter&) = delete;
 
-        // function that's actually called to write the track
-        void write(const xAOD::TrackParticle& track);
+        // function that's actually called to write the electron
+        void write(const xAOD::Electron& electron);
 
     private:
         // the functions that fill the output need to be defined when the
-        // class is initialized. They will fill from this track pointer, which
+        // class is initialized. They will fill from this electron pointer, which
         // must be updated each time we wright.
-        const xAOD::TrackParticle* m_current_track;
+        const xAOD::Electron* m_current_electron;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

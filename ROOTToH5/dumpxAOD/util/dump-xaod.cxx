@@ -1,11 +1,12 @@
 // local tools
 #include "Root/TrackWriter.h"
+#include "Root/ElectronWriter.h"
+#include "Root/MuonWriter.h"
 
 // EDM things
 #include "xAODTracking/TrackParticleContainer.h"
-#include "xAODTruth/TruthParticle.h"
-#include "xAODTruth/TruthParticleContainer.h"
-#include "xAODTruth/TruthEventContainer.h"
+#include "xAODEgamma/ElectronContainer.h"
+#include "xAODMuon/MuonContainer.h"
 
 // AnalysisBase tool include(s):
 #include "xAODRootAccess/Init.h"
@@ -35,6 +36,37 @@ struct Options
 // simple options parser
 Options get_options(int argc, char *argv[]);
 
+////////////////////////////////////
+// baseline selection for leptons //
+////////////////////////////////////
+bool ObjectTools::passBaselineSelection(const xAOD::IParticle* p)
+{
+
+  // Baseline skimming for all objects
+  if( m_filterBaseline && !cacc_baseline(*p)  ) return false;
+
+  // OR skimming for all objects by Taus
+  if ( p->type() != xAOD::Type::Tau && cacc_passOR.isAvailable(*p) ){
+    if( m_filterOR && !cacc_passOR(*p)  ) return false;
+  }
+
+  // Keep track of number of leptons in the event
+  if ( p->type() == xAOD::Type::Muon || p->type() == xAOD::Type::Electron ){
+    if( cacc_baseline(*p) ) m_evtProperties->nBaseLeptons++;
+    if( cacc_signal(*p)   ) m_evtProperties->nSignalLeptons++;
+  }
+
+  // Keep track of the number of photons in the event
+  if ( p->type() == xAOD::Type::Photon ){
+    if( cacc_baseline(*p) ) m_evtProperties->nBasePhotons++;
+    if( cacc_signal(*p)   ) m_evtProperties->nSignalPhotons++;
+  }
+
+  // Desired object!
+  return true;
+
+}
+
 //////////////////
 // main routine //
 //////////////////
@@ -50,6 +82,8 @@ int main (int argc, char *argv[])
     // set up output file
     H5::H5File output("output.h5", H5F_ACC_TRUNC);
     TrackWriter track_writer(output);
+    ElectronWriter electron_writer(output);
+    MuonWriter muon_writer(output);
 
     // Loop over the specified files:
     for (std::string file_name: opts.files) {
@@ -75,24 +109,28 @@ int main (int argc, char *argv[])
                 std::cout << "Processing " << entry << "/" << entries << "\n";
             }
 
-            // Load the event:
+            // Load the event
             bool ok = event.getEntry(entry) >= 0;
             if (!ok) throw std::logic_error("getEntry failed");
 
+            // Write track info
             const xAOD::TrackParticleContainer *tracks = 0;
             RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
-
             for (const xAOD::TrackParticle *track : *tracks) {
                 track_writer.write(*track);
             }
 
-            //const xAOD::TruthParticleContainer *particles = 0;
-            //RETURN_CHECK(ALG, event.retrieve(particles, "TruthParticles"));
-
-            //for (const xAOD::TruthParticle *particle : *particles) {
-            ////jet_writer.write(*jet);
-            //std::cout << particle->pt() << std::endl;
-            //}
+            // Write lepton info
+            const xAOD::ElectronContainer *electrons = 0;
+            RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
+            for (const xAOD::Electron *electron : *electrons) {
+                electron_writer.write(*electron);
+            }
+            const xAOD::MuonContainer *muons = 0;
+            RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
+            for (const xAOD::Muon *muon : *muons) {
+                muon_writer.write(*muon);
+            }
 
         } // end event loop
     } // end file loop
@@ -104,7 +142,6 @@ int main (int argc, char *argv[])
 /////////////////////////////////
 // command line options parser //
 /////////////////////////////////
-
 void usage(std::string name) {
     std::cout << "usage: " << name << " [-h] [--nn-file NN_FILE] <AOD>..."
         << std::endl;

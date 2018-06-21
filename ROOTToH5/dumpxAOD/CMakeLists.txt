@@ -33,6 +33,8 @@ atlas_depends_on_subdirs(
   Control/xAODRootAccess
   Event/xAOD/xAODTrack
   Event/xAOD/xAODTruth
+  Event/xAOD/xAODEgamma
+  Event/xAOD/xAODMuon
   PhysicsAnalysis/AnalysisCommon/HDF5Utils
 )
 
@@ -44,12 +46,15 @@ find_package(lwtnn)
 # common requirements
 set(_common
   Root/TrackWriter.cxx
-  Root/TrackClassifier.cxx
+  Root/ElectronWriter.cxx
+  Root/MuonWriter.cxx
   INCLUDE_DIRS ${ROOT_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${LWTNN_INCLUDE_DIRS}
   LINK_LIBRARIES ${ROOT_LIBRARIES} ${HDF5_LIBRARIES} ${LWTNN_LIBRARIES}
   xAODRootAccess
   xAODTracking
   xAODTruth
+  xAODEgamma
+  xAODMuon
   HDF5Utils)
 
 # Build the test executable:

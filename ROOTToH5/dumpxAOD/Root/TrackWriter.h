@@ -31,13 +31,16 @@ class TrackWriter
         TrackWriter operator=(TrackWriter&) = delete;
 
         // function that's actually called to write the track
-        void write(const xAOD::TrackParticle& track);
+        void write(const xAOD::TrackParticle& track, int eventN);
 
     private:
         // the functions that fill the output need to be defined when the
         // class is initialized. They will fill from this track pointer, which
         // must be updated each time we wright.
         const xAOD::TrackParticle* m_current_track;
+
+        // event number
+        int eventN;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

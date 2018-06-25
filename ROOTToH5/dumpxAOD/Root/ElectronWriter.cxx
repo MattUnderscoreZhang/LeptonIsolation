@@ -18,6 +18,9 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
     // extension to the current electron.
     H5Utils::VariableFillers fillers;
 
+    fillers.add<int>("eventN",
+        [this]() {return this->eventN;}
+    );
     fillers.add<float>("pT",
         [this]() {return this->m_current_electron->pt();}
     );
@@ -45,7 +48,8 @@ ElectronWriter::~ElectronWriter() {
     delete m_writer;
 }
 
-void ElectronWriter::write(const xAOD::Electron& electron) {
+void ElectronWriter::write(const xAOD::Electron& electron, int eventN) {
     m_current_electron = &electron;
     m_writer->fillWhileIncrementing();
+    this->eventN = eventN;
 }

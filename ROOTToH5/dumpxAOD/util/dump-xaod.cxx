@@ -36,36 +36,25 @@ struct Options
 // simple options parser
 Options get_options(int argc, char *argv[]);
 
-////////////////////////////////////
-// baseline selection for leptons //
-////////////////////////////////////
-bool ObjectTools::passBaselineSelection(const xAOD::IParticle* p)
-{
+//////////////////////////////////////
+//// baseline selection for leptons //
+//////////////////////////////////////
+//bool passBaselineSelection(const xAOD::IParticle* p)
+//{
+    //SG::AuxElement::ConstAccessor< char > cacc_baseline( "baseline" );
+    //SG::AuxElement::ConstAccessor< char > cacc_passOR( "passOR" );
 
-  // Baseline skimming for all objects
-  if( m_filterBaseline && !cacc_baseline(*p)  ) return false;
+    //// Baseline skimming for all objects
+    //if( !cacc_baseline(*p)  ) return false;
 
-  // OR skimming for all objects by Taus
-  if ( p->type() != xAOD::Type::Tau && cacc_passOR.isAvailable(*p) ){
-    if( m_filterOR && !cacc_passOR(*p)  ) return false;
-  }
+    //// OR skimming for all objects by Taus
+    //if ( p->type() != xAOD::Type::Tau && cacc_passOR.isAvailable(*p) ){
+        //if( !cacc_passOR(*p)  ) return false;
+    //}
 
-  // Keep track of number of leptons in the event
-  if ( p->type() == xAOD::Type::Muon || p->type() == xAOD::Type::Electron ){
-    if( cacc_baseline(*p) ) m_evtProperties->nBaseLeptons++;
-    if( cacc_signal(*p)   ) m_evtProperties->nSignalLeptons++;
-  }
-
-  // Keep track of the number of photons in the event
-  if ( p->type() == xAOD::Type::Photon ){
-    if( cacc_baseline(*p) ) m_evtProperties->nBasePhotons++;
-    if( cacc_signal(*p)   ) m_evtProperties->nSignalPhotons++;
-  }
-
-  // Desired object!
-  return true;
-
-}
+    //// Desired object!
+    //return true;
+//}
 
 //////////////////
 // main routine //
@@ -86,6 +75,7 @@ int main (int argc, char *argv[])
     MuonWriter muon_writer(output);
 
     // Loop over the specified files:
+    int eventN = 0;
     for (std::string file_name: opts.files) {
 
         // Open the file:
@@ -117,20 +107,25 @@ int main (int argc, char *argv[])
             const xAOD::TrackParticleContainer *tracks = 0;
             RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
             for (const xAOD::TrackParticle *track : *tracks) {
-                track_writer.write(*track);
+                track_writer.write(*track, eventN);
             }
 
             // Write lepton info
             const xAOD::ElectronContainer *electrons = 0;
             RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
             for (const xAOD::Electron *electron : *electrons) {
-                electron_writer.write(*electron);
+                //if (!passBaselineSelection(electron)) continue;
+                electron_writer.write(*electron, eventN);
             }
             const xAOD::MuonContainer *muons = 0;
             RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
             for (const xAOD::Muon *muon : *muons) {
-                muon_writer.write(*muon);
+                //if (!passBaselineSelection(muon)) continue;
+                muon_writer.write(*muon, eventN);
             }
+
+            // Increment event count
+            eventN++;
 
         } // end event loop
     } // end file loop

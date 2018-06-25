@@ -18,6 +18,9 @@ TrackWriter::TrackWriter(H5::Group& output_group):
     // extension to the current track.
     H5Utils::VariableFillers fillers;
 
+    fillers.add<int>("eventN",
+        [this]() {return this->eventN;}
+    );
     fillers.add<float>("pT",
         [this]() {return this->m_current_track->pt();}
     );
@@ -48,7 +51,8 @@ TrackWriter::~TrackWriter() {
     delete m_writer;
 }
 
-void TrackWriter::write(const xAOD::TrackParticle& track) {
+void TrackWriter::write(const xAOD::TrackParticle& track, int eventN) {
     m_current_track = &track;
     m_writer->fillWhileIncrementing();
+    this->eventN = eventN;
 }

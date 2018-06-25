@@ -31,13 +31,16 @@ class MuonWriter
         MuonWriter operator=(MuonWriter&) = delete;
 
         // function that's actually called to write the muon
-        void write(const xAOD::Muon& muon);
+        void write(const xAOD::Muon& muon, int eventN);
 
     private:
         // the functions that fill the output need to be defined when the
         // class is initialized. They will fill from this muon pointer, which
         // must be updated each time we wright.
         const xAOD::Muon* m_current_muon;
+
+        // event number
+        int eventN;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

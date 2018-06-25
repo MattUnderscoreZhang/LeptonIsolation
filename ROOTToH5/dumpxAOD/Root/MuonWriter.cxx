@@ -18,6 +18,9 @@ MuonWriter::MuonWriter(H5::Group& output_group):
     // extension to the current muon.
     H5Utils::VariableFillers fillers;
 
+    fillers.add<int>("eventN",
+        [this]() {return this->eventN;}
+    );
     fillers.add<float>("pT",
         [this]() {return this->m_current_muon->pt();}
     );
@@ -42,7 +45,13 @@ MuonWriter::~MuonWriter() {
     delete m_writer;
 }
 
-void MuonWriter::write(const xAOD::Muon& muon) {
+void MuonWriter::write(const xAOD::Muon& muon, int eventN) {
     m_current_muon = &muon;
+
+    // check that muon won't segfault
+    if (this->m_current_muon == NULL) return;
+    if (this->m_current_muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) return;
+
     m_writer->fillWhileIncrementing();
+    this->eventN = eventN;
 }

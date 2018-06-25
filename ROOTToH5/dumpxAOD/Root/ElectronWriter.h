@@ -31,13 +31,16 @@ class ElectronWriter
         ElectronWriter operator=(ElectronWriter&) = delete;
 
         // function that's actually called to write the electron
-        void write(const xAOD::Electron& electron);
+        void write(const xAOD::Electron& electron, int eventN);
 
     private:
         // the functions that fill the output need to be defined when the
         // class is initialized. They will fill from this electron pointer, which
         // must be updated each time we wright.
         const xAOD::Electron* m_current_electron;
+
+        // event number
+        int eventN;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

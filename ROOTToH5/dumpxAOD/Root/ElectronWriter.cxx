@@ -39,6 +39,48 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
     fillers.add<float>("z0",
         [this]() {return this->m_current_electron->trackParticle()->z0();}
     );
+    fillers.add<float>("ptcone20",
+        [this]() {
+            float ptcone20 = 0.0;
+            this->m_current_electron->isolationValue(ptcone20,xAOD::Iso::ptcone20);
+            return ptcone20;
+        }
+    );
+    fillers.add<float>("ptcone30",
+        [this]() {
+            float ptcone30 = 0.0;
+            this->m_current_electron->isolationValue(ptcone30,xAOD::Iso::ptcone30);
+            return ptcone30;
+        }
+    );
+    fillers.add<float>("ptcone40",
+        [this]() {
+            float ptcone40 = 0.0;
+            this->m_current_electron->isolationValue(ptcone40,xAOD::Iso::ptcone40);
+            return ptcone40;
+        }
+    );
+    fillers.add<float>("ptvarcone20",
+        [this]() {
+            float ptvarcone20 = 0.0;
+            this->m_current_electron->isolationValue(ptvarcone20,xAOD::Iso::ptvarcone20);
+            return ptvarcone20;
+        }
+    );
+    fillers.add<float>("ptvarcone30",
+        [this]() {
+            float ptvarcone30 = 0.0;
+            this->m_current_electron->isolationValue(ptvarcone30,xAOD::Iso::ptvarcone30);
+            return ptvarcone30;
+        }
+    );
+    fillers.add<float>("ptvarcone40",
+        [this]() {
+            float ptvarcone40 = 0.0;
+            this->m_current_electron->isolationValue(ptvarcone40,xAOD::Iso::ptvarcone40);
+            return ptvarcone40;
+        }
+    );
 
     m_writer = new H5Utils::WriterXd(output_group, "electrons", fillers, {});
 }

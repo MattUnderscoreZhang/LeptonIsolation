@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py as h5
 import HEP
+import pdb
 
 ############################
 # Group leptons and tracks #
@@ -10,19 +11,18 @@ import HEP
 # make a list of [(dR, track)] for each lepton
 def group_leptons_and_tracks(leptons, tracks):
     associated_tracks = []
-    for lepton in zip(leptons['phi'], leptons['eta']):
+    for i, lepton in enumerate(leptons):
+        if i%1 == 0:
+            print("%d/%d" % (i, len(leptons)))
         associated_tracks_i = []
-        lepton_event = lepton[0]
-        for track in zip(tracks['phi'], tracks['eta']):
-            track_event = track[0]
-            if (lepton_event != track_event):
-                continue
-            dR = HEP.dR(lepton[0], lepton[1], track[0], track[1])   
+        for track in tracks:
+            dR = HEP.dR(lepton['phi'], lepton['eta'], track[3], track[2])   
             if dR<0.4:
                 associated_tracks_i.append((dR, track))
         # sort by dR and remove track closest to lepton
-        associated_tracks.sort(key=lambda x: x[0])
-        associated_tracks.pop(0)
+        associated_tracks_i.sort(key=lambda x: x[0])
+        if len(associated_tracks_i) > 0:
+            associated_tracks_i.pop(0)
         associated_tracks.append(associated_tracks_i)
     return associated_tracks
 
@@ -82,8 +82,9 @@ def calculate_ptcone_and_etcone(lepton, associated_tracks):
 def compareFeatures(inFile, saveDir):
 
     # load data and get feature index dictionaries
+    print("Loading data")
     data = h5.File(inFile)
-    leptons = np.append(data['electrons'].value, data['muons'].value)
+    leptons = np.append(data['electrons'].value, data['muons'].value)[:10]
     tracks = data['tracks']
 
     # # separate prompt and HF leptons
@@ -91,16 +92,26 @@ def compareFeatures(inFile, saveDir):
     # HF_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
 
     # group leptons with their nearby tracks
-    associated_tracks = group_leptons_and_tracks(leptons, tracks)
+    print("Grouping leptons and tracks")
+    for eventN in np.unique(leptons['eventN']):
+        event_leptons = [i for i in leptons if i[0]==eventN]
+        event_tracks = [i for i in tracks if i[0]==eventN]
+        associated_tracks = group_leptons_and_tracks(event_leptons, event_tracks)
+        pdb.set_trace()
 
     # calculate ptcone
+    print("Calculating ptcone variables")
     cones = []
-    for lepton, tracks in zip(leptons, associated_tracks):
+    for i, (lepton, tracks) in enumerate(zip(leptons, associated_tracks)):
+        if i%100 == 0:
+            print("%d/%d" % (i, len(leptons)))
         stored_cones = [0] * len(calculated_cones)
         calculated_cones = calculate_ptcone_and_etcone(lepton, tracks)
         cones.append(zip(stored_cones, calculated_cones))
+    pdb.set_trace()
 
     # plot comparisons for calculated and stored ptcone features
+    Print("Producing plots")
     for stored_feature, calc_feature in cones:
         lepton_feature_values = [lepton[lep_feature_dict[stored_feature]] for lepton in data]
         lepton_calc_feature_values = [lepton[lep_feature_dict[calc_feature]] for lepton in data]
@@ -116,6 +127,7 @@ def compareFeatures(inFile, saveDir):
         plt.ylim(0, 50)
         plt.savefig(saveDir + stored_feature + "_vs_" + calc_feature + ".png", bbox_inches='tight')
         plt.clf()
+    pdb.set_trace()
 
     # # plot comparisons for all lepton features
     # for feature, index in lep_feature_dict.items():

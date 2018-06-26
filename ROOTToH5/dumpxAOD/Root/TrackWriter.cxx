@@ -1,6 +1,9 @@
 // this class's header
 #include "TrackWriter.h"
 
+// EDM things
+#include "xAODTracking/TrackParticleContainer.h"
+
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
 #include "H5Cpp.h"
@@ -8,42 +11,68 @@
 // ATLAS things
 #include "xAODTracking/TrackParticle.h"
 
-
 TrackWriter::TrackWriter(H5::Group& output_group):
-    m_current_track(nullptr),
+    m_track_idx(1),
     m_writer(nullptr)
 {
+
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
-    // extension to the current track.
+    // extension to the current event.
     H5Utils::VariableFillers fillers;
 
-    fillers.add<int>("eventN",
-        [this]() {return this->eventN;}
-    );
     fillers.add<float>("pT",
-        [this]() {return this->m_current_track->pt();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->pt());
+        }
     );
     fillers.add<float>("eta",
-        [this]() {return this->m_current_track->eta();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->eta());
+        }
     );
     fillers.add<float>("phi",
-        [this]() {return this->m_current_track->phi();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->phi());
+        }
     );
     fillers.add<float>("charge",
-        [this]() {return this->m_current_track->charge();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->charge());
+        }
     );
     fillers.add<float>("d0",
-        [this]() {return this->m_current_track->d0();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->d0());
+        }
     );
     fillers.add<float>("z0",
-        [this]() {return this->m_current_track->z0();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->z0());
+        }
     );
     fillers.add<float>("chiSquared",
-        [this]() {return this->m_current_track->chiSquared();}
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->chiSquared());
+        }
     );
 
-    m_writer = new H5Utils::WriterXd(output_group, "tracks", fillers, {});
+    // Save up to 3000 tracks per event
+    m_writer = new H5Utils::WriterXd(output_group, "tracks", fillers, {3000});
 }
 
 TrackWriter::~TrackWriter() {
@@ -51,8 +80,18 @@ TrackWriter::~TrackWriter() {
     delete m_writer;
 }
 
-void TrackWriter::write(const xAOD::TrackParticle& track, int eventN) {
-    m_current_track = &track;
-    m_writer->fillWhileIncrementing();
-    this->eventN = eventN;
+void TrackWriter::write(const xAOD::TrackParticleContainer& tracks) {
+
+    m_current_tracks.clear();
+    for (const xAOD::TrackParticle *track : tracks) {
+        m_current_tracks.push_back(track);
+    }
+
+    // Sort tracks by descending pT
+    std::sort(m_current_tracks.begin(), m_current_tracks.end(),
+        [](const auto* t1, const auto* t2) {
+          return t1->pt() > t2->pt();
+    });
+
+    m_writer->fillWhileIncrementing(m_track_idx);
 }

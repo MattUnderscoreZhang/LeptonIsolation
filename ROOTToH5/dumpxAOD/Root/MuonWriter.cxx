@@ -1,6 +1,10 @@
 // this class's header
 #include "MuonWriter.h"
 
+// EDM things
+#include "xAODMuon/MuonContainer.h"
+#include "xAODRootAccess/TEvent.h"
+
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
 #include "H5Cpp.h"
@@ -8,9 +12,8 @@
 // ATLAS things
 #include "xAODMuon/Muon.h"
 
-
 MuonWriter::MuonWriter(H5::Group& output_group):
-    m_current_muon(nullptr),
+    m_muon_idx(1),
     m_writer(nullptr)
 {
     // define the variable filling functions. Each function takes no
@@ -18,68 +21,98 @@ MuonWriter::MuonWriter(H5::Group& output_group):
     // extension to the current muon.
     H5Utils::VariableFillers fillers;
 
-    fillers.add<int>("eventN",
-        [this]() {return this->eventN;}
-    );
     fillers.add<float>("pT",
-        [this]() {return this->m_current_muon->pt();}
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->pt());
+        }
     );
     fillers.add<float>("eta",
-        [this]() {return this->m_current_muon->eta();}
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->eta());
+        }
     );
     fillers.add<float>("phi",
-        [this]() {return this->m_current_muon->phi();}
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->phi());
+        }
     );
     fillers.add<float>("d0",
-        [this]() {return this->m_current_muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->d0();}
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->d0());
+        }
     );
     fillers.add<float>("z0",
-        [this]() {return this->m_current_muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0();}
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0());
+        }
     );
     fillers.add<float>("ptcone20",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptcone20 = 0.0;
-            this->m_current_muon->isolation(ptcone20,xAOD::Iso::ptcone20);
+            this->m_current_muons.at(idx)->isolation(ptcone20,xAOD::Iso::ptcone20);
             return ptcone20;
         }
     );
     fillers.add<float>("ptcone30",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptcone30 = 0.0;
-            this->m_current_muon->isolation(ptcone30,xAOD::Iso::ptcone30);
+            this->m_current_muons.at(idx)->isolation(ptcone30,xAOD::Iso::ptcone30);
             return ptcone30;
         }
     );
     fillers.add<float>("ptcone40",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptcone40 = 0.0;
-            this->m_current_muon->isolation(ptcone40,xAOD::Iso::ptcone40);
+            this->m_current_muons.at(idx)->isolation(ptcone40,xAOD::Iso::ptcone40);
             return ptcone40;
         }
     );
     fillers.add<float>("ptvarcone20",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptvarcone20 = 0.0;
-            this->m_current_muon->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
+            this->m_current_muons.at(idx)->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
             return ptvarcone20;
         }
     );
     fillers.add<float>("ptvarcone30",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptvarcone30 = 0.0;
-            this->m_current_muon->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
+            this->m_current_muons.at(idx)->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
             return ptvarcone30;
         }
     );
     fillers.add<float>("ptvarcone40",
         [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             float ptvarcone40 = 0.0;
-            this->m_current_muon->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
+            this->m_current_muons.at(idx)->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
             return ptvarcone40;
         }
     );
 
-    m_writer = new H5Utils::WriterXd(output_group, "muons", fillers, {});
+    // Save up to 20 muons per event
+    m_writer = new H5Utils::WriterXd(output_group, "muons", fillers, {20});
 }
 
 MuonWriter::~MuonWriter() {
@@ -87,13 +120,21 @@ MuonWriter::~MuonWriter() {
     delete m_writer;
 }
 
-void MuonWriter::write(const xAOD::Muon& muon, int eventN) {
-    m_current_muon = &muon;
+void MuonWriter::write(const xAOD::MuonContainer& muons) {
 
-    // check that muon won't segfault
-    if (this->m_current_muon == NULL) return;
-    if (this->m_current_muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) return;
+    m_current_muons.clear();
+    for (const xAOD::Muon *muon : muons) {
+        // check that muon won't segfault
+        if (muon == NULL) continue;
+        if (muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) continue;
+        m_current_muons.push_back(muon);
+    }
 
-    m_writer->fillWhileIncrementing();
-    this->eventN = eventN;
+    // Sort muons by descending pT
+    std::sort(m_current_muons.begin(), m_current_muons.end(),
+        [](const auto* t1, const auto* t2) {
+          return t1->pt() > t2->pt();
+    });
+
+    m_writer->fillWhileIncrementing(m_muon_idx);
 }

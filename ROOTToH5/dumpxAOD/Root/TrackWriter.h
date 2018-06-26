@@ -16,6 +16,9 @@ namespace xAOD {
     typedef TrackParticle_v1 TrackParticle;
 }
 
+// EDM includes
+#include "xAODTracking/TrackParticleContainer.h"
+
 class TrackWriter
 {
     public:
@@ -30,17 +33,15 @@ class TrackWriter
         TrackWriter(TrackWriter&) = delete;
         TrackWriter operator=(TrackWriter&) = delete;
 
-        // function that's actually called to write the track
-        void write(const xAOD::TrackParticle& track, int eventN);
+        // function that's actually called to write the event
+        void write(const xAOD::TrackParticleContainer& tracks);
 
     private:
         // the functions that fill the output need to be defined when the
         // class is initialized. They will fill from this track pointer, which
         // must be updated each time we wright.
-        const xAOD::TrackParticle* m_current_track;
-
-        // event number
-        int eventN;
+        std::vector<const xAOD::TrackParticle*> m_current_tracks;
+        std::vector<size_t> m_track_idx;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

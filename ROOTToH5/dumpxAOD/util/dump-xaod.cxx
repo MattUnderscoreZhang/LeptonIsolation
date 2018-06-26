@@ -3,11 +3,6 @@
 #include "Root/ElectronWriter.h"
 #include "Root/MuonWriter.h"
 
-// EDM things
-#include "xAODTracking/TrackParticleContainer.h"
-#include "xAODEgamma/ElectronContainer.h"
-#include "xAODMuon/MuonContainer.h"
-
 // AnalysisBase tool include(s):
 #include "xAODRootAccess/Init.h"
 #include "xAODRootAccess/TEvent.h"
@@ -36,26 +31,6 @@ struct Options
 // simple options parser
 Options get_options(int argc, char *argv[]);
 
-//////////////////////////////////////
-//// baseline selection for leptons //
-//////////////////////////////////////
-//bool passBaselineSelection(const xAOD::IParticle* p)
-//{
-    //SG::AuxElement::ConstAccessor< char > cacc_baseline( "baseline" );
-    //SG::AuxElement::ConstAccessor< char > cacc_passOR( "passOR" );
-
-    //// Baseline skimming for all objects
-    //if( !cacc_baseline(*p)  ) return false;
-
-    //// OR skimming for all objects by Taus
-    //if ( p->type() != xAOD::Type::Tau && cacc_passOR.isAvailable(*p) ){
-        //if( !cacc_passOR(*p)  ) return false;
-    //}
-
-    //// Desired object!
-    //return true;
-//}
-
 //////////////////
 // main routine //
 //////////////////
@@ -75,7 +50,6 @@ int main (int argc, char *argv[])
     MuonWriter muon_writer(output);
 
     // Loop over the specified files:
-    int eventN = 0;
     for (std::string file_name: opts.files) {
 
         // Open the file:
@@ -103,33 +77,21 @@ int main (int argc, char *argv[])
             bool ok = event.getEntry(entry) >= 0;
             if (!ok) throw std::logic_error("getEntry failed");
 
-            // Write track info
+            // Get tracks and leptons
             const xAOD::TrackParticleContainer *tracks = 0;
             RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
-            for (const xAOD::TrackParticle *track : *tracks) {
-                track_writer.write(*track, eventN);
-            }
-
-            // Write lepton info
             const xAOD::ElectronContainer *electrons = 0;
             RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
-            for (const xAOD::Electron *electron : *electrons) {
-                //if (!passBaselineSelection(electron)) continue;
-                electron_writer.write(*electron, eventN);
-            }
             const xAOD::MuonContainer *muons = 0;
             RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
-            for (const xAOD::Muon *muon : *muons) {
-                //if (!passBaselineSelection(muon)) continue;
-                muon_writer.write(*muon, eventN);
-            }
 
-            // Increment event count
-            eventN++;
+            // Write event
+            track_writer.write(*tracks);
+            electron_writer.write(*electrons);
+            muon_writer.write(*muons);
 
         } // end event loop
     } // end file loop
-
 
     return 0;
 }

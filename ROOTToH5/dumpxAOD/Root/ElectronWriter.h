@@ -16,6 +16,9 @@ namespace xAOD {
     typedef Electron_v1 Electron;
 }
 
+// EDM includes
+#include "xAODEgamma/ElectronContainer.h"
+
 class ElectronWriter
 {
     public:
@@ -30,17 +33,15 @@ class ElectronWriter
         ElectronWriter(ElectronWriter&) = delete;
         ElectronWriter operator=(ElectronWriter&) = delete;
 
-        // function that's actually called to write the electron
-        void write(const xAOD::Electron& electron, int eventN);
+        // function that's actually called to write the event
+        void write(const xAOD::ElectronContainer& electrons);
 
     private:
         // the functions that fill the output need to be defined when the
         // class is initialized. They will fill from this electron pointer, which
         // must be updated each time we wright.
-        const xAOD::Electron* m_current_electron;
-
-        // event number
-        int eventN;
+        std::vector<const xAOD::Electron*> m_current_electrons;
+        std::vector<size_t> m_electron_idx;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

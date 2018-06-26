@@ -97,13 +97,14 @@ def compareFeatures(inFile, saveDir):
 
     # group leptons with their nearby tracks
     print("Grouping leptons and tracks")
+    leptons_with_tracks = []
     # for event_n in range(n_events):
-    for event_n in range(5):
-        if event_n%1 == 0:
+    for event_n in range(100):
+        if event_n%10 == 0:
             print("Event %d/%d" % (event_n, n_events))
         leptons = np.append(electrons[event_n], muons[event_n])
         leptons = np.array([i for i in leptons if ~np.isnan(i[0])]).astype(electrons.dtype)
-        leptons_with_tracks = group_leptons_and_tracks(leptons, tracks[event_n])
+        leptons_with_tracks += group_leptons_and_tracks(leptons, tracks[event_n])
 
     # calculate ptcone
     print("Calculating ptcone variables")

@@ -12,9 +12,15 @@ import pdb
 def group_leptons_and_tracks(leptons, tracks):
     leptons_with_tracks = []
     for lepton in leptons:
+        if lepton['truth_type'] not in [2, 3]: continue
         # find tracks within dR of lepton i
         leptons_with_tracks_i = []
         for track in tracks:
+            # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
+            if track['pT'] < 1000: continue
+            if abs(track['z0SinTheta']) > 30: continue
+            if abs(track['eta']) > 2.5: continue
+            # calculate and save dR
             dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
             if dR<0.4:
                 leptons_with_tracks_i.append((dR, track))
@@ -99,7 +105,7 @@ def compareFeatures(inFile, saveDir):
     print("Grouping leptons and tracks")
     leptons_with_tracks = []
     # for event_n in range(n_events):
-    for event_n in range(100):
+    for event_n in range(50):
         if event_n%10 == 0:
             print("Event %d/%d" % (event_n, n_events))
         leptons = np.append(electrons[event_n], muons[event_n])
@@ -110,8 +116,6 @@ def compareFeatures(inFile, saveDir):
     print("Calculating ptcone variables")
     cones = {}
     for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
-        if i%100 == 0:
-            print("Lepton %d/%d" % (i, len(leptons_with_tracks)))
         cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
         for key in cones_i.keys():
             cones.setdefault(key, []).append(cones_i[key])
@@ -128,8 +132,8 @@ def compareFeatures(inFile, saveDir):
         plt.title(feature)
         plt.xlabel(feature)
         plt.ylabel("Truth " + feature)
-        # plt.xlim(0, 50)
-        # plt.ylim(0, 50)
+        plt.xlim(0, 200000)
+        plt.ylim(0, 200000)
         plt.savefig(saveDir + feature + ".png", bbox_inches='tight')
         plt.clf()
 

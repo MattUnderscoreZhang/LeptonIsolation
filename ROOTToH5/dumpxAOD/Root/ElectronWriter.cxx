@@ -3,6 +3,7 @@
 
 // EDM things
 #include "xAODEgamma/ElectronContainer.h"
+#include "xAODTruth/xAODTruthHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -107,6 +108,14 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
             float ptvarcone40 = 0.0;
             this->m_current_electrons.at(idx)->isolationValue(ptvarcone40,xAOD::Iso::ptvarcone40);
             return ptvarcone40;
+        }
+    );
+    fillers.add<int>("truth_type",
+        [this]() -> int {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return NAN;
+            return (int)(xAOD::TruthHelpers::getParticleTruthType(*(this->m_current_electrons.at(idx))));
+            // 2 = real prompt, 3 = HF
         }
     );
 

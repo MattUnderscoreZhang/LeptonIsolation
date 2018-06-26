@@ -3,7 +3,7 @@
 
 // EDM things
 #include "xAODMuon/MuonContainer.h"
-#include "xAODRootAccess/TEvent.h"
+#include "xAODTruth/xAODTruthHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -108,6 +108,15 @@ MuonWriter::MuonWriter(H5::Group& output_group):
             float ptvarcone40 = 0.0;
             this->m_current_muons.at(idx)->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
             return ptvarcone40;
+        }
+    );
+    fillers.add<int>("truth_type",
+        [this]() -> int {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            const xAOD::TrackParticle* track = this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
+            return (int)(xAOD::TruthHelpers::getParticleTruthType(*track));
+            // 2 = real prompt, 3 = HF
         }
     );
 

@@ -63,6 +63,15 @@ TrackWriter::TrackWriter(H5::Group& output_group):
             return (float)(this->m_current_tracks.at(idx)->z0());
         }
     );
+    fillers.add<float>("z0SinTheta",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            float z0 = (float)(this->m_current_tracks.at(idx)->z0());
+            float theta = (float)(this->m_current_tracks.at(idx)->theta());
+            return z0 * sin(theta);
+        }
+    );
     fillers.add<float>("chiSquared",
         [this]() {
             size_t idx = this->m_track_idx.at(0);

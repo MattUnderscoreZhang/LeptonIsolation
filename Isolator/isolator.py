@@ -39,7 +39,10 @@ def group_leptons_and_tracks(leptons, tracks):
     return leptons_with_tracks
 
 # load and group data
-def prepare_data(in_file):
+def prepare_data(in_file, save_file, overwrite=False):
+
+    # open save file if it already exists
+    if save_file
 
     # load data and get feature index dictionaries
     print("Loading data")
@@ -53,7 +56,7 @@ def prepare_data(in_file):
     print("Grouping leptons and tracks")
     leptons_with_tracks = []
     # for event_n in range(n_events):
-    for event_n in range(10):
+    for event_n in range(500):
         if event_n%10 == 0:
             print("Event %d/%d" % (event_n, n_events))
         leptons = np.append(electrons[event_n], muons[event_n])
@@ -72,11 +75,12 @@ def prepare_data(in_file):
 
 class RNN(nn.Module):
 
-    def __init__(self, n_track_features, n_hidden_neurons):
+    def __init__(self, options):
         super().__init__()
-        self.n_hidden_neurons = n_hidden_neurons
-        self.hidden_layer = nn.Linear(n_track_features + n_hidden_neurons, n_hidden_neurons)
-        self.output_layer = nn.Linear(n_track_features + n_hidden_neurons, 2)
+        self.n_hidden_neurons = options['n_hidden_neurons']
+        self.learning_rate = options['learning_rate']
+        self.hidden_layer = nn.Linear(options['n_track_features'] + self.n_hidden_neurons, self.n_hidden_neurons)
+        self.output_layer = nn.Linear(options['n_track_features'] + self.n_hidden_neurons, 2)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.CrossEntropyLoss()
 
@@ -97,7 +101,7 @@ class RNN(nn.Module):
         loss.backward()
         # Add parameters' gradients to their values, multiplied by learning rate
         for param in self.parameters():
-            param.data.add_(-learning_rate, param.grad.data)
+            param.data.add_(-self.learning_rate, param.grad.data)
         return output, loss.data[0]
 
     def evaluate(self, truth, tracks):
@@ -120,17 +124,19 @@ def train_and_test(leptons_with_tracks, options):
     test_events = leptons_with_tracks[n_training_events:]
 
     # set up RNN
-    rnn = RNN(options['n_track_features'], options['n_hidden_neurons'])
-    training_loss = 0
-    training_acc = 0
+    options['n_track_features'] = len(training_events[0][1][1])
+    rnn = RNN(options)
 
     # train RNN
+    training_loss = 0
+    training_acc = 0
     for event in training_events:
         lepton = event.pop(0)
-        tracks = event
+        track_info = event # (dR, (track))
+        tracks = [i[1] for i in track_info]
         truth = torch.LongTensor([(lepton['truth_type'] == 3)]) # 3 = prompt; 4 = HF
-        pdb.set_trace()
-        output, loss = rnn.train(truth, Variable(torch.FloatTensor(tracks)))
+        output, loss = rnn.train(truth, torch.FloatTensor(tracks))
+        print(loss)
 
         # _, top_i = output.data.topk(1)
         # category = top_i[0][0]
@@ -159,7 +165,8 @@ def train_and_test(leptons_with_tracks, options):
 if __name__ == "__main__":
 
     in_file = "output.h5"
-    leptons_with_tracks = prepare_data(in_file)
+    save_file = "lepton_track_data.h5"
+    leptons_with_tracks = prepare_data(in_file, save_file)
 
     # plot_save_dir = "../Plots/"
     # compare_ptcone_and_etcone.compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir)

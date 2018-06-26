@@ -8,70 +8,72 @@ import pdb
 # Group leptons and tracks #
 ############################
 
-# make a list of [(dR, track)] for each lepton
+# make a list of [lepton, (dR, track), (dR, track), ...] for each lepton
 def group_leptons_and_tracks(leptons, tracks):
-    associated_tracks = []
-    for i, lepton in enumerate(leptons):
-        if i%1 == 0:
-            print("%d/%d" % (i, len(leptons)))
-        associated_tracks_i = []
+    leptons_with_tracks = []
+    for lepton in leptons:
+        # find tracks within dR of lepton i
+        leptons_with_tracks_i = []
         for track in tracks:
-            dR = HEP.dR(lepton['phi'], lepton['eta'], track[3], track[2])   
+            dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
             if dR<0.4:
-                associated_tracks_i.append((dR, track))
+                leptons_with_tracks_i.append((dR, track))
         # sort by dR and remove track closest to lepton
-        associated_tracks_i.sort(key=lambda x: x[0])
-        if len(associated_tracks_i) > 0:
-            associated_tracks_i.pop(0)
-        associated_tracks.append(associated_tracks_i)
-    return associated_tracks
+        leptons_with_tracks_i.sort(key=lambda x: x[0])
+        if len(leptons_with_tracks_i) > 0:
+            leptons_with_tracks_i.pop(0)
+        if len(leptons_with_tracks_i) > 0:
+            leptons_with_tracks_i.insert(0, lepton)
+            leptons_with_tracks.append(leptons_with_tracks_i)
+        # add lepton info
+    return leptons_with_tracks
 
 ###################
 # Calculate cones #
 ###################
 
-def calculate_ptcone_and_etcone(lepton, associated_tracks):
+def calculate_ptcone_and_etcone(leptons_with_tracks_i):
 
     max_dR = 0.4
+    lepton = leptons_with_tracks_i.pop(0)
+    tracks = leptons_with_tracks_i
+
+    cones = {}
+    cones['truth_ptcone20'] = lepton['ptcone20']
+    cones['truth_ptcone30'] = lepton['ptcone30']
+    cones['truth_ptcone40'] = lepton['ptcone40']
+    cones['truth_ptvarcone20'] = lepton['ptvarcone20']
+    cones['truth_ptvarcone30'] = lepton['ptvarcone30']
+    cones['truth_ptvarcone40'] = lepton['ptvarcone40']
+    cones['ptcone20'] = 0
+    cones['ptcone30'] = 0
+    cones['ptcone40'] = 0
+    cones['ptvarcone20'] = 0
+    cones['ptvarcone30'] = 0
+    cones['ptvarcone40'] = 0
+
     lep_pt = lepton[1]
-
-    ptcone20 = 0
-    ptcone30 = 0
-    ptcone40 = 0
-    ptvarcone20 = 0
-    ptvarcone30 = 0
-    ptvarcone40 = 0
-
-    for j, (dR, track) in enumerate(associated_tracks):
-
-        track_pt = track[1]
+    for (dR, track) in tracks:
+        track_pt = track[0] # pt - couldn't figure out how not to hard-code
         if dR <= 0.2:
-            ptcone20 += track_pt
-            ptcone20_squared += track_pt * track_pt
-            ptcone20_dR_weighted += track_pt * 0.2 / (dR + 0.01)
+            cones['ptcone20'] += track_pt
+            # ptcone20_squared += track_pt * track_pt
+            # ptcone20_dR_weighted += track_pt * 0.2 / (dR + 0.01)
         if dR <= 0.3:
-            ptcone30 += track_pt
-            ptcone30_squared += track_pt * track_pt
-            ptcone30_dR_weighted += track_pt * 0.2 / (dR + 0.01)
+            cones['ptcone30'] += track_pt
+            # ptcone30_squared += track_pt * track_pt
+            # ptcone30_dR_weighted += track_pt * 0.2 / (dR + 0.01)
         if dR <= 0.4:
-            ptcone40 += track_pt
-            ptcone40_squared += track_pt * track_pt
-            ptcone40_dR_weighted += track_pt * 0.2 / (dR + 0.01)
+            cones['ptcone40'] += track_pt
+            # ptcone40_squared += track_pt * track_pt
+            # ptcone40_dR_weighted += track_pt * 0.2 / (dR + 0.01)
         if dR <= 10 / lep_pt:
             if dR <= 0.2:
-                ptvarcone20 += track_pt
+                cones['ptvarcone20'] += track_pt
             if dR <= 0.3:
-                ptvarcone30 += track_pt
+                cones['ptvarcone30'] += track_pt
             if dR <= 0.4:
-                ptvarcone40 += track_pt
-
-    cones = []
-    cones.append(ptcone20)
-    cones.append(ptcone30)
-    cones.append(ptcone40)
-    cones.append(ptvarcone20)
-    cones.append(ptvarcone30)
-    cones.append(ptvarcone40)
+                cones['ptvarcone40'] += track_pt
 
     return cones
 
@@ -84,8 +86,10 @@ def compareFeatures(inFile, saveDir):
     # load data and get feature index dictionaries
     print("Loading data")
     data = h5.File(inFile)
-    leptons = np.append(data['electrons'].value, data['muons'].value)[:10]
+    electrons = data['electrons']
+    muons = data['muons']
     tracks = data['tracks']
+    n_events = electrons.shape[0]
 
     # # separate prompt and HF leptons
     # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
@@ -93,45 +97,44 @@ def compareFeatures(inFile, saveDir):
 
     # group leptons with their nearby tracks
     print("Grouping leptons and tracks")
-    for eventN in np.unique(leptons['eventN']):
-        event_leptons = [i for i in leptons if i[0]==eventN]
-        event_tracks = [i for i in tracks if i[0]==eventN]
-        associated_tracks = group_leptons_and_tracks(event_leptons, event_tracks)
-        pdb.set_trace()
+    # for event_n in range(n_events):
+    for event_n in range(5):
+        if event_n%1 == 0:
+            print("Event %d/%d" % (event_n, n_events))
+        leptons = np.append(electrons[event_n], muons[event_n])
+        leptons = np.array([i for i in leptons if ~np.isnan(i[0])]).astype(electrons.dtype)
+        leptons_with_tracks = group_leptons_and_tracks(leptons, tracks[event_n])
 
     # calculate ptcone
     print("Calculating ptcone variables")
-    cones = []
-    for i, (lepton, tracks) in enumerate(zip(leptons, associated_tracks)):
+    cones = {}
+    for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
         if i%100 == 0:
-            print("%d/%d" % (i, len(leptons)))
-        stored_cones = [0] * len(calculated_cones)
-        calculated_cones = calculate_ptcone_and_etcone(lepton, tracks)
-        cones.append(zip(stored_cones, calculated_cones))
-    pdb.set_trace()
+            print("Lepton %d/%d" % (i, len(leptons_with_tracks)))
+        cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
+        for key in cones_i.keys():
+            cones.setdefault(key, []).append(cones_i[key])
 
     # plot comparisons for calculated and stored ptcone features
-    Print("Producing plots")
-    for stored_feature, calc_feature in cones:
-        lepton_feature_values = [lepton[lep_feature_dict[stored_feature]] for lepton in data]
-        lepton_calc_feature_values = [lepton[lep_feature_dict[calc_feature]] for lepton in data]
-        plt.scatter(lepton_feature_values, lepton_calc_feature_values, s=1)
+    print("Producing plots")
+    cone_features = ['ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
+    for feature in cone_features:
+        plt.scatter(cones[feature], cones["truth_" + feature], s=1)
         # heatmap, xedges, yedges = np.histogram2d(lepton_feature_values, lepton_calc_feature_values, bins=500)
         # extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
         # plt.clf()
         # plt.imshow(heatmap.T, extent=extent, origin='lower')
-        plt.title(stored_feature + ' vs. ' + calc_feature)
-        plt.xlabel(stored_feature)
-        plt.ylabel(calc_feature)
-        plt.xlim(0, 50)
-        plt.ylim(0, 50)
-        plt.savefig(saveDir + stored_feature + "_vs_" + calc_feature + ".png", bbox_inches='tight')
+        plt.title(feature)
+        plt.xlabel(feature)
+        plt.ylabel("Truth " + feature)
+        # plt.xlim(0, 50)
+        # plt.ylim(0, 50)
+        plt.savefig(saveDir + feature + ".png", bbox_inches='tight')
         plt.clf()
-    pdb.set_trace()
 
     # # plot comparisons for all lepton features
     # for feature, index in lep_feature_dict.items():
-        # if feature == 'lepIso_lep_associated_tracks':
+        # if feature == 'lepIso_lep_leptons_with_tracks':
             # continue
         # isolated_feature_values = [lepton[index] for lepton in isolated_leptons]
         # HF_feature_values = [lepton[index] for lepton in HF_leptons]
@@ -149,5 +152,5 @@ def compareFeatures(inFile, saveDir):
 
 if __name__ == "__main__":
     inFile = "output.h5"
-    saveDir = "."
+    saveDir = "./"
     compareFeatures(inFile, saveDir)

@@ -7,6 +7,7 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.utils.data as data
 from torch.autograd import Variable
 import compare_ptcone_and_etcone
 
@@ -130,6 +131,17 @@ class RNN(nn.Module):
 # Train and test #
 ##################
 
+class LeptonTrackDataset(data.Dataset):
+
+    def __init__(self, leptons_with_tracks):
+        self.leptons_with_tracks = leptons_with_tracks
+
+    def __getitem__(self, index):
+        return self.leptons_with_tracks[index]
+
+    def __len__(self):
+        return len(self.leptons_with_tracks)
+
 def train_and_test(leptons_with_tracks, options):
 
     # split train and test
@@ -137,6 +149,12 @@ def train_and_test(leptons_with_tracks, options):
     n_training_events = int(options['training_split'] * n_events)
     training_events = leptons_with_tracks[:n_training_events]
     test_events = leptons_with_tracks[n_training_events:]
+
+    # prepare the generators
+    train_set = LeptonTrackDataset(training_events)
+    test_set = LeptonTrackDataset(test_events)
+    train_loader = data.DataLoader(dataset=train_set,batch_size=options['batch_size'],sampler=torch.utils.data.sampler.RandomSampler(train_set))
+    test_loader = data.DataLoader(dataset=test_set,batch_size=options['batch_size'],sampler=torch.utils.data.sampler.RandomSampler(test_set))
 
     # set up RNN
     options['n_track_features'] = len(training_events[0][1][1])
@@ -179,16 +197,19 @@ def train_and_test(leptons_with_tracks, options):
 
 if __name__ == "__main__":
 
+    # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
     leptons_with_tracks = prepare_data(in_file, save_file, overwrite=False)
 
+    ## make ptcone and etcone comparison plots
     # plot_save_dir = "../Plots/"
     # compare_ptcone_and_etcone.compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir)
 
+    # perform training
     options = {}
     options['n_hidden_neurons'] = 1024
     options['learning_rate'] = 0.00005
     options['training_split'] = 0.66
-
+    options['batch_size'] = 20
     train_and_test(leptons_with_tracks, options)

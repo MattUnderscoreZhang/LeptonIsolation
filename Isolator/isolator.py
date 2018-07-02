@@ -1,9 +1,12 @@
+import os
 import h5py as h5
+import pickle
 import numpy as np
 import HEP
 import pdb
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 import compare_ptcone_and_etcone
 
@@ -39,33 +42,45 @@ def group_leptons_and_tracks(leptons, tracks):
     return leptons_with_tracks
 
 # load and group data
-def prepare_data(in_file, save_file, overwrite=False):
+def prepare_data(in_file, save_file_name, overwrite=False):
 
     # open save file if it already exists
-    if save_file
+    if os.path.exists(save_file_name) and not overwrite:
+        print("File exists - loading")
+        with open(save_file_name, 'rb') as out_file:
+            leptons_with_tracks = pickle.load(out_file)
 
-    # load data and get feature index dictionaries
-    print("Loading data")
-    data = h5.File(in_file)
-    electrons = data['electrons']
-    muons = data['muons']
-    tracks = data['tracks']
-    n_events = electrons.shape[0]
+    # else, group leptons and tracks and save the data
+    else:
+        if os.path.exists(save_file):
+            print("File exists - overwriting")
+        else:
+            print("Creating save file")
 
-    # group leptons with their nearby tracks
-    print("Grouping leptons and tracks")
-    leptons_with_tracks = []
-    # for event_n in range(n_events):
-    for event_n in range(500):
-        if event_n%10 == 0:
-            print("Event %d/%d" % (event_n, n_events))
-        leptons = np.append(electrons[event_n], muons[event_n])
-        leptons = np.array([i for i in leptons if ~np.isnan(i[0])]).astype(electrons.dtype)
-        leptons_with_tracks += group_leptons_and_tracks(leptons, tracks[event_n])
+        # load data and get feature index dictionaries
+        print("Loading data")
+        data = h5.File(in_file)
+        electrons = data['electrons']
+        muons = data['muons']
+        tracks = data['tracks']
+        n_events = electrons.shape[0]
 
-    # # separate prompt and HF leptons
-    # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
-    # HF_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
+        # group leptons with their nearby tracks
+        print("Grouping leptons and tracks")
+        leptons_with_tracks = []
+        for event_n in range(n_events):
+            if event_n%10 == 0:
+                print("Event %d/%d" % (event_n, n_events))
+            leptons = np.append(electrons[event_n], muons[event_n])
+            leptons = np.array([i for i in leptons if ~np.isnan(i[0])]).astype(electrons.dtype)
+            leptons_with_tracks += group_leptons_and_tracks(leptons, tracks[event_n])
+
+        # # separate prompt and HF leptons
+        # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
+        # HF_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
+
+        with open(save_file_name, 'wb') as out_file:
+            pickle.dump(leptons_with_tracks, out_file)
 
     return leptons_with_tracks
 
@@ -87,8 +102,8 @@ class RNN(nn.Module):
     def forward(self, input_values, hidden_values):
         input_values = input_values.view(1, input_values.size()[0])
         combined = torch.cat((input_values, hidden_values), 1)
-        hidden = self.hidden_layer(combined)
-        output = self.output_layer(combined)
+        hidden = F.relu(self.hidden_layer(combined))
+        output = F.relu(self.output_layer(combined))
         output = self.softmax(output)
         return output, hidden
 
@@ -102,7 +117,7 @@ class RNN(nn.Module):
         # Add parameters' gradients to their values, multiplied by learning rate
         for param in self.parameters():
             param.data.add_(-self.learning_rate, param.grad.data)
-        return output, loss.data[0]
+        return output, loss.data.item()
 
     def evaluate(self, truth, tracks):
         hidden = Variable(torch.zeros(1, self.n_hidden_neurons))
@@ -136,7 +151,7 @@ def train_and_test(leptons_with_tracks, options):
         tracks = [i[1] for i in track_info]
         truth = torch.LongTensor([(lepton['truth_type'] == 3)]) # 3 = prompt; 4 = HF
         output, loss = rnn.train(truth, torch.FloatTensor(tracks))
-        print(loss)
+        print(output, loss)
 
         # _, top_i = output.data.topk(1)
         # category = top_i[0][0]
@@ -164,16 +179,16 @@ def train_and_test(leptons_with_tracks, options):
 
 if __name__ == "__main__":
 
-    in_file = "output.h5"
-    save_file = "lepton_track_data.h5"
-    leptons_with_tracks = prepare_data(in_file, save_file)
+    in_file = "Data/output.h5"
+    save_file = "Data/lepton_track_data.pkl"
+    leptons_with_tracks = prepare_data(in_file, save_file, overwrite=False)
 
     # plot_save_dir = "../Plots/"
     # compare_ptcone_and_etcone.compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir)
 
     options = {}
-    options['n_hidden_neurons'] = 128
-    options['learning_rate'] = 0.005
+    options['n_hidden_neurons'] = 1024
+    options['learning_rate'] = 0.00005
     options['training_split'] = 0.66
 
     train_and_test(leptons_with_tracks, options)

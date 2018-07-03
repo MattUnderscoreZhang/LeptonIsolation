@@ -1,5 +1,6 @@
 import pdb
 import torch
+import numpy as np
 import random
 import itertools as it
 from Loader.loader import load
@@ -34,7 +35,7 @@ class LeptonTrackDataset:
             i = next(self.read_order)
         event = self.leptons_with_tracks[i]
         lepton = torch.from_numpy(event[0]).float()
-        tracks = torch.from_numpy(event[1:]).float()
+        tracks = torch.from_numpy(np.array(event[1])).float()
         return lepton, tracks
 
 def train_and_test(leptons_with_tracks, options):
@@ -50,7 +51,7 @@ def train_and_test(leptons_with_tracks, options):
     test_set = LeptonTrackDataset(test_events)
 
     # set up RNN
-    options['n_track_features'] = len(training_events[0][1])
+    options['n_track_features'] = len(training_events[0][1][0])
     rnn = RNN(options)
 
     # train RNN
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     # perform training
     options = {}
-    options['n_hidden_neurons'] = 1024
+    options['n_hidden_neurons'] = 256
     options['learning_rate'] = 0.01
     options['training_split'] = 0.66
     options['batch_size'] = 100

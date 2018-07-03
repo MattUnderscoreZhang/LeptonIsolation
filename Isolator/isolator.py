@@ -7,16 +7,17 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.utils.data as data
 from torch.autograd import Variable
 import compare_ptcone_and_etcone
+import random
+import itertools as it
 
 #######################
 # Load and group data #
 #######################
 
 # group leptons and tracks
-# make a list of [lepton, (dR, track), (dR, track), ...] for each lepton
+# make a list of [lepton, track, track, ...] for each lepton
 def group_leptons_and_tracks(leptons, tracks):
     leptons_with_tracks = []
     for lepton in leptons:
@@ -30,15 +31,19 @@ def group_leptons_and_tracks(leptons, tracks):
             if abs(track['eta']) > 2.5: continue
             # calculate and save dR
             dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
+            dEta = HEP.dEta(lepton['eta'], track['eta'])   
+            dPhi = HEP.dPhi(lepton['phi'], track['phi'])
+            dd0 = abs(lepton['d0']-track['d0'])
+            dz0 = abs(lepton['z0']-track['z0'])
             if dR<0.4:
-                leptons_with_tracks_i.append((dR, track))
+                leptons_with_tracks_i.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['z0SinTheta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
         # sort by dR and remove track closest to lepton
         leptons_with_tracks_i.sort(key=lambda x: x[0])
         if len(leptons_with_tracks_i) > 0:
             leptons_with_tracks_i.pop(0)
         if len(leptons_with_tracks_i) > 0:
-            leptons_with_tracks_i.insert(0, lepton)
-            leptons_with_tracks.append(leptons_with_tracks_i)
+            leptons_with_tracks_i.insert(0, np.array([i for i in lepton]))
+            leptons_with_tracks.append(np.array(leptons_with_tracks_i, dtype=float))
         # add lepton info
     return leptons_with_tracks
 
@@ -73,7 +78,7 @@ def prepare_data(in_file, save_file_name, overwrite=False):
             if event_n%10 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])
-            leptons = np.array([i for i in leptons if ~np.isnan(i[0])]).astype(electrons.dtype)
+            leptons = np.array([i for i in leptons if ~np.isnan(i[0])])
             leptons_with_tracks += group_leptons_and_tracks(leptons, tracks[event_n])
 
         # # separate prompt and HF leptons
@@ -103,22 +108,27 @@ class RNN(nn.Module):
     def forward(self, input_values, hidden_values):
         input_values = input_values.view(1, input_values.size()[0])
         combined = torch.cat((input_values, hidden_values), 1)
-        hidden = F.relu(self.hidden_layer(combined))
+        hidden = self.hidden_layer(combined)
         output = F.relu(self.output_layer(combined))
         output = self.softmax(output)
         return output, hidden
 
-    def train(self, truth, tracks):
-        hidden = Variable(torch.zeros(1, self.n_hidden_neurons))
+    def train(self, events):
         self.zero_grad()
-        for i in range(tracks.size()[0]):
-            output, hidden = self.forward(tracks[i], hidden)
-        loss = self.loss_function(output, truth)
-        loss.backward()
+        total_loss = 0
+        for event in events:
+            hidden = torch.zeros(1, self.n_hidden_neurons)
+            truth, lep_tracks = event
+            lepton, tracks = lep_tracks
+            for track in tracks:
+                output, hidden = self.forward(track, hidden)
+            loss = self.loss_function(output, truth)
+            total_loss += loss
+        total_loss.backward()
         # Add parameters' gradients to their values, multiplied by learning rate
         for param in self.parameters():
             param.data.add_(-self.learning_rate, param.grad.data)
-        return output, loss.data.item()
+        return output, total_loss.data.item()
 
     def evaluate(self, truth, tracks):
         hidden = Variable(torch.zeros(1, self.n_hidden_neurons))
@@ -131,16 +141,32 @@ class RNN(nn.Module):
 # Train and test #
 ##################
 
-class LeptonTrackDataset(data.Dataset):
+class LeptonTrackDataset:
 
     def __init__(self, leptons_with_tracks):
         self.leptons_with_tracks = leptons_with_tracks
-
-    def __getitem__(self, index):
-        return self.leptons_with_tracks[index]
+        self.reshuffle()
 
     def __len__(self):
         return len(self.leptons_with_tracks)
+
+    def __iter__(self):
+        return self
+
+    def reshuffle(self):
+        self.read_order = it.chain(random.sample(range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)))
+
+    def __next__(self):
+        # i = next(self.read_order)
+        try:
+            i = next(self.read_order)
+        except StopIteration:
+            self.reshuffle()
+            i = next(self.read_order)
+        event = self.leptons_with_tracks[i]
+        lepton = torch.from_numpy(event[0]).float()
+        tracks = torch.from_numpy(event[1:]).float()
+        return lepton, tracks
 
 def train_and_test(leptons_with_tracks, options):
 
@@ -153,30 +179,28 @@ def train_and_test(leptons_with_tracks, options):
     # prepare the generators
     train_set = LeptonTrackDataset(training_events)
     test_set = LeptonTrackDataset(test_events)
-    train_loader = data.DataLoader(dataset=train_set,batch_size=options['batch_size'],sampler=torch.utils.data.sampler.RandomSampler(train_set))
-    test_loader = data.DataLoader(dataset=test_set,batch_size=options['batch_size'],sampler=torch.utils.data.sampler.RandomSampler(test_set))
 
     # set up RNN
-    options['n_track_features'] = len(training_events[0][1][1])
+    options['n_track_features'] = len(training_events[0][1])
     rnn = RNN(options)
 
     # train RNN
     training_loss = 0
     training_acc = 0
-    for event in training_events:
-        lepton = event.pop(0)
-        track_info = event # (dR, (track))
-        tracks = [i[1] for i in track_info]
-        truth = torch.LongTensor([(lepton['truth_type'] == 3)]) # 3 = prompt; 4 = HF
-        output, loss = rnn.train(truth, torch.FloatTensor(tracks))
+    training_batch = []
+    for batch_n in range(options['n_batches']):
+        for i in range(options['batch_size']):
+            next_event = next(train_set)
+            truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
+            training_batch.append([truth, next_event])
+        output, loss = rnn.train(training_batch)
         print(output, loss)
-
-        # _, top_i = output.data.topk(1)
-        # category = top_i[0][0]
-        # training_loss += loss
-        # training_acc += (category == truth.data[0])
-        # if (lep_n+1) % 100 == 0:
-            # print('%d%% trained, avg loss is %.4f, avg acc is %.4f' % (lep_n / len(training_data) * 100, training_loss / (lep_n+1), training_acc / (lep_n+1)))
+        _, top_i = output.data.topk(1)
+        category = top_i[0][0]
+        training_loss += loss
+        training_acc += (category == truth.data[0])
+        # if (batch_n+1) % 100 == 0:
+            # print('%d%% batches trained, loss is %.4f, acc is %.4f' % batch_n, training_loss, training_acc)
 
     # test_loss = 0
     # test_acc = 0
@@ -209,7 +233,8 @@ if __name__ == "__main__":
     # perform training
     options = {}
     options['n_hidden_neurons'] = 1024
-    options['learning_rate'] = 0.00005
+    options['learning_rate'] = 0.0000005
     options['training_split'] = 0.66
     options['batch_size'] = 20
+    options['n_batches'] = 500
     train_and_test(leptons_with_tracks, options)

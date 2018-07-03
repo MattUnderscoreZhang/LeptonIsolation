@@ -56,20 +56,14 @@ def train_and_test(leptons_with_tracks, options):
     # train RNN
     training_loss = 0
     training_acc = 0
-    training_batch = []
     for batch_n in range(options['n_batches']):
+        training_batch = []
         for i in range(options['batch_size']):
             next_event = next(train_set)
             truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
             training_batch.append([truth, next_event])
-        output, loss = rnn.train(training_batch)
-        print(output, loss)
-        _, top_i = output.data.topk(1)
-        category = top_i[0][0]
-        training_loss += loss
-        training_acc += (category == truth.data[0])
-        # if (batch_n+1) % 100 == 0:
-            # print('%d%% batches trained, loss is %.4f, acc is %.4f' % batch_n, training_loss, training_acc)
+        loss, acc = rnn.train(training_batch)
+        print("Batch: %d, Loss: %0.4f, Acc: %0.4f" % (batch_n, loss, acc))
 
 #################
 # Main function #
@@ -89,8 +83,8 @@ if __name__ == "__main__":
     # perform training
     options = {}
     options['n_hidden_neurons'] = 1024
-    options['learning_rate'] = 0.0000005
+    options['learning_rate'] = 0.01
     options['training_split'] = 0.66
-    options['batch_size'] = 20
+    options['batch_size'] = 100
     options['n_batches'] = 500
     train_and_test(leptons_with_tracks, options)

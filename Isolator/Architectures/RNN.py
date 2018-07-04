@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pdb
 
 ################
 # Architecture #
@@ -34,7 +35,11 @@ class RNN(nn.Module):
         category = top_i[0][0]
         return (category == truth.data[0])
 
-    def train(self, events):
+    def do_train(self, events, do_training=True):
+        if do_training:
+            self.train()
+        else:
+            self.eval()
         self.zero_grad()
         total_loss = 0
         total_acc = 0
@@ -48,15 +53,11 @@ class RNN(nn.Module):
             total_acc += self.accuracy(output, truth)
         total_loss /= len(events)
         total_acc = total_acc.float() / len(events)
-        total_loss.backward()
-        # Add parameters' gradients to their values, multiplied by learning rate
-        for param in self.parameters():
-            param.data.add_(-self.learning_rate, param.grad.data)
+        if do_training:
+            total_loss.backward()
+            for param in self.parameters():
+                param.data.add_(-self.learning_rate, param.grad.data)
         return total_loss.data.item(), total_acc.data.item()
 
-    def evaluate(self, truth, tracks):
-        hidden = Variable(torch.zeros(1, self.n_hidden_neurons))
-        for i in range(tracks.size()[0]):
-            output, hidden = self.forward(tracks[i], hidden)
-        loss = self.loss_function(output, truth)
-        return output, loss.data[0]
+    def do_eval(self, events, do_training=False):
+        return self.do_train(events, do_training=False)

@@ -7,6 +7,33 @@ from Loader.loader import load
 from Architectures.RNN import RNN
 from Analysis.cones import compare_ptcone_and_etcone
 
+################################################
+# Data structures for holding training results #
+################################################
+
+class historyData(list):
+    def __init__(self, my_list=[]):
+        super().__init__(my_list)
+    def extend(self, places):
+        for _ in range(places):
+            self.append(historyData())
+    def __getitem__(self, key): # overloads list[i] for i out of range
+        if key >= len(self):
+            self.extend(key+1-len(self))
+        return super().__getitem__(key)
+    def __setitem__(self, key, item): # overloads list[i]=x for i out of range
+        if key >= len(self):
+            self.extend(key+1-len(self))
+        super().__setitem__(key, item)
+    def __iadd__(self, key): # overloads []+=x
+        return key
+    def __add__(self, key): # overloads []+x
+        return key
+
+LOSS, ACC = 0, 1
+TRAIN, VALIDATION, TEST = 0, 1, 2
+BATCH, EPOCH = 0, 1
+
 ##################
 # Train and test #
 ##################
@@ -54,6 +81,9 @@ def train_and_test(leptons_with_tracks, options):
     options['n_track_features'] = len(training_events[0][1][0])
     rnn = RNN(options)
 
+    # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
+    history = historyData()
+
     # train RNN
     training_loss = 0
     training_acc = 0
@@ -63,8 +93,18 @@ def train_and_test(leptons_with_tracks, options):
             next_event = next(train_set)
             truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
             training_batch.append([truth, next_event])
-        loss, acc = rnn.train(training_batch)
-        print("Batch: %d, Loss: %0.4f, Acc: %0.4f" % (batch_n, loss, acc))
+        test_batch = []
+        for i in range(options['batch_size']):
+            next_event = next(test_set)
+            truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
+            test_batch.append([truth, next_event])
+        train_loss, train_acc = rnn.do_train(training_batch)
+        test_loss, test_acc = rnn.do_eval(test_batch)
+        history[LOSS][TRAIN][BATCH].append(train_loss)
+        history[ACC][TRAIN][BATCH].append(train_acc)
+        history[LOSS][TEST][BATCH].append(test_loss)
+        history[ACC][TEST][BATCH].append(test_acc)
+        print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f, Test Loss: %0.2f, Test Acc: %0.2f" % (batch_n, train_loss, train_acc, test_loss, test_acc))
 
 #################
 # Main function #
@@ -87,5 +127,5 @@ if __name__ == "__main__":
     options['learning_rate'] = 0.01
     options['training_split'] = 0.66
     options['batch_size'] = 100
-    options['n_batches'] = 500
+    options['n_batches'] = 100
     train_and_test(leptons_with_tracks, options)

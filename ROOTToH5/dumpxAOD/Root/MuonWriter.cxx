@@ -21,6 +21,11 @@ MuonWriter::MuonWriter(H5::Group& output_group):
     // extension to the current muon.
     H5Utils::VariableFillers fillers;
 
+    fillers.add<int>("pdgID",
+        [this]() {
+            return 13;
+        }
+    );
     fillers.add<float>("pT",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);

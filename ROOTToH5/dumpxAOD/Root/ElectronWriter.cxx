@@ -21,6 +21,11 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
     // extension to the current electron.
     H5Utils::VariableFillers fillers;
 
+    fillers.add<int>("pdgID",
+        [this]() {
+            return 11;
+        }
+    );
     fillers.add<float>("pT",
         [this]() {
             size_t idx = this->m_electron_idx.at(0);

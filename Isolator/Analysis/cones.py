@@ -1,22 +1,27 @@
 import matplotlib.pyplot as plt
+import pdb
 
 ###################
 # Calculate cones #
 ###################
 
+# Not stored in code (unfortunately):
+lepton_keys = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
+track_keys = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinTheta', 'd0', 'z0', 'chiSquared']
+
 def calculate_ptcone_and_etcone(leptons_with_tracks_i):
 
     max_dR = 0.4
-    lepton = leptons_with_tracks_i.pop(0)
-    tracks = leptons_with_tracks_i
+    lepton = leptons_with_tracks_i[0]
+    tracks = leptons_with_tracks_i[1]
 
     cones = {}
-    cones['truth_ptcone20'] = lepton['ptcone20']
-    cones['truth_ptcone30'] = lepton['ptcone30']
-    cones['truth_ptcone40'] = lepton['ptcone40']
-    cones['truth_ptvarcone20'] = lepton['ptvarcone20']
-    cones['truth_ptvarcone30'] = lepton['ptvarcone30']
-    cones['truth_ptvarcone40'] = lepton['ptvarcone40']
+    cones['truth_ptcone20'] = lepton[lepton_keys.index('ptcone20')]
+    cones['truth_ptcone30'] = lepton[lepton_keys.index('ptcone30')]
+    cones['truth_ptcone40'] = lepton[lepton_keys.index('ptcone40')]
+    cones['truth_ptvarcone20'] = lepton[lepton_keys.index('ptvarcone20')]
+    cones['truth_ptvarcone30'] = lepton[lepton_keys.index('ptvarcone30')]
+    cones['truth_ptvarcone40'] = lepton[lepton_keys.index('ptvarcone40')]
     cones['ptcone20'] = 0
     cones['ptcone30'] = 0
     cones['ptcone40'] = 0
@@ -24,9 +29,10 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i):
     cones['ptvarcone30'] = 0
     cones['ptvarcone40'] = 0
 
-    lep_pt = lepton[1]
-    for (dR, track) in tracks:
-        track_pt = track[0] # pt - couldn't figure out how not to hard-code
+    lep_pt = lepton[lepton_keys.index('pT')]/1000
+    for track in tracks:
+        dR = track[track_keys.index('dR')]
+        track_pt = track[track_keys.index('pT')]
         if dR <= 0.2:
             cones['ptcone20'] += track_pt
             # ptcone20_squared += track_pt * track_pt
@@ -55,10 +61,14 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i):
 
 def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
 
-    # calculate ptcone
+    # separate flavors
+    electrons_with_tracks = [lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')]==11]
+    muons_with_tracks = [lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')]==13]
+
+    # calculate ptcone (just muons for now until I figure out electrons)
     print("Calculating ptcone variables")
     cones = {}
-    for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
+    for i, leptons_with_tracks_i in enumerate(muons_with_tracks):
         cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
         for key in cones_i.keys():
             cones.setdefault(key, []).append(cones_i[key])

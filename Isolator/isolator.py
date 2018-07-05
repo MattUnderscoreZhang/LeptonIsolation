@@ -5,7 +5,9 @@ import random
 import itertools as it
 from Loader.loader import load
 from Architectures.RNN import RNN
-from Analysis.cones import compare_ptcone_and_etcone
+from Analysis import cones
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 ################################################
 # Data structures for holding training results #
@@ -65,7 +67,7 @@ class LeptonTrackDataset:
         tracks = torch.from_numpy(np.array(event[1])).float()
         return lepton, tracks
 
-def train_and_test(leptons_with_tracks, options):
+def train_and_test(leptons_with_tracks, options, plot_save_dir):
 
     # split train and test
     n_events = len(leptons_with_tracks)
@@ -106,6 +108,27 @@ def train_and_test(leptons_with_tracks, options):
         history[ACC][TEST][BATCH].append(test_acc)
         print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f, Test Loss: %0.2f, Test Acc: %0.2f" % (batch_n, train_loss, train_acc, test_loss, test_acc))
 
+    # make plots
+    plt.plot(history[LOSS][TRAIN][BATCH], 'o-', color='g', label="Training loss")
+    plt.plot(history[LOSS][TEST][BATCH], 'o-', color='r', label="Test loss")
+    plt.title("Loss")
+    plt.xlabel("Batch")
+    plt.ylabel("Loss")
+    plt.grid('on', linestyle='--')
+    plt.legend(loc='best')
+    plt.savefig(plot_save_dir + "loss.png")
+    plt.clf()
+
+    plt.plot(history[ACC][TRAIN][BATCH], 'o-', color='g', label="Training accuracy")
+    plt.plot(history[ACC][TEST][BATCH], 'o-', color='r', label="Test accuracy")
+    plt.title("Accuracy")
+    plt.xlabel("Batch")
+    plt.ylabel("Accuracy")
+    plt.grid('on', linestyle='--')
+    plt.legend(loc='best')
+    plt.savefig(plot_save_dir + "accuracy.png")
+    plt.clf()
+
 #################
 # Main function #
 #################
@@ -117,15 +140,17 @@ if __name__ == "__main__":
     save_file = "Data/lepton_track_data.pkl"
     leptons_with_tracks = load(in_file, save_file, overwrite=False)
 
-    ## make ptcone and etcone comparison plots
-    # plot_save_dir = "../Plots/"
-    # compare_ptcone_and_etcone.compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir)
+    # make ptcone and etcone comparison plots
+    plot_save_dir = "../Plots/"
+    lwt = list(zip(leptons_with_tracks['unnormed_leptons'], leptons_with_tracks['unnormed_tracks']))
+    cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
 
     # perform training
     options = {}
     options['n_hidden_neurons'] = 256
     options['learning_rate'] = 0.01
     options['training_split'] = 0.66
-    options['batch_size'] = 100
+    options['batch_size'] = 20
     options['n_batches'] = 100
-    train_and_test(leptons_with_tracks, options)
+    lwt = list(zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
+    train_and_test(lwt, options, plot_save_dir)

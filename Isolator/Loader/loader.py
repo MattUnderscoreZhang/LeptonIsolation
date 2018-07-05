@@ -9,6 +9,10 @@ import pdb
 # Group leptons and tracks #
 ############################
 
+# Not stored in code (unfortunately):
+# Lepton keys: ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
+# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinTheta', 'd0', 'z0', 'chiSquared']
+
 def group_leptons_and_tracks(leptons, tracks):
 
     grouped_leptons = []
@@ -93,9 +97,9 @@ def load(in_file, save_file_name, overwrite=False):
         lepton_stds = unfolded_leptons.std(axis=0)
         track_means = unfolded_tracks.mean(axis=0)
         track_stds = unfolded_tracks.std(axis=0)
-        leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
-        tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
-        leptons_with_tracks = [[lepton, track] for lepton, track in zip(leptons, tracks)]
+        normed_leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
+        normed_tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
+        leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks}
 
         # # separate prompt and HF leptons
         # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]

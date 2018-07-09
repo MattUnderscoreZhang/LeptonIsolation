@@ -79,25 +79,58 @@ TrackWriter::TrackWriter(H5::Group& output_group):
             return (float)(this->m_current_tracks.at(idx)->chiSquared());
         }
     );
-
-  //xAODTrk->summaryValue(trk->nIBLHits, xAOD::numberOfInnermostPixelLayerHits);
-  //xAODTrk->summaryValue(trk->nPixHits, xAOD::numberOfPixelHits);
-  //xAODTrk->summaryValue(trk->nPixHoles, xAOD::numberOfPixelHoles);
-  //xAODTrk->summaryValue(trk->nPixOutliers, xAOD::numberOfPixelOutliers);
-  //xAODTrk->summaryValue(trk->nSCTHits, xAOD::numberOfSCTHits);
-  //xAODTrk->summaryValue(trk->nTRTHits, xAOD::numberOfTRTHits);
-
-    fillers.add<int>("nIBLHits",
+    fillers.add<float>("nIBLHits",
         [this]() {
             size_t idx = this->m_track_idx.at(0);
             if (this->m_current_tracks.size() <= idx) return NAN;
-            return (float)(this->m_current_tracks.at(idx)->chiSquared());
-
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfInnermostPixelLayerHits);
+            return (float)nHits;
+        }
+    );
+    fillers.add<float>("nPixHits",
+        [this]() {
             size_t idx = this->m_track_idx.at(0);
             if (this->m_current_tracks.size() <= idx) return NAN;
-            int nHits = 0;
-            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfInnermostPixelLayerHits);
-            return nHits;
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfPixelHits);
+            return (float)nHits;
+        }
+    );
+    fillers.add<float>("nPixHoles",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfPixelHoles);
+            return (float)nHits;
+        }
+    );
+    fillers.add<float>("nPixOutliers",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfPixelOutliers);
+            return (float)nHits;
+        }
+    );
+    fillers.add<float>("nSCTHits",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfSCTHits);
+            return (float)nHits;
+        }
+    );
+    fillers.add<float>("nTRTHits",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            uint8_t nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfTRTHits);
+            return (float)nHits;
         }
     );
 

@@ -80,6 +80,27 @@ TrackWriter::TrackWriter(H5::Group& output_group):
         }
     );
 
+  //xAODTrk->summaryValue(trk->nIBLHits, xAOD::numberOfInnermostPixelLayerHits);
+  //xAODTrk->summaryValue(trk->nPixHits, xAOD::numberOfPixelHits);
+  //xAODTrk->summaryValue(trk->nPixHoles, xAOD::numberOfPixelHoles);
+  //xAODTrk->summaryValue(trk->nPixOutliers, xAOD::numberOfPixelOutliers);
+  //xAODTrk->summaryValue(trk->nSCTHits, xAOD::numberOfSCTHits);
+  //xAODTrk->summaryValue(trk->nTRTHits, xAOD::numberOfTRTHits);
+
+    fillers.add<int>("nIBLHits",
+        [this]() {
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            return (float)(this->m_current_tracks.at(idx)->chiSquared());
+
+            size_t idx = this->m_track_idx.at(0);
+            if (this->m_current_tracks.size() <= idx) return NAN;
+            int nHits = 0;
+            this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfInnermostPixelLayerHits);
+            return nHits;
+        }
+    );
+
     // Save up to 3000 tracks per event
     m_writer = new H5Utils::WriterXd(output_group, "tracks", fillers, {3000});
 }

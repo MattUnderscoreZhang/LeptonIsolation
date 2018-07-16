@@ -3,19 +3,23 @@
 
 // EDM things
 #include "xAODMuon/MuonContainer.h"
+#include "xAODMuon/Muon.h"
 #include "xAODTruth/xAODTruthHelpers.h"
+#include "MuonSelectorTools/MuonSelectionTool.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
 #include "H5Cpp.h"
 
-// ATLAS things
-#include "xAODMuon/Muon.h"
-
 MuonWriter::MuonWriter(H5::Group& output_group):
     m_muon_idx(1),
     m_writer(nullptr)
 {
+
+    // muon selection
+    m_muonSelectionTool = new CP::MuonSelectionTool("MuonObject_MuonSelectionTool");
+    m_muonSelectionTool->initialize();
+
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
     // extension to the current muon.
@@ -136,19 +140,25 @@ MuonWriter::~MuonWriter() {
 
 void MuonWriter::write(const xAOD::MuonContainer& muons) {
 
+    // muon selection
     m_current_muons.clear();
     for (const xAOD::Muon *muon : muons) {
         // check that muon won't segfault
         if (muon == NULL) continue;
         if (muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) continue;
+        // check that muon passes selections
+        xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*muon);
+        if (muonQuality <= xAOD::Muon::Medium) continue;
+        // store muons
         m_current_muons.push_back(muon);
     }
 
-    // Sort muons by descending pT
+    // sort muons by descending pT
     std::sort(m_current_muons.begin(), m_current_muons.end(),
         [](const auto* t1, const auto* t2) {
           return t1->pt() > t2->pt();
     });
 
+    // write muons
     m_writer->fillWhileIncrementing(m_muon_idx);
 }

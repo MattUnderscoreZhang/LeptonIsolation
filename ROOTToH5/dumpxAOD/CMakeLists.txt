@@ -55,7 +55,10 @@ set(_common
   xAODTruth
   xAODEgamma
   xAODMuon
-  HDF5Utils)
+  HDF5Utils
+  MuonSelectorToolsLib
+  ElectronPhotonSelectorToolsLib
+)
 
 # Build the test executable:
 atlas_add_executable( dump-xaod util/dump-xaod.cxx ${_common} )

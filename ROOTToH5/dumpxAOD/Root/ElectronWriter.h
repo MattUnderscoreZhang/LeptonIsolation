@@ -18,6 +18,7 @@ namespace xAOD {
 
 // EDM includes
 #include "xAODEgamma/ElectronContainer.h"
+#include "ElectronPhotonSelectorTools/AsgElectronLikelihoodTool.h"
 
 class ElectronWriter
 {
@@ -42,6 +43,9 @@ class ElectronWriter
         // must be updated each time we wright.
         std::vector<const xAOD::Electron*> m_current_electrons;
         std::vector<size_t> m_electron_idx;
+
+        // electron selector
+        AsgElectronLikelihoodTool *m_elec_llhmedium;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

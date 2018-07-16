@@ -4,18 +4,23 @@
 // EDM things
 #include "xAODEgamma/ElectronContainer.h"
 #include "xAODTruth/xAODTruthHelpers.h"
+#include "xAODEgamma/Electron.h"
+#include "ElectronPhotonSelectorTools/AsgElectronLikelihoodTool.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
 #include "H5Cpp.h"
 
-// ATLAS things
-#include "xAODEgamma/Electron.h"
-
 ElectronWriter::ElectronWriter(H5::Group& output_group):
     m_electron_idx(1),
     m_writer(nullptr)
 {
+
+    // electron selection
+    m_elec_llhmedium = new AsgElectronLikelihoodTool("ElectronObject_EleSelLikelihood_MEDIUM");
+    m_elec_llhmedium->setProperty("WorkingPoint", "MediumLHElectron");
+    m_elec_llhmedium->initialize();
+
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
     // extension to the current electron.
@@ -135,16 +140,21 @@ ElectronWriter::~ElectronWriter() {
 
 void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
 
+    // electron selection
     m_current_electrons.clear();
     for (const xAOD::Electron *electron : electrons) {
+        // check that electron passes selections
+        if (!m_elec_llhmedium->accept(electron)) continue;
+        // store electrons
         m_current_electrons.push_back(electron);
     }
 
-    // Sort electrons by descending pT
+    // sort electrons by descending pT
     std::sort(m_current_electrons.begin(), m_current_electrons.end(),
         [](const auto* t1, const auto* t2) {
           return t1->pt() > t2->pt();
     });
 
+    // write electrons
     m_writer->fillWhileIncrementing(m_electron_idx);
 }

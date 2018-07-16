@@ -18,6 +18,7 @@ namespace xAOD {
 
 // EDM includes
 #include "xAODMuon/MuonContainer.h"
+#include "MuonSelectorTools/MuonSelectionTool.h"
 
 class MuonWriter
 {
@@ -42,6 +43,9 @@ class MuonWriter
         // must be updated each time we wright.
         std::vector<const xAOD::Muon*> m_current_muons;
         std::vector<size_t> m_muon_idx;
+
+        // selector tool
+        CP::MuonSelectionTool* m_muonSelectionTool;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

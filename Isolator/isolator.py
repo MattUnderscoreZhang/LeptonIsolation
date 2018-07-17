@@ -93,12 +93,12 @@ def train_and_test(leptons_with_tracks, options, plot_save_dir):
         training_batch = []
         for i in range(options['batch_size']):
             next_event = next(train_set)
-            truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
+            truth = torch.LongTensor([(int(next_event[0][11])==2) or (int(next_event[0][11])==6)]) # 'truth_type' - 2/6 = prompt; 3/7 = HF
             training_batch.append([truth, next_event])
         test_batch = []
         for i in range(options['batch_size']):
             next_event = next(test_set)
-            truth = torch.LongTensor([(int(next_event[0][11]) == 3)]) # 'truth_type' - 3 = prompt; 4 = HF
+            truth = torch.LongTensor([(int(next_event[0][11])==2) or (int(next_event[0][11])==6)]) # 'truth_type' - 2/6 = prompt; 3/7 = HF
             test_batch.append([truth, next_event])
         train_loss, train_acc = rnn.do_train(training_batch)
         test_loss, test_acc = rnn.do_eval(test_batch)

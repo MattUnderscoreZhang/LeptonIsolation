@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pdb
 
 ###################
@@ -68,7 +69,9 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
     # calculate ptcone (just muons for now until I figure out electrons)
     print("Calculating ptcone variables")
     cones = {}
+    # for i, leptons_with_tracks_i in enumerate(electrons_with_tracks):
     for i, leptons_with_tracks_i in enumerate(muons_with_tracks):
+    # for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
         cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
         for key in cones_i.keys():
             cones.setdefault(key, []).append(cones_i[key])
@@ -85,21 +88,24 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
         plt.title(feature)
         plt.xlabel(feature)
         plt.ylabel("Truth " + feature)
-        plt.xlim(0, 200000)
-        plt.ylim(0, 200000)
-        plt.savefig(plot_save_dir + feature + ".png", bbox_inches='tight')
+        # plt.xlim(0, 200000)
+        # plt.ylim(0, 200000)
+        plt.xlim(0, 50000)
+        plt.ylim(0, 50000)
+        plt.savefig(plot_save_dir + feature + "_scatter.png", bbox_inches='tight')
         plt.clf()
 
-    # # plot comparisons for all lepton features
-    # for feature, index in lep_feature_dict.items():
-        # if feature == 'lepIso_lep_leptons_with_tracks':
-            # continue
-        # isolated_feature_values = [lepton[index] for lepton in isolated_leptons]
-        # HF_feature_values = [lepton[index] for lepton in HF_leptons]
-        # all_feature_values = isolated_feature_values + HF_feature_values
+    # plot comparisons for all lepton features
+    isolated_leptons = [lwt[0] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [2, 6]]
+    HF_leptons = [lwt[0] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [3, 7]]
+    for feature in lepton_keys:
+        isolated_feature_values = [lepton[lepton_keys.index(feature)] for lepton in isolated_leptons]
+        HF_feature_values = [lepton[lepton_keys.index(feature)] for lepton in HF_leptons]
+        all_feature_values = isolated_feature_values + HF_feature_values
         # bins = np.linspace(min(all_feature_values), max(all_feature_values), 30)
-        # plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step')
-        # plt.title(feature)
-        # plt.legend(['lepIso_isolated', 'HF'])
-        # plt.savefig(plot_save_dir + feature + ".png", bbox_inches='tight')
-        # plt.clf()
+        bins = np.linspace(min(all_feature_values), 2*np.median(all_feature_values), 30)
+        plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step')
+        plt.title(feature)
+        plt.legend(['lepIso_isolated', 'HF'])
+        plt.savefig(plot_save_dir + feature + ".png", bbox_inches='tight')
+        plt.clf()

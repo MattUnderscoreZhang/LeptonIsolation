@@ -20,15 +20,20 @@ def group_leptons_and_tracks(leptons, tracks):
 
     for lepton in leptons:
 
-        if lepton['truth_type'] not in [2, 3]: continue
+        # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
+        if lepton['truth_type'] not in [2, 3, 6, 7]: continue # 2/3 (6/7) is iso/non-iso electron (muon)
         nearby_tracks = []
 
         # find tracks within dR of lepton i
         for track in tracks:
-            # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
+            # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
             if track['pT'] < 1000: continue
-            if abs(track['z0SinTheta']) > 30: continue
+            if abs((lepton['z0']-track['z0']) * np.sin(track['theta'])) > 3: continue
             if abs(track['eta']) > 2.5: continue
+            if track['nSCTHits']+track['nPixHits'] < 7: continue
+            if track['nPixHoles']+track['nSCTHoles'] > 2: continue
+            if track['nPixHoles'] > 1: continue
+            if track['nIBLHits'] == 0: continue
             # calculate and save dR
             dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
             dEta = HEP.dEta(lepton['eta'], track['eta'])   
@@ -36,9 +41,9 @@ def group_leptons_and_tracks(leptons, tracks):
             dd0 = abs(lepton['d0']-track['d0'])
             dz0 = abs(lepton['z0']-track['z0'])
             if dR<0.4:
-                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['z0SinTheta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
+                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
 
-        # sort by dR and remove track closest to lepton
+        # sort by dR and remove tracks associated to lepton
         nearby_tracks.sort(key=lambda x: x[0])
         if len(nearby_tracks) > 0:
             nearby_tracks.pop(0)
@@ -82,6 +87,7 @@ def load(in_file, save_file_name, overwrite=False):
         unnormed_leptons = []
         unnormed_tracks = []
         for event_n in range(n_events):
+        # for event_n in range(100):
             if event_n%10 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])

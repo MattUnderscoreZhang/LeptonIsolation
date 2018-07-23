@@ -27,7 +27,7 @@ def group_leptons_and_tracks(leptons, tracks):
         # find tracks within dR of lepton i
         for track in tracks:
             # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
-            if track['pT'] < 1000: continue
+            if track['pT'] < 500: continue # 500 MeV
             if abs((lepton['z0']-track['z0']) * np.sin(track['theta'])) > 3: continue
             if abs(track['eta']) > 2.5: continue
             if track['nSCTHits']+track['nPixHits'] < 7: continue
@@ -40,7 +40,7 @@ def group_leptons_and_tracks(leptons, tracks):
             dPhi = HEP.dPhi(lepton['phi'], track['phi'])
             dd0 = abs(lepton['d0']-track['d0'])
             dz0 = abs(lepton['z0']-track['z0'])
-            if dR<0.4:
+            if dR<0.5:
                 nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
 
         # sort by dR and remove tracks associated to lepton

@@ -12,7 +12,6 @@ track_keys = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinT
 
 def calculate_ptcone_and_etcone(leptons_with_tracks_i):
 
-    max_dR = 0.4
     lepton = leptons_with_tracks_i[0]
     tracks = leptons_with_tracks_i[1]
 
@@ -34,6 +33,7 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i):
     for track in tracks:
         dR = track[track_keys.index('dR')]
         track_pt = track[track_keys.index('pT')]
+        if track_pt < 1000: continue # 1 GeV tracks
         if dR <= 0.2:
             cones['ptcone20'] += track_pt
             # ptcone20_squared += track_pt * track_pt
@@ -70,8 +70,8 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
     print("Calculating ptcone variables")
     cones = {}
     # for i, leptons_with_tracks_i in enumerate(electrons_with_tracks):
-    for i, leptons_with_tracks_i in enumerate(muons_with_tracks):
-    # for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
+    # for i, leptons_with_tracks_i in enumerate(muons_with_tracks):
+    for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
         cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
         for key in cones_i.keys():
             cones.setdefault(key, []).append(cones_i[key])
@@ -102,10 +102,25 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
         isolated_feature_values = [lepton[lepton_keys.index(feature)] for lepton in isolated_leptons]
         HF_feature_values = [lepton[lepton_keys.index(feature)] for lepton in HF_leptons]
         all_feature_values = isolated_feature_values + HF_feature_values
-        # bins = np.linspace(min(all_feature_values), max(all_feature_values), 30)
-        bins = np.linspace(min(all_feature_values), 2*np.median(all_feature_values), 30)
+        bins = np.linspace(min(all_feature_values), max(all_feature_values), 30)
+        # bins = np.linspace(min(all_feature_values), 2*np.median(all_feature_values), 30)
         plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step')
         plt.title(feature)
-        plt.legend(['lepIso_isolated', 'HF'])
+        plt.legend(['HF', 'isolated']) # yes, I think this order is correct
         plt.savefig(plot_save_dir + feature + ".png", bbox_inches='tight')
         plt.clf()
+
+    # plot additional track-related info
+    isolated_tracks = [lwt[1] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [2, 6]]
+    HF_tracks = [lwt[1] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [3, 7]]
+    isolated_feature_values = [len(tracks) for tracks in isolated_tracks]
+    HF_feature_values = [len(tracks) for tracks in HF_tracks]
+    # print(sorted(isolated_feature_values))
+    # print(sorted(HF_feature_values))
+    all_feature_values = isolated_feature_values + HF_feature_values
+    bins = np.linspace(0, 15, 15)
+    plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step')
+    plt.title('ntracks')
+    plt.legend(['HF', 'isolated'])
+    plt.savefig(plot_save_dir + "ntracks.png", bbox_inches='tight')
+    plt.clf()

@@ -18,22 +18,25 @@ def group_leptons_and_tracks(leptons, tracks):
     grouped_leptons = []
     grouped_tracks = []
 
-    for lepton in leptons:
+    # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
+    good_lep_types = [i in [2, 3, 6, 7] for i in leptons['truth_type']] # 2/3 (6/7) is iso/non-iso electron (muon)
+    good_leptons = leptons[good_lep_types]
 
-        # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
-        if lepton['truth_type'] not in [2, 3, 6, 7]: continue # 2/3 (6/7) is iso/non-iso electron (muon)
+    # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
+    good_track_pt = tracks['pT'] > 500 # 500 MeV
+    good_track_eta = abs(tracks['eta']) < 2.5
+    good_track_hits = [i+j >= 7 for i,j in zip(tracks['nSCTHits'], tracks['nPixHits'])] and (tracks['nIBLHits'] > 0)
+    good_track_holes = [i+j <= 2 for i,j in zip(tracks['nPixHoles'], tracks['nSCTHoles'])] and (tracks['nPixHoles'] <= 1)
+    good_tracks = tracks[good_track_pt & good_track_eta & good_track_hits & good_track_holes]
+
+    for lepton in good_leptons:
+
         nearby_tracks = []
 
         # find tracks within dR of lepton i
-        for track in tracks:
-            # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
-            if track['pT'] < 500: continue # 500 MeV
+        for track in good_tracks:
+
             if abs((lepton['z0']-track['z0']) * np.sin(track['theta'])) > 3: continue
-            if abs(track['eta']) > 2.5: continue
-            if track['nSCTHits']+track['nPixHits'] < 7: continue
-            if track['nPixHoles']+track['nSCTHoles'] > 2: continue
-            if track['nPixHoles'] > 1: continue
-            if track['nIBLHits'] == 0: continue
             # calculate and save dR
             dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
             dEta = HEP.dEta(lepton['eta'], track['eta'])   

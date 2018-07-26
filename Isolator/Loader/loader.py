@@ -11,7 +11,7 @@ import pdb
 
 # Not stored in code (unfortunately):
 # Lepton keys: ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
-# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinTheta', 'd0', 'z0', 'chiSquared']
+# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
 
 def group_leptons_and_tracks(leptons, tracks):
 
@@ -24,10 +24,12 @@ def group_leptons_and_tracks(leptons, tracks):
     # good_pt = leptons['pT'] < 10000
     good_HF_leptons = leptons[HF_lep_types]
     good_prompt_leptons = leptons[prompt_lep_types]
-    n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
-    if n_each_type == 0:
-        return [], []
-    good_leptons = np.concatenate((good_HF_leptons[:n_each_type], good_prompt_leptons[:n_each_type]))
+    # n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+    # print("Event has", len(leptons), ", good:", n_each_type*2)
+    # if n_each_type == 0:
+        # return [], []
+    # good_leptons = np.concatenate((good_HF_leptons[:n_each_type], good_prompt_leptons[:n_each_type]))
+    good_leptons = np.concatenate((good_HF_leptons, good_prompt_leptons))
 
     # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
     good_track_pt = tracks['pT'] > 500 # 500 MeV
@@ -100,10 +102,12 @@ def load(in_file, save_file_name, overwrite=False):
             if event_n%1000 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])
-            leptons = np.array([i for i in leptons if ~np.isnan(i[0])])
+            leptons = np.array([i for i in leptons if ~np.isnan(i[1])])
+            if len(leptons)==0: continue
             grouped_leptons, grouped_tracks = group_leptons_and_tracks(leptons, tracks[event_n])
             unnormed_leptons += grouped_leptons
             unnormed_tracks += grouped_tracks
+        print("Total of", len(unnormed_leptons))
 
         # normalize and create final data structure
         unfolded_leptons = np.array(unnormed_leptons)
@@ -112,6 +116,9 @@ def load(in_file, save_file_name, overwrite=False):
         lepton_stds = unfolded_leptons.std(axis=0)
         track_means = unfolded_tracks.mean(axis=0)
         track_stds = unfolded_tracks.std(axis=0)
+        for i in [0, 12]: # ignore pdgID and truth_type
+            lepton_means[i] = 0
+            lepton_stds[i] = 1
         normed_leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
         normed_tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
         leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks}

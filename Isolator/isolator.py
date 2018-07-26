@@ -65,13 +65,14 @@ class LeptonTrackDataset:
         event = self.leptons_with_tracks[i]
         lepton = torch.from_numpy(event[0]).float()
         tracks = torch.from_numpy(np.array(event[1])).float()
-        truth = torch.LongTensor([(int(lepton[11])==2) or (int(lepton[11])==6)]) # 'truth_type': 2/6=prompt; 3/7=HF
+        truth = torch.LongTensor([(int(lepton[12])==2) or (int(lepton[12])==6)]) # 'truth_type': 2/6=prompt; 3/7=HF
         return truth, lepton, tracks
 
 def train_and_test(leptons_with_tracks, options, plot_save_dir):
 
     # split train and test
     n_events = len(leptons_with_tracks)
+    np.random.shuffle(leptons_with_tracks)
     n_training_events = int(options['training_split'] * n_events)
     training_events = leptons_with_tracks[:n_training_events]
     test_events = leptons_with_tracks[n_training_events:n_events]
@@ -141,8 +142,8 @@ def train_and_test(leptons_with_tracks, options, plot_save_dir):
     HF_raw_results = np.array(test_raw_results)[HF_flag]
     prompt_raw_results = np.array(test_raw_results)[prompt_flag]
     hist_bins = np.arange(0, 1, 0.01)
-    plt.hist(HF_raw_results, histtype='step', color='g', label="HF", weights=np.ones_like(HF_raw_results)/float(len(HF_raw_results)), bins=hist_bins)
     plt.hist(prompt_raw_results, histtype='step', color='r', label="Prompt", weights=np.ones_like(prompt_raw_results)/float(len(prompt_raw_results)), bins=hist_bins)
+    plt.hist(HF_raw_results, histtype='step', color='g', label="HF", weights=np.ones_like(HF_raw_results)/float(len(HF_raw_results)), bins=hist_bins)
     plt.title("RNN Results")
     plt.xlabel("Result")
     plt.ylabel("Percentage")
@@ -172,7 +173,7 @@ if __name__ == "__main__":
     options['n_hidden_neurons'] = 256
     options['learning_rate'] = 0.01
     options['training_split'] = 0.66
-    options['batch_size'] = 20
+    options['batch_size'] = 50
     options['n_batches'] = 100
     lwt = list(zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
     train_and_test(lwt, options, plot_save_dir)

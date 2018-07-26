@@ -19,8 +19,16 @@ def group_leptons_and_tracks(leptons, tracks):
     grouped_tracks = []
 
     # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
-    good_lep_types = [i in [2, 3, 6, 7] for i in leptons['truth_type']] # 2/3 (6/7) is iso/non-iso electron (muon)
-    good_leptons = leptons[good_lep_types]
+    HF_lep_types = [i in [3, 7] for i in leptons['truth_type']] # 2/3 (6/7) is iso/non-iso electron (muon)
+    prompt_lep_types = [i in [2, 6] for i in leptons['truth_type']]
+    # good_pt = leptons['pT'] < 10000
+    good_HF_leptons = leptons[HF_lep_types]
+    good_prompt_leptons = leptons[prompt_lep_types]
+    n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+    if n_each_type == 0:
+        return [], []
+    good_leptons = np.concatenate((good_HF_leptons[:n_each_type], good_prompt_leptons[:n_each_type]))
+    print(len(good_leptons))
 
     # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
     good_track_pt = tracks['pT'] > 500 # 500 MeV
@@ -89,8 +97,8 @@ def load(in_file, save_file_name, overwrite=False):
         print("Grouping leptons and tracks")
         unnormed_leptons = []
         unnormed_tracks = []
-        for event_n in range(n_events):
-        # for event_n in range(100):
+        # for event_n in range(n_events):
+        for event_n in range(1000):
             if event_n%10 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])

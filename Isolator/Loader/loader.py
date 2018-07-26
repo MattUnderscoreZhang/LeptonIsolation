@@ -28,7 +28,6 @@ def group_leptons_and_tracks(leptons, tracks):
     if n_each_type == 0:
         return [], []
     good_leptons = np.concatenate((good_HF_leptons[:n_each_type], good_prompt_leptons[:n_each_type]))
-    print(len(good_leptons))
 
     # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
     good_track_pt = tracks['pT'] > 500 # 500 MeV
@@ -88,18 +87,17 @@ def load(in_file, save_file_name, overwrite=False):
         # load data and get feature index dictionaries
         print("Loading data")
         data = h5.File(in_file)
-        electrons = data['electrons']
-        muons = data['muons']
-        tracks = data['tracks']
+        electrons = data['electrons'][()]
+        muons = data['muons'][()]
+        tracks = data['tracks'][()]
         n_events = electrons.shape[0]
 
         # group leptons with their nearby tracks
         print("Grouping leptons and tracks")
         unnormed_leptons = []
         unnormed_tracks = []
-        # for event_n in range(n_events):
-        for event_n in range(1000):
-            if event_n%10 == 0:
+        for event_n in range(n_events):
+            if event_n%1000 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])
             leptons = np.array([i for i in leptons if ~np.isnan(i[0])])

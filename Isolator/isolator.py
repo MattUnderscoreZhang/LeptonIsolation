@@ -173,6 +173,6 @@ if __name__ == "__main__":
     options['learning_rate'] = 0.01
     options['training_split'] = 0.66
     options['batch_size'] = 20
-    options['n_batches'] = 500
+    options['n_batches'] = 100
     lwt = list(zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
     train_and_test(lwt, options, plot_save_dir)

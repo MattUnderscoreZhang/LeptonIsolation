@@ -11,29 +11,41 @@ import pdb
 
 # Not stored in code (unfortunately):
 # Lepton keys: ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
-# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinTheta', 'd0', 'z0', 'chiSquared']
+# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
 
 def group_leptons_and_tracks(leptons, tracks):
 
     grouped_leptons = []
     grouped_tracks = []
 
-    for lepton in leptons:
+    # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
+    HF_lep_types = [i in [3, 7] for i in leptons['truth_type']] # 2/3 (6/7) is iso/non-iso electron (muon)
+    prompt_lep_types = [i in [2, 6] for i in leptons['truth_type']]
+    # good_pt = leptons['pT'] < 10000
+    good_HF_leptons = leptons[HF_lep_types]
+    good_prompt_leptons = leptons[prompt_lep_types]
+    # n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+    # print("Event has", len(leptons), ", good:", n_each_type*2)
+    # if n_each_type == 0:
+        # return [], []
+    # good_leptons = np.concatenate((good_HF_leptons[:n_each_type], good_prompt_leptons[:n_each_type]))
+    good_leptons = np.concatenate((good_HF_leptons, good_prompt_leptons))
 
-        # from https://gitlab.cern.ch/atlas/athena/blob/master/PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/MCTruthClassifierDefs.h
-        if lepton['truth_type'] not in [2, 3, 6, 7]: continue # 2/3 (6/7) is iso/non-iso electron (muon)
+    # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
+    good_track_pt = tracks['pT'] > 500 # 500 MeV
+    good_track_eta = abs(tracks['eta']) < 2.5
+    good_track_hits = [i+j >= 7 for i,j in zip(tracks['nSCTHits'], tracks['nPixHits'])] and (tracks['nIBLHits'] > 0)
+    good_track_holes = [i+j <= 2 for i,j in zip(tracks['nPixHoles'], tracks['nSCTHoles'])] and (tracks['nPixHoles'] <= 1)
+    good_tracks = tracks[good_track_pt & good_track_eta & good_track_hits & good_track_holes]
+
+    for lepton in good_leptons:
+
         nearby_tracks = []
 
         # find tracks within dR of lepton i
-        for track in tracks:
-            # see if track passes selections listed at https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
-            if track['pT'] < 500: continue # 500 MeV
+        for track in good_tracks:
+
             if abs((lepton['z0']-track['z0']) * np.sin(track['theta'])) > 3: continue
-            if abs(track['eta']) > 2.5: continue
-            if track['nSCTHits']+track['nPixHits'] < 7: continue
-            if track['nPixHoles']+track['nSCTHoles'] > 2: continue
-            if track['nPixHoles'] > 1: continue
-            if track['nIBLHits'] == 0: continue
             # calculate and save dR
             dR = HEP.dR(lepton['phi'], lepton['eta'], track['phi'], track['eta'])   
             dEta = HEP.dEta(lepton['eta'], track['eta'])   
@@ -77,9 +89,9 @@ def load(in_file, save_file_name, overwrite=False):
         # load data and get feature index dictionaries
         print("Loading data")
         data = h5.File(in_file)
-        electrons = data['electrons']
-        muons = data['muons']
-        tracks = data['tracks']
+        electrons = data['electrons'][()]
+        muons = data['muons'][()]
+        tracks = data['tracks'][()]
         n_events = electrons.shape[0]
 
         # group leptons with their nearby tracks
@@ -87,14 +99,23 @@ def load(in_file, save_file_name, overwrite=False):
         unnormed_leptons = []
         unnormed_tracks = []
         for event_n in range(n_events):
-        # for event_n in range(100):
-            if event_n%10 == 0:
+            if event_n%1000 == 0:
                 print("Event %d/%d" % (event_n, n_events))
             leptons = np.append(electrons[event_n], muons[event_n])
-            leptons = np.array([i for i in leptons if ~np.isnan(i[0])])
+            leptons = np.array([i for i in leptons if ~np.isnan(i[1])])
+            if len(leptons)==0: continue
             grouped_leptons, grouped_tracks = group_leptons_and_tracks(leptons, tracks[event_n])
             unnormed_leptons += grouped_leptons
             unnormed_tracks += grouped_tracks
+        print("Total of", len(unnormed_leptons))
+
+        HF_lep_types = [i[12] in [3, 7] for i in unnormed_leptons]
+        prompt_lep_types = [i[12] in [2, 6] for i in unnormed_leptons]
+        good_HF_leptons = np.array(unnormed_leptons)[HF_lep_types]
+        good_prompt_leptons = np.array(unnormed_leptons)[prompt_lep_types]
+        n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+        unnormed_leptons = list(good_HF_leptons)[:n_each_type] + list(good_prompt_leptons)[:n_each_type]
+        print("Total of", len(unnormed_leptons))
 
         # normalize and create final data structure
         unfolded_leptons = np.array(unnormed_leptons)
@@ -103,6 +124,9 @@ def load(in_file, save_file_name, overwrite=False):
         lepton_stds = unfolded_leptons.std(axis=0)
         track_means = unfolded_tracks.mean(axis=0)
         track_stds = unfolded_tracks.std(axis=0)
+        for i in [0, 12]: # ignore pdgID and truth_type
+            lepton_means[i] = 0
+            lepton_stds[i] = 1
         normed_leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
         normed_tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
         leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks}

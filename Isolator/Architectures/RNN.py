@@ -43,21 +43,24 @@ class RNN(nn.Module):
         self.zero_grad()
         total_loss = 0
         total_acc = 0
+        raw_results = []
+        all_truth = []
         for event in events:
             hidden = torch.zeros(1, self.n_hidden_neurons)
-            truth, lep_tracks = event
-            lepton, tracks = lep_tracks
+            truth, lepton, tracks = event
             for track in tracks:
                 output, hidden = self.forward(track, hidden)
             total_loss += self.loss_function(output, truth)
             total_acc += self.accuracy(output, truth)
+            raw_results.append(output.detach().numpy()[0][0])
+            all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events)
         total_acc = total_acc.float() / len(events)
         if do_training:
             total_loss.backward()
             for param in self.parameters():
                 param.data.add_(-self.learning_rate, param.grad.data)
-        return total_loss.data.item(), total_acc.data.item()
+        return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)

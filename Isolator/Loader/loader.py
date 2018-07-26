@@ -109,6 +109,14 @@ def load(in_file, save_file_name, overwrite=False):
             unnormed_tracks += grouped_tracks
         print("Total of", len(unnormed_leptons))
 
+        HF_lep_types = [i[12] in [3, 7] for i in unnormed_leptons]
+        prompt_lep_types = [i[12] in [2, 6] for i in unnormed_leptons]
+        good_HF_leptons = np.array(unnormed_leptons)[HF_lep_types]
+        good_prompt_leptons = np.array(unnormed_leptons)[prompt_lep_types]
+        n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+        unnormed_leptons = list(good_HF_leptons)[:n_each_type] + list(good_prompt_leptons)[:n_each_type]
+        print("Total of", len(unnormed_leptons))
+
         # normalize and create final data structure
         unfolded_leptons = np.array(unnormed_leptons)
         unfolded_tracks = np.array([i for lep_tracks in unnormed_tracks for i in lep_tracks])

@@ -161,7 +161,7 @@ if __name__ == "__main__":
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
-    leptons_with_tracks = load(in_file, save_file, overwrite=True)
+    leptons_with_tracks = load(in_file, save_file, overwrite=False)
 
     # make ptcone and etcone comparison plots
     plot_save_dir = "../Plots/"

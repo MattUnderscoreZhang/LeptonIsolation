@@ -148,7 +148,7 @@ void MuonWriter::write(const xAOD::MuonContainer& muons) {
         if (muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) continue;
         // check that muon passes selections
         xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*muon);
-        if (muonQuality <= xAOD::Muon::Medium) continue;
+        if (muonQuality < xAOD::Muon::Medium) continue;
         // store muons
         m_current_muons.push_back(muon);
     }

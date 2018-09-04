@@ -11,12 +11,14 @@ class RNN(nn.Module):
 
     def __init__(self, options):
         super().__init__()
-        self.n_hidden_neurons = options['n_hidden_neurons']
+        self.n_hidden_output_neurons = options['n_hidden_output_neurons']
+        self.n_hidden_middle_neurons = options['n_hidden_middle_neurons']
         self.learning_rate = options['learning_rate']
-        self.hidden_layer_1 = nn.Linear(options['n_track_features'] + self.n_hidden_neurons, self.n_hidden_neurons)
-        self.hidden_layer_2 = nn.Linear(self.n_hidden_neurons, self.n_hidden_neurons)
-        self.hidden_out_layer = nn.Linear(self.n_hidden_neurons, self.n_hidden_neurons)
-        self.output_layer = nn.Linear(self.n_hidden_neurons, 2)
+        self.hidden_layer_1 = nn.Linear(options['n_track_features'] + self.n_hidden_output_neurons, self.n_hidden_middle_neurons)
+        self.hidden_layer_2 = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
+        self.hidden_layer_3 = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
+        self.hidden_out_layer = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_output_neurons)
+        self.output_layer = nn.Linear(self.n_hidden_middle_neurons, 2)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.CrossEntropyLoss()
 
@@ -25,6 +27,7 @@ class RNN(nn.Module):
         x = torch.cat((track, hidden), 1)
         x = F.tanh(self.hidden_layer_1(x))
         x = F.tanh(self.hidden_layer_2(x))
+        x = F.tanh(self.hidden_layer_3(x))
         hidden = F.tanh(self.hidden_out_layer(x))
         output = F.relu(self.output_layer(x))
         output = self.softmax(output)
@@ -46,7 +49,7 @@ class RNN(nn.Module):
         raw_results = []
         all_truth = []
         for event in events:
-            hidden = torch.zeros(1, self.n_hidden_neurons)
+            hidden = torch.zeros(1, self.n_hidden_output_neurons)
             truth, lepton, tracks = event
             for track in tracks:
                 output, hidden = self.forward(track, hidden)

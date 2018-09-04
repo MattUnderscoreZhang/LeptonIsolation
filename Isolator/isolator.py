@@ -1,72 +1,16 @@
 import pdb
-import torch
 import numpy as np
-import random
-import itertools as it
-from Loader.loader import load
+import Loader.loader as loader
 from Architectures.RNN import RNN
 from Analysis import cones
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-################################################
-# Data structures for holding training results #
-################################################
-
-class historyData(list):
-    def __init__(self, my_list=[]):
-        super().__init__(my_list)
-    def extend(self, places):
-        for _ in range(places):
-            self.append(historyData())
-    def __getitem__(self, key): # overloads list[i] for i out of range
-        if key >= len(self):
-            self.extend(key+1-len(self))
-        return super().__getitem__(key)
-    def __setitem__(self, key, item): # overloads list[i]=x for i out of range
-        if key >= len(self):
-            self.extend(key+1-len(self))
-        super().__setitem__(key, item)
-    def __iadd__(self, key): # overloads []+=x
-        return key
-    def __add__(self, key): # overloads []+x
-        return key
-
-LOSS, ACC = 0, 1
-TRAIN, VALIDATION, TEST = 0, 1, 2
-BATCH, EPOCH = 0, 1
+from DataStructures.HistoryData import *
+from DataStructures.LeptonTrackDataset import LeptonTrackDataset
 
 ##################
 # Train and test #
 ##################
-
-class LeptonTrackDataset:
-
-    def __init__(self, leptons_with_tracks):
-        self.leptons_with_tracks = leptons_with_tracks
-        self.reshuffle()
-
-    def __len__(self):
-        return len(self.leptons_with_tracks)
-
-    def __iter__(self):
-        return self
-
-    def reshuffle(self):
-        self.read_order = it.chain(random.sample(range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)))
-
-    def __next__(self):
-        # i = next(self.read_order)
-        try:
-            i = next(self.read_order)
-        except StopIteration:
-            self.reshuffle()
-            i = next(self.read_order)
-        event = self.leptons_with_tracks[i]
-        lepton = torch.from_numpy(event[0]).float()
-        tracks = torch.from_numpy(np.array(event[1])).float()
-        truth = torch.LongTensor([(int(lepton[12])==2) or (int(lepton[12])==6)]) # 'truth_type': 2/6=prompt; 3/7=HF
-        return truth, lepton, tracks
 
 def train_and_test(leptons_with_tracks, options, plot_save_dir):
 
@@ -75,7 +19,7 @@ def train_and_test(leptons_with_tracks, options, plot_save_dir):
     np.random.shuffle(leptons_with_tracks)
     n_training_events = int(options['training_split'] * n_events)
     training_events = leptons_with_tracks[:n_training_events]
-    test_events = leptons_with_tracks[n_training_events:n_events]
+    test_events = leptons_with_tracks[n_training_events:]
 
     # prepare the generators
     train_set = LeptonTrackDataset(training_events)
@@ -86,7 +30,7 @@ def train_and_test(leptons_with_tracks, options, plot_save_dir):
     rnn = RNN(options)
 
     # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
-    history = historyData()
+    history = HistoryData()
 
     # train RNN
     training_loss = 0
@@ -161,19 +105,20 @@ if __name__ == "__main__":
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
-    leptons_with_tracks = load(in_file, save_file, overwrite=False)
+    leptons_with_tracks = loader.create_or_load(in_file, save_file, overwrite=False)
 
     # make ptcone and etcone comparison plots
     plot_save_dir = "../Plots/"
     lwt = list(zip(leptons_with_tracks['unnormed_leptons'], leptons_with_tracks['unnormed_tracks']))
-    cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
+    # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
 
     # perform training
     options = {}
-    options['n_hidden_neurons'] = 32
+    options['n_hidden_output_neurons'] = 8
+    options['n_hidden_middle_neurons'] = 8
     options['learning_rate'] = 0.01
-    options['training_split'] = 0.66
-    options['batch_size'] = 20
-    options['n_batches'] = 100
+    options['training_split'] = 0.9
+    options['batch_size'] = 200
+    options['n_batches'] = 5000
     lwt = list(zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
     train_and_test(lwt, options, plot_save_dir)

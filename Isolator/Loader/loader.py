@@ -53,7 +53,8 @@ def group_leptons_and_tracks(leptons, tracks):
             dd0 = abs(lepton['d0']-track['d0'])
             dz0 = abs(lepton['z0']-track['z0'])
             if dR<0.5:
-                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
+                # nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
+                nearby_tracks.append(np.array([dR, track['pT']], dtype=float))
 
         # sort by dR and remove tracks associated to lepton
         nearby_tracks.sort(key=lambda x: x[0])
@@ -71,7 +72,7 @@ def group_leptons_and_tracks(leptons, tracks):
 # Save or load data #
 #####################
 
-def load(in_file, save_file_name, overwrite=False):
+def create_or_load(in_file, save_file_name, overwrite=False):
 
     # open save file if it already exists
     if os.path.exists(save_file_name) and not overwrite:

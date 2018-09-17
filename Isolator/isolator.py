@@ -19,7 +19,20 @@ class RNN_Trainer:
         self.n_events = len(leptons_with_tracks)
         self.n_training_events = int(self.options['training_split'] * self.n_events)
         self.leptons_with_tracks = leptons_with_tracks
+        self.options['n_track_features'] = len(self.leptons_with_tracks[0][1][0])
         self.plot_save_dir = plot_save_dir
+        self.history = HistoryData() # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
+
+    def prepare(self):
+        # split train and test
+        np.random.shuffle(self.leptons_with_tracks)
+        self.training_events = self.leptons_with_tracks[:self.n_training_events]
+        self.test_events = self.leptons_with_tracks[self.n_training_events:]
+        # prepare the generators
+        self.train_set = LeptonTrackDataset(self.training_events)
+        self.test_set = LeptonTrackDataset(self.test_events)
+        # set up RNN
+        self.rnn = RNN(self.options)
 
     def make_batch(self):
         training_batch = []
@@ -32,48 +45,31 @@ class RNN_Trainer:
             test_batch.append(next_event)
         return training_batch, test_batch
 
-    def train_and_test(self):
-
-        # split train and test
-        np.random.shuffle(self.leptons_with_tracks)
-        training_events = self.leptons_with_tracks[:self.n_training_events]
-        test_events = self.leptons_with_tracks[self.n_training_events:]
-
-        # prepare the generators
-        self.train_set = LeptonTrackDataset(training_events)
-        self.test_set = LeptonTrackDataset(test_events)
-
-        # set up RNN
-        self.options['n_track_features'] = len(training_events[0][1][0])
-        rnn = RNN(self.options)
-
-        # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
-        history = HistoryData()
-
-        # train RNN
+    def train(self):
         training_loss = 0
         training_acc = 0
         for batch_n in range(self.options['n_batches']):
             training_batch, test_batch = self.make_batch()
-            train_loss, train_acc, _, _ = rnn.do_train(training_batch)
-            test_loss, test_acc, _, _ = rnn.do_eval(test_batch)
-            history[LOSS][TRAIN][BATCH].append(train_loss)
-            history[ACC][TRAIN][BATCH].append(train_acc)
-            history[LOSS][TEST][BATCH].append(test_loss)
-            history[ACC][TEST][BATCH].append(test_acc)
+            train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
+            test_loss, test_acc, _, _ = self.rnn.do_eval(test_batch)
+            self.history[LOSS][TRAIN][BATCH].append(train_loss)
+            self.history[ACC][TRAIN][BATCH].append(train_acc)
+            self.history[LOSS][TEST][BATCH].append(test_loss)
+            self.history[ACC][TEST][BATCH].append(test_acc)
             print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f, Test Loss: %0.2f, Test Acc: %0.2f" % (batch_n, train_loss, train_acc, test_loss, test_acc))
 
-        # evaluate complete test set
+    def test(self):
         test_batch = []
         test_set.reshuffle()
-        for i in range(len(test_events)):
+        for i in range(len(self.test_events)):
             next_event = next(test_set)
             test_batch.append(next_event)
         _, _, test_raw_results, test_truth = rnn.do_eval(test_batch)
 
-        # make plots
-        plt.plot(history[LOSS][TRAIN][BATCH], 'o-', color='g', label="Training loss")
-        plt.plot(history[LOSS][TEST][BATCH], 'o-', color='r', label="Test loss")
+    def plot(self):
+
+        plt.plot(self.history[LOSS][TRAIN][BATCH], 'o-', color='g', label="Training loss")
+        plt.plot(self.history[LOSS][TEST][BATCH], 'o-', color='r', label="Test loss")
         plt.title("Loss")
         plt.xlabel("Batch")
         plt.ylabel("Loss")
@@ -82,8 +78,8 @@ class RNN_Trainer:
         plt.savefig(self.plot_save_dir + "loss.png")
         plt.clf()
 
-        plt.plot(history[ACC][TRAIN][BATCH], 'o-', color='g', label="Training accuracy")
-        plt.plot(history[ACC][TEST][BATCH], 'o-', color='r', label="Test accuracy")
+        plt.plot(self.history[ACC][TRAIN][BATCH], 'o-', color='g', label="Training accuracy")
+        plt.plot(self.history[ACC][TEST][BATCH], 'o-', color='r', label="Test accuracy")
         plt.title("Accuracy")
         plt.xlabel("Batch")
         plt.ylabel("Accuracy")
@@ -106,6 +102,12 @@ class RNN_Trainer:
         plt.legend(loc='best')
         plt.savefig(self.plot_save_dir + "separation.png")
         plt.clf()
+
+    def train_and_test(self):
+        self.prepare()
+        self.train()
+        self.test()
+        self.plot()
 
 #################
 # Main function #

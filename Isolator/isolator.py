@@ -60,14 +60,14 @@ class RNN_Trainer:
 
     def test(self):
         test_batch = []
-        test_set.reshuffle()
+        self.test_set.reshuffle()
         for i in range(len(self.test_events)):
-            next_event = next(test_set)
+            next_event = next(self.test_set)
             test_batch.append(next_event)
-        _, _, test_raw_results, test_truth = rnn.do_eval(test_batch)
+        _, _, test_raw_results, test_truth = self.rnn.do_eval(test_batch)
 
     def plot(self):
-
+        # loss
         plt.plot(self.history[LOSS][TRAIN][BATCH], 'o-', color='g', label="Training loss")
         plt.plot(self.history[LOSS][TEST][BATCH], 'o-', color='r', label="Test loss")
         plt.title("Loss")
@@ -77,7 +77,7 @@ class RNN_Trainer:
         plt.legend(loc='best')
         plt.savefig(self.plot_save_dir + "loss.png")
         plt.clf()
-
+        # accuracy
         plt.plot(self.history[ACC][TRAIN][BATCH], 'o-', color='g', label="Training accuracy")
         plt.plot(self.history[ACC][TEST][BATCH], 'o-', color='r', label="Test accuracy")
         plt.title("Accuracy")
@@ -87,7 +87,7 @@ class RNN_Trainer:
         plt.legend(loc='best')
         plt.savefig(self.plot_save_dir + "accuracy.png")
         plt.clf()
-
+        # separation
         HF_flag = [i==0 for i in test_truth]
         prompt_flag = [i==1 for i in test_truth]
         HF_raw_results = np.array(test_raw_results)[HF_flag]
@@ -115,6 +115,9 @@ class RNN_Trainer:
 
 if __name__ == "__main__":
 
+    # set options
+    from Options.default_options import options
+
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
@@ -126,13 +129,6 @@ if __name__ == "__main__":
     # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
 
     # perform training
-    options = {}
-    options['n_hidden_output_neurons'] = 8
-    options['n_hidden_middle_neurons'] = 8
-    options['learning_rate'] = 0.01
-    options['training_split'] = 0.9
-    options['batch_size'] = 200
-    options['n_batches'] = 5000
     lwt = list(zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()

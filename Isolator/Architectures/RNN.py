@@ -7,6 +7,7 @@ import pdb
 # Architecture #
 ################
 
+
 class RNN(nn.Module):
 
     def __init__(self, options):
@@ -14,10 +15,14 @@ class RNN(nn.Module):
         self.n_hidden_output_neurons = options['n_hidden_output_neurons']
         self.n_hidden_middle_neurons = options['n_hidden_middle_neurons']
         self.learning_rate = options['learning_rate']
-        self.hidden_layer_1 = nn.Linear(options['n_track_features'] + self.n_hidden_output_neurons, self.n_hidden_middle_neurons)
-        self.hidden_layer_2 = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
-        self.hidden_layer_3 = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
-        self.hidden_out_layer = nn.Linear(self.n_hidden_middle_neurons, self.n_hidden_output_neurons)
+        self.hidden_layer_1 = nn.Linear(
+            options['n_track_features'] + self.n_hidden_output_neurons, self.n_hidden_middle_neurons)
+        self.hidden_layer_2 = nn.Linear(
+            self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
+        self.hidden_layer_3 = nn.Linear(
+            self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
+        self.hidden_out_layer = nn.Linear(
+            self.n_hidden_middle_neurons, self.n_hidden_output_neurons)
         self.output_layer = nn.Linear(self.n_hidden_middle_neurons, 2)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.CrossEntropyLoss()
@@ -25,10 +30,10 @@ class RNN(nn.Module):
     def forward(self, track, hidden):
         track = track.view(1, track.size()[0])
         x = torch.cat((track, hidden), 1)
-        x = F.tanh(self.hidden_layer_1(x))
-        x = F.tanh(self.hidden_layer_2(x))
-        x = F.tanh(self.hidden_layer_3(x))
-        hidden = F.tanh(self.hidden_out_layer(x))
+        x = torch.tanh(self.hidden_layer_1(x))
+        x = torch.tanh(self.hidden_layer_2(x))
+        x = torch.tanh(self.hidden_layer_3(x))
+        hidden = torch.tanh(self.hidden_out_layer(x))
         output = F.relu(self.output_layer(x))
         output = self.softmax(output)
         return output, hidden

@@ -1,9 +1,9 @@
 import numpy as np
 import Loader.loader as loader
 from Architectures.RNN import RNN
-from Analysis import cones
+# from Analysis import cones
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import LeptonTrackDataset
 import pathlib
@@ -25,11 +25,14 @@ class RNN_Trainer:
         self.plot_save_dir = plot_save_dir
         # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
         self.history = HistoryData()
+        self.test_truth = []
+        self.test_raw_results = []
 
     def prepare(self):
         # split train and test
         np.random.shuffle(self.leptons_with_tracks)
-        self.training_events = self.leptons_with_tracks[:self.n_training_events]
+        self.training_events = \
+            self.leptons_with_tracks[:self.n_training_events]
         self.test_events = self.leptons_with_tracks[self.n_training_events:]
         # prepare the generators
         self.train_set = LeptonTrackDataset(self.training_events)
@@ -49,8 +52,8 @@ class RNN_Trainer:
         return training_batch, test_batch
 
     def train(self):
-        training_loss = 0
-        training_acc = 0
+        train_loss = 0
+        train_acc = 0
         for batch_n in range(self.options['n_batches']):
             training_batch, test_batch = self.make_batch()
             train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
@@ -59,7 +62,8 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f, Test Loss: %0.2f, Test Acc: %0.2f" % (
+            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f,\
+             Test Loss: %0.2f, Test Acc: %0.2f" % (
                 batch_n, train_loss, train_acc, test_loss, test_acc))
 
     def test(self):
@@ -68,9 +72,12 @@ class RNN_Trainer:
         for i in range(len(self.test_events)):
             next_event = next(self.test_set)
             test_batch.append(next_event)
-        _, _, test_raw_results, test_truth = self.rnn.do_eval(test_batch)
+        _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
+            test_batch)
 
     def plot(self):
+        '''Plots all the necessary details from the trained model'''
+
         # loss
         plt.plot(self.history[LOSS][TRAIN][BATCH],
                  'o-', color='g', label="Training loss")
@@ -83,6 +90,7 @@ class RNN_Trainer:
         plt.legend(loc='best')
         plt.savefig(self.plot_save_dir + "loss.png")
         plt.clf()
+
         # accuracy
         plt.plot(self.history[ACC][TRAIN][BATCH], 'o-',
                  color='g', label="Training accuracy")
@@ -95,16 +103,19 @@ class RNN_Trainer:
         plt.legend(loc='best')
         plt.savefig(self.plot_save_dir + "accuracy.png")
         plt.clf()
+
         # separation
-        HF_flag = [i == 0 for i in test_truth]
-        prompt_flag = [i == 1 for i in test_truth]
-        HF_raw_results = np.array(test_raw_results)[HF_flag]
-        prompt_raw_results = np.array(test_raw_results)[prompt_flag]
+        HF_flag = [i == 0 for i in self.test_truth]
+        prompt_flag = [i == 1 for i in self.test_truth]
+        HF_raw_results = np.array(self.test_raw_results)[HF_flag]
+        prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
         hist_bins = np.arange(0, 1, 0.01)
-        plt.hist(prompt_raw_results, histtype='step', color='r', label="Prompt", weights=np.ones_like(
-            prompt_raw_results) / float(len(prompt_raw_results)), bins=hist_bins)
-        plt.hist(HF_raw_results, histtype='step', color='g', label="HF", weights=np.ones_like(
-            HF_raw_results) / float(len(HF_raw_results)), bins=hist_bins)
+        plt.hist(prompt_raw_results, histtype='step', color='r',
+                 label="Prompt", weights=np.ones_like(prompt_raw_results) /
+                 float(len(prompt_raw_results)), bins=hist_bins)
+        plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
+                 weights=np.ones_like(HF_raw_results) /
+                 float(len(HF_raw_results)), bins=hist_bins)
         plt.title("RNN Results")
         plt.xlabel("Result")
         plt.ylabel("Percentage")
@@ -134,7 +145,7 @@ if __name__ == "__main__":
     options['learning_rate'] = 0.01
     options['training_split'] = 0.9
     options['batch_size'] = 200
-    options['n_batches'] = 5000
+    options['n_batches'] = 50
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
@@ -145,11 +156,13 @@ if __name__ == "__main__":
     plot_save_dir = "../Plots/"
     pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     lwt = list(zip(
-        leptons_with_tracks['unnormed_leptons'], leptons_with_tracks['unnormed_tracks']))
+        leptons_with_tracks['unnormed_leptons'],
+        leptons_with_tracks['unnormed_tracks']))
     # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
 
     # perform training
     lwt = list(
-        zip(leptons_with_tracks['normed_leptons'], leptons_with_tracks['normed_tracks']))
+        zip(leptons_with_tracks['normed_leptons'],
+            leptons_with_tracks['normed_tracks']))
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()

@@ -56,6 +56,7 @@ class RNN(nn.Module):
         for event in events:
             hidden = torch.zeros(1, self.n_hidden_output_neurons)
             truth, lepton, tracks = event
+            # print(event)
             for track in tracks:
                 output, hidden = self.forward(track, hidden)
             total_loss += self.loss_function(output, truth)

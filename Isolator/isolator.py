@@ -4,17 +4,17 @@ import torch
 import datetime
 import Loader.loader as loader
 from Architectures.RNN import RNN
+# from Architectures.test_new_rnn import RNN
 # from Analysis import cones
 import matplotlib.pyplot as plt
 # import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import LeptonTrackDataset
-from torchviz import make_dot, make_dot_from_trace
+
 ##################
 # Train and test #
 ##################
 
-torch.jit.trace() 
 
 class RNN_Trainer:
 
@@ -154,6 +154,8 @@ if __name__ == "__main__":
     options['training_split'] = 0.9
     options['batch_size'] = 200
     options['n_batches'] = 50
+    options['n_layers'] = 8
+    options["n_size"] = [8, 8, 8]
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"

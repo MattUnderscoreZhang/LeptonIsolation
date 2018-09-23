@@ -1,20 +1,17 @@
 import numpy as np
 import pathlib
-import torch
 import datetime
 import Loader.loader as loader
-from Architectures.RNN import RNN
+from Architectures.test_new_rnn import RNN
+from torch.utils.data import DataLoader
 # from Analysis import cones
 import matplotlib.pyplot as plt
 # import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import LeptonTrackDataset
-from torchviz import make_dot, make_dot_from_trace
-##################
 # Train and test #
 ##################
 
-torch.jit.trace() 
 
 class RNN_Trainer:
 
@@ -27,14 +24,21 @@ class RNN_Trainer:
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
         self.plot_save_dir = plot_save_dir
+
         # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
         self.history = HistoryData()
         self.test_truth = []
         self.test_raw_results = []
 
-    def arch_print(self):
+    # def arch_print(self):
+    #     print(vars(self)['options'])
 
-        print(vars(self)['options'])
+    def make_variables(names, countries):
+        '''!!! needs editing!!!'''
+        sequence_and_length = [str2ascii_arr(name) for name in names]
+        vectorized_seqs = [sl[0] for sl in sequence_and_length]
+        seq_lengths = torch.LongTensor([sl[1] for sl in sequence_and_length])
+        return pad_sequences(vectorized_seqs, seq_lengths, countries)
 
     def prepare(self):
         # split train and test
@@ -45,6 +49,7 @@ class RNN_Trainer:
         # prepare the generators
         self.train_set = LeptonTrackDataset(self.training_events)
         self.test_set = LeptonTrackDataset(self.test_events)
+        print(type(self.train_set))
         # set up RNN
         self.rnn = RNN(self.options)
 
@@ -154,6 +159,8 @@ if __name__ == "__main__":
     options['training_split'] = 0.9
     options['batch_size'] = 200
     options['n_batches'] = 50
+    options['n_layers'] = 8
+    options["n_size"] = [8, 8, 8]
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"
@@ -167,7 +174,6 @@ if __name__ == "__main__":
         leptons_with_tracks['unnormed_leptons'],
         leptons_with_tracks['unnormed_tracks']))
     # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
-
 
     # perform training
     lwt = list(

@@ -3,8 +3,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchviz import make_dot, make_dot_from_trace
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
 
 
 class RNN(nn.Module):
@@ -12,11 +12,14 @@ class RNN(nn.Module):
 
     def __init__(self, options):
         super(RNN, self).__init__()
+        self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.size = options["n_size"]
         self.batch_size = options["batch_size"]
+        self.learning_rate = options['learning_rate']
         self.rnn = nn.RNN(
-            input_size=self.size[0], hidden_size=self.size[1], num_layers=self.n_layers)
+            input_size=self.size[0], hidden_size=self.size[1],batch_first=True,
+            num_layers=self.n_layers, bidirectional=options["bidirectional"])
         self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
 
@@ -26,15 +29,12 @@ class RNN(nn.Module):
                              self.batch_size, self.size[1])
         return hidden
 
-    def forward(self, track,):
+    def forward(self, track):
 
-        track = track.view(1, track.size()[0])
-        rnn_input = pack_padded_sequence(
-            track, self.batch_size)
-        print(rnn_input)
-        hidden=self._init_hidden(self.batch_size)
+        # track = track.view(1, track.size()[0])
+        # hidden = self._init_hidden()
         self.rnn.flatten_parameters()
-        output, hidden = self.rnn(rnn_input, hidden)
+        output, hidden = self.rnn(pack_sequence(track))
 
         return output, hidden
 
@@ -43,7 +43,7 @@ class RNN(nn.Module):
         category = top_i[0][0]
         return (category == truth.data[0])
 
-    def do_train(self, events, do_training=True):
+    def do_train(self, loader, do_training=True):
         if do_training:
             self.train()
         else:
@@ -68,4 +68,3 @@ class RNN(nn.Module):
             for param in self.parameters():
                 param.data.add_(-self.learning_rate, param.grad.data)
         return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
-

@@ -31,8 +31,6 @@ class RNN(nn.Module):
 
     def forward(self, track):
 
-        # track = track.view(1, track.size()[0])
-        # hidden = self._init_hidden()
         self.rnn.flatten_parameters()
         output, hidden = self.rnn(pack_sequence(track))
 

@@ -7,7 +7,6 @@ import pdb
 # Architecture #
 ################
 
-
 class RNN(nn.Module):
 
     def __init__(self, options):
@@ -57,7 +56,6 @@ class RNN(nn.Module):
             hidden = torch.zeros(1, self.n_hidden_output_neurons)
             truth, lepton, tracks = event
             # print(event)
-            pdb.set_trace()
             for track in tracks:
                 output, hidden = self.forward(track, hidden)
             total_loss += self.loss_function(output, truth)

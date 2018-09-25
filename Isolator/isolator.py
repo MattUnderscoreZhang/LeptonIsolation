@@ -146,16 +146,8 @@ class RNN_Trainer:
 if __name__ == "__main__":
 
     # set options
-    # from Options.default_options import options
-    options = {}
-    options['n_hidden_output_neurons'] = 8
-    options['n_hidden_middle_neurons'] = 8
-    options['learning_rate'] = 0.01
-    options['training_split'] = 0.9
-    options['batch_size'] = 200
-    options['n_batches'] = 50
-    options['n_layers'] = 8
-    options["n_size"] = [8, 8, 8]
+    from Options.default_options import options
+
     # prepare data
     in_file = "Data/output.h5"
     save_file = "Data/lepton_track_data.pkl"

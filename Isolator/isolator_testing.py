@@ -1,17 +1,15 @@
 import numpy as np
 import pathlib
-import torch
 import datetime
 import Loader.loader as loader
-from Architectures.RNN import RNN
-# from Architectures.test_new_rnn import RNN
+from Architectures.test_new_rnn import RNN
+from torch.utils.data import DataLoader
 # from Analysis import cones
 import matplotlib.pyplot as plt
 # import seaborn as sns
 from DataStructures.HistoryData import *
-from DataStructures.LeptonTrackDataset import LeptonTrackDataset
-
-##################
+from DataStructures.LeptonTrackDataset import Torchdata, collate
+from torch.utils.data import DataLoader, Dataset
 # Train and test #
 ##################
 
@@ -27,14 +25,11 @@ class RNN_Trainer:
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
         self.plot_save_dir = plot_save_dir
+
         # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
         self.history = HistoryData()
         self.test_truth = []
         self.test_raw_results = []
-
-    def arch_print(self):
-
-        print(vars(self)['options'])
 
     def prepare(self):
         # split train and test
@@ -42,30 +37,33 @@ class RNN_Trainer:
         self.training_events = \
             self.leptons_with_tracks[:self.n_training_events]
         self.test_events = self.leptons_with_tracks[self.n_training_events:]
+
         # prepare the generators
-        self.train_set = LeptonTrackDataset(self.training_events)
-        self.test_set = LeptonTrackDataset(self.test_events)
+        self.train_set = Torchdata(self.training_events)
+        self.test_set = Torchdata(self.test_events)
+
         # set up RNN
         self.rnn = RNN(self.options)
 
     def make_batch(self):
-        training_batch = []
-        for i in range(self.options['batch_size']):
-            next_event = next(self.train_set)
-            training_batch.append(next_event)
-        test_batch = []
-        for i in range(self.options['batch_size']):
-            next_event = next(self.test_set)
-            test_batch.append(next_event)
-        return training_batch, test_batch
+
+        training_loader = DataLoader(
+            self.train_set, batch_size=options['batch_size'],
+            collate_fn=collate, shuffle=True)
+
+        testing_loader = DataLoader(
+            self.test_set, batch_size=options['batch_size'],
+            collate_fn=collate, shuffle=True)
+
+        return training_loader, testing_loader
 
     def train(self):
         train_loss = 0
         train_acc = 0
         for batch_n in range(self.options['n_batches']):
-            training_batch, test_batch = self.make_batch()
-            train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
-            test_loss, test_acc, _, _ = self.rnn.do_eval(test_batch)
+            training_loader, testing_loader = self.make_batch()
+            train_loss, train_acc, _, _ = self.rnn.do_train(training_loader)
+            test_loss, test_acc, _, _ = self.rnn.do_eval(testing_loader)
             self.history[LOSS][TRAIN][BATCH].append(train_loss)
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
@@ -76,12 +74,12 @@ class RNN_Trainer:
 
     def test(self):
         test_batch = []
-        self.test_set.reshuffle()
-        for i in range(len(self.test_events)):
-            next_event = next(self.test_set)
-            test_batch.append(next_event)
+        self.test_set.file.reshuffle()
+        testing_loader = DataLoader(
+            self.test_set, batch_size=options['batch_size'],
+            collate_fn=collate, shuffle=True)
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
-            test_batch)
+            testing_loader)
 
     def plot(self):
         '''Plots all the necessary details from the trained model'''
@@ -155,18 +153,18 @@ if __name__ == "__main__":
         in_file, save_file, overwrite=False)
 
     # make ptcone and etcone comparison plots
-    plot_save_dir = "../Plots/"
+    plot_save_dir = "../Plots_new_rnn/"
     pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     lwt = list(zip(
         leptons_with_tracks['unnormed_leptons'],
         leptons_with_tracks['unnormed_tracks']))
     # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
 
-
     # perform training
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
+
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     # RNN_trainer.arch_print()
     RNN_trainer.train_and_test()

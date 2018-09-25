@@ -5,16 +5,15 @@ import datetime
 import Loader.loader as loader
 from Architectures.RNN import RNN
 # from Architectures.test_new_rnn import RNN
-# from Analysis import cones
+from Analysis import cones
 import matplotlib.pyplot as plt
-# import seaborn as sns
+import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import LeptonTrackDataset
 
 ##################
 # Train and test #
 ##################
-
 
 class RNN_Trainer:
 
@@ -33,7 +32,6 @@ class RNN_Trainer:
         self.test_raw_results = []
 
     def arch_print(self):
-
         print(vars(self)['options'])
 
     def prepare(self):
@@ -70,8 +68,8 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f,\
-             Test Loss: %0.2f, Test Acc: %0.2f" % (
+            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f, "\
+                "Test Loss: %0.2f, Test Acc: %0.2f" % (
                 batch_n, train_loss, train_acc, test_loss, test_acc))
 
     def test(self):
@@ -142,11 +140,11 @@ class RNN_Trainer:
 # Main function #
 #################
 
-
 if __name__ == "__main__":
 
     # set options
     from Options.default_options import options
+    sns.set()
 
     # prepare data
     in_file = "Data/output.h5"

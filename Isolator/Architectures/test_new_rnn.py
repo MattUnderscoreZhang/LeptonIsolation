@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
 import pdb
 
-
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
 

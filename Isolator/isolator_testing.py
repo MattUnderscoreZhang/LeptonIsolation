@@ -30,15 +30,6 @@ class RNN_Trainer:
         self.test_truth = []
         self.test_raw_results = []
 
-    # def arch_print(self):
-    #     print(vars(self)['options'])
-
-    def make_variables(names, countries):
-        '''!!! needs editing!!!'''
-        sequence_and_length = [str2ascii_arr(name) for name in names]
-        vectorized_seqs = [sl[0] for sl in sequence_and_length]
-        seq_lengths = torch.LongTensor([sl[1] for sl in sequence_and_length])
-        return pad_sequences(vectorized_seqs, seq_lengths, countries)
 
     def prepare(self):
         # split train and test

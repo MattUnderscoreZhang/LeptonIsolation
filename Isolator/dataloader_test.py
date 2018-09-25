@@ -7,36 +7,37 @@ from DataStructures.LeptonTrackDataset import LeptonTrackDataset
 
 
 def my_collate(batch):
-	'''pads the data with 0'''
-	length = torch.tensor([len(item[0]) for item in batch])
-	max_size = length.max()
-	data = [nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))
-			(item[0]) for item in batch]
+    '''pads the data with 0'''
+    length = torch.tensor([len(item[0]) for item in batch])
+    max_size = length.max()
+    data = [nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))
+            (item[0]) for item in batch]
 
-	target = [item[1] for item in batch]
-	return [torch.stack(data), target]
+    target = torch.stack([item[1] for item in batch])
+    return [torch.stack(data), target]
 
 
 class Torchdata(Dataset):
-	"""docstring for Torchdata"""
+    """docstring for Torchdata"""
 
-	def __init__(self, lwt):
-		super(Torchdata, self).__init__()
-		self.file = LeptonTrackDataset(lwt)
+    def __init__(self, lwt):
+        super(Torchdata, self).__init__()
+        self.file = LeptonTrackDataset(lwt)
 
-	def __getitem__(self, index, length=False):
-		'''gets the data at a given index'''
-		dataiter = next(self.file)
-		for i in range(index - 1):
-			# there is probably a better way to do this
-			dataiter = next(self.file)
-		if length == False:
-			return dataiter[2], dataiter[0]
-		else:
-			return dataiter[2], len(dataiter[2])
+    def __getitem__(self, index, length=False):
+        '''gets the data at a given index'''
+        dataiter = next(self.file)
+        for i in range(index - 1):
+            # there is probably a better way to do this
+            dataiter = next(self.file)
 
-	def __len__(self):
-		return len(self.file)
+        if length == False:
+            return dataiter[2], dataiter[0]
+        else:
+            return dataiter[2], len(dataiter[2])
+
+    def __len__(self):
+        return len(self.file)
 
 #################
 # Main function #
@@ -45,35 +46,35 @@ class Torchdata(Dataset):
 
 if __name__ == "__main__":
 
-	from Options.default_options import options
-	# prepare data
-	in_file = "Data/output.h5"
-	save_file = "Data/lepton_track_data.pkl"
-	leptons_with_tracks = loader.create_or_load(
-		in_file, save_file, overwrite=False)
+    from Options.default_options import options
+    # prepare data
+    in_file = "Data/output.h5"
+    save_file = "Data/lepton_track_data.pkl"
+    leptons_with_tracks = loader.create_or_load(
+        in_file, save_file, overwrite=False)
 
+    lwt = list(zip(
+        leptons_with_tracks['unnormed_leptons'],
+        leptons_with_tracks['unnormed_tracks']))
 
-	lwt = list(zip(
-		leptons_with_tracks['unnormed_leptons'],
-		leptons_with_tracks['unnormed_tracks']))
+    # perform training
+    lwt = list(
+        zip(leptons_with_tracks['normed_leptons'],
+            leptons_with_tracks['normed_tracks']))
 
+    dataset = LeptonTrackDataset(lwt)
 
-	# perform training
-	lwt = list(
-		zip(leptons_with_tracks['normed_leptons'],
-			leptons_with_tracks['normed_tracks']))
+    data = Torchdata(lwt)
 
-	dataset = LeptonTrackDataset(lwt)
+    rnn = RNN(options)
 
-	data = Torchdata(lwt)
+    optimizer = torch.optim.Adam(rnn.parameters(), lr=0.001)
+    criterion = nn.CrossEntropyLoss()
 
-	rnn = RNN(options)
+    train_load = DataLoader(
+        data, batch_size=options['batch_size'], collate_fn=my_collate, shuffle=True)
 
-	optimizer = torch.optim.Adam(rnn.parameters(), lr=0.001)
-	criterion = nn.CrossEntropyLoss()
-
-	train_load = DataLoader(
-		data, batch_size=options['batch_size'], collate_fn=my_collate, shuffle=True)
-
-	for i, data in enumerate(train_load, 1):
-		rnn.forward(data[0])
+    print(rnn.do_train(train_load))
+    # for i, data in enumerate(train_load, 1):
+    # 	print(data[1])
+    #     # rnn.forward(data[0])

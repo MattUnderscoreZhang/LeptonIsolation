@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
 import pdb
 
+
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
 
@@ -56,17 +57,20 @@ class RNN(nn.Module):
 
             output = self.forward(data[0])
             truth = data[1]
-            loss=self.loss_function(output.data, torch.max(truth, 1)[1])
-            total_loss+=loss.data.item()
+            loss = self.loss_function(output.data, torch.max(truth, 1)[1])
+            total_loss += loss.data.item()
             total_acc += self.accuracy(output, truth)
             raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(loader.dataset)
         total_acc = total_acc.float() / len(loader.dataset)
-        total_loss=torch.tensor(total_loss)
-        total_acc=torch.tensor(total_acc)
+        total_loss = torch.tensor(total_loss)
+        total_acc = torch.tensor(total_acc)
         # if do_training:
-            # total_loss.backward()
-            # for param in self.parameters():
-            #     param.data.add_(-self.learning_rate, param.grad.data)
+        # total_loss.backward()
+        # for param in self.parameters():
+        #     param.data.add_(-self.learning_rate, param.grad.data)
         return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
+
+    def do_eval(self, events, do_training=False):
+        return self.do_train(events, do_training=False)

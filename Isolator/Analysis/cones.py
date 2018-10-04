@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pdb
 
@@ -6,14 +7,13 @@ import pdb
 # Calculate cones #
 ###################
 
-# Not stored in code (unfortunately):
-lepton_keys = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
-track_keys = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'z0SinTheta', 'd0', 'z0', 'chiSquared']
-
-def calculate_ptcone_and_etcone(leptons_with_tracks_i):
+def calculate_ptcone_and_etcone(leptons_with_tracks_i, labels):
 
     lepton = leptons_with_tracks_i[0]
     tracks = leptons_with_tracks_i[1]
+
+    lepton_keys = labels[0]
+    track_keys = labels[1]
 
     cones = {}
     cones['truth_ptcone20'] = lepton[lepton_keys.index('ptcone20')]
@@ -33,7 +33,7 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i):
     for track in tracks:
         dR = track[track_keys.index('dR')]
         track_pt = track[track_keys.index('pT')]
-        if track_pt < 1000: continue # 1 GeV tracks
+        # if track_pt < 1000: continue # 1 GeV tracks
         if dR <= 0.2:
             cones['ptcone20'] += track_pt
             # ptcone20_squared += track_pt * track_pt
@@ -60,7 +60,11 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i):
 # Comparison plots #
 ####################
 
-def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
+def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir):
+
+    # labels
+    lepton_keys = labels[0]
+    track_keys = labels[1]
 
     # separate flavors
     electrons_with_tracks = [lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')]==11]
@@ -72,7 +76,7 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
     # for i, leptons_with_tracks_i in enumerate(electrons_with_tracks):
     # for i, leptons_with_tracks_i in enumerate(muons_with_tracks):
     for i, leptons_with_tracks_i in enumerate(leptons_with_tracks):
-        cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i)
+        cones_i = calculate_ptcone_and_etcone(leptons_with_tracks_i, labels)
         for key in cones_i.keys():
             cones.setdefault(key, []).append(cones_i[key])
 
@@ -98,13 +102,14 @@ def compare_ptcone_and_etcone(leptons_with_tracks, plot_save_dir):
     # plot comparisons for all lepton features
     isolated_leptons = [lwt[0] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [2, 6]]
     HF_leptons = [lwt[0] for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('truth_type')] in [3, 7]]
+    sns.set()
     for feature in lepton_keys:
         isolated_feature_values = [lepton[lepton_keys.index(feature)] for lepton in isolated_leptons]
         HF_feature_values = [lepton[lepton_keys.index(feature)] for lepton in HF_leptons]
         all_feature_values = isolated_feature_values + HF_feature_values
         bins = np.linspace(min(all_feature_values), max(all_feature_values), 30)
         # bins = np.linspace(min(all_feature_values), 2*np.median(all_feature_values), 30)
-        plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step')
+        plt.hist([isolated_feature_values, HF_feature_values], normed=True, bins=bins, histtype='step', linewidth=1)
         plt.title(feature)
         plt.legend(['HF', 'isolated']) # yes, I think this order is correct
         plt.savefig(plot_save_dir + feature + ".png", bbox_inches='tight')

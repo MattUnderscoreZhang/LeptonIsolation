@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import LeptonTrackDataset
+import pdb
 
 ##################
 # Train and test #
@@ -86,9 +87,9 @@ class RNN_Trainer:
 
         # loss
         plt.plot(self.history[LOSS][TRAIN][BATCH],
-                 'o-', color='g', label="Training loss")
+             'o-', color='g', label="Training loss")
         plt.plot(self.history[LOSS][TEST][BATCH],
-                 'o-', color='r', label="Test loss")
+             'o-', color='r', label="Test loss")
         plt.title("Loss")
         plt.xlabel("Batch")
         plt.ylabel("Loss")
@@ -99,9 +100,9 @@ class RNN_Trainer:
 
         # accuracy
         plt.plot(self.history[ACC][TRAIN][BATCH], 'o-',
-                 color='g', label="Training accuracy")
+             color='g', label="Training accuracy")
         plt.plot(self.history[ACC][TEST][BATCH], 'o-',
-                 color='r', label="Test accuracy")
+             color='r', label="Test accuracy")
         plt.title("Accuracy")
         plt.xlabel("Batch")
         plt.ylabel("Accuracy")
@@ -117,11 +118,11 @@ class RNN_Trainer:
         prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
         hist_bins = np.arange(0, 1, 0.01)
         plt.hist(prompt_raw_results, histtype='step', color='r',
-                 label="Prompt", weights=np.ones_like(prompt_raw_results) /
-                 float(len(prompt_raw_results)), bins=hist_bins)
+             label="Prompt", weights=np.ones_like(prompt_raw_results) /
+             float(len(prompt_raw_results)), bins=hist_bins)
         plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-                 weights=np.ones_like(HF_raw_results) /
-                 float(len(HF_raw_results)), bins=hist_bins)
+             weights=np.ones_like(HF_raw_results) /
+             float(len(HF_raw_results)), bins=hist_bins)
         plt.title("RNN Results")
         plt.xlabel("Result")
         plt.ylabel("Percentage")
@@ -147,8 +148,8 @@ if __name__ == "__main__":
     sns.set()
 
     # prepare data
-    in_file = "Data/output.h5"
-    save_file = "Data/lepton_track_data.pkl"
+    in_file = "../Data/output.h5"
+    save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
         in_file, save_file, overwrite=False)
 
@@ -158,8 +159,9 @@ if __name__ == "__main__":
     lwt = list(zip(
         leptons_with_tracks['unnormed_leptons'],
         leptons_with_tracks['unnormed_tracks']))
-    # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
-
+    labels = [leptons_with_tracks['lepton_labels'],
+        leptons_with_tracks['track_labels']]
+    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
     lwt = list(

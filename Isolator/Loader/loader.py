@@ -49,8 +49,8 @@ def group_leptons_and_tracks(leptons, tracks):
             dd0 = abs(lepton['d0']-track['d0'])
             dz0 = abs(lepton['z0']-track['z0'])
             if dR<0.5:
-                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
-                # nearby_tracks.append(np.array([dR, track['pT']], dtype=float))
+                # nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
+                nearby_tracks.append(np.array([dR, track['pT']], dtype=float))
 
         # sort by dR and remove tracks associated to lepton
         nearby_tracks.sort(key=lambda x: x[0])
@@ -118,7 +118,6 @@ def create_or_load(in_file, save_file_name, overwrite=False):
         n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
         unnormed_leptons = list(good_HF_leptons)[:n_each_type] + list(good_prompt_leptons)[:n_each_type]
         unnormed_tracks = list(good_HF_tracks)[:n_each_type] + list(good_prompt_tracks)[:n_each_type]
-        print(len(unnormed_leptons), len(unnormed_tracks))
 
         # normalize and create final data structure
         unfolded_leptons = np.array(unnormed_leptons)

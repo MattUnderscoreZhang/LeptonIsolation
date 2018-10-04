@@ -9,10 +9,6 @@ import pdb
 # Group leptons and tracks #
 ############################
 
-# Not stored in output pickle file (unfortunately):
-# Lepton keys: ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
-# Track keys: ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
-
 def group_leptons_and_tracks(leptons, tracks):
 
     grouped_leptons = []

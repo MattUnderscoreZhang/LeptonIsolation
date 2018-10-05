@@ -33,17 +33,14 @@ class LeptonTrackDataset:
         truth = torch.LongTensor([int(lepton[12]) in [2, 6]]) # 'truth_type': 2/6=prompt; 3/7=HF
         return truth, lepton, tracks
 
-
 def collate(batch):
     '''pads the data with 0's'''
     length = torch.tensor([len(item[0]) for item in batch])
-    max_size = length.max()
+    max_size = int(length.max())
     data = [nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))
             (item[0]) for item in batch]
-
     target = torch.stack([item[1] for item in batch])
     return [torch.stack(data), target]
-
 
 class Torchdata(Dataset):
     """takes a list of lepton data and uses

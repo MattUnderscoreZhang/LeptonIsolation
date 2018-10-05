@@ -3,8 +3,8 @@ import pathlib
 import torch
 import datetime
 import Loader.loader as loader
-from Architectures.RNN import RNN
-# from Architectures.test_new_rnn import RNN
+# from Architectures.RNN import RNN
+from Architectures.test_new_rnn import RNN
 from Analysis import cones
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -38,16 +38,16 @@ class RNN_Trainer:
     def prepare(self):
         # split train and test
         np.random.shuffle(self.leptons_with_tracks)
-        self.training_events = \
+        self.all_training_events = \
             self.leptons_with_tracks[:self.n_training_events]
-        self.test_events = self.leptons_with_tracks[self.n_training_events:]
+        self.all_test_events = self.leptons_with_tracks[self.n_training_events:]
         # prepare the generators
-        self.train_set = LeptonTrackDataset(self.training_events)
-        self.test_set = LeptonTrackDataset(self.test_events)
+        self.train_set = LeptonTrackDataset(self.all_training_events)
+        self.test_set = LeptonTrackDataset(self.all_test_events)
         # set up RNN
         self.rnn = RNN(self.options)
 
-    def make_batch(self):
+    def make_batch(self): # batch_size events, where each event is [truth_label, lep_features, [track_features]]
         training_batch = []
         for i in range(self.options['batch_size']):
             next_event = next(self.train_set)
@@ -76,7 +76,7 @@ class RNN_Trainer:
     def test(self):
         test_batch = []
         self.test_set.reshuffle()
-        for i in range(len(self.test_events)):
+        for i in range(len(self.all_test_events)):
             next_event = next(self.test_set)
             test_batch.append(next_event)
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         leptons_with_tracks['unnormed_tracks']))
     labels = [leptons_with_tracks['lepton_labels'],
         leptons_with_tracks['track_labels']]
-    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
     lwt = list(

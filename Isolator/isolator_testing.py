@@ -147,8 +147,8 @@ if __name__ == "__main__":
     from Options.default_options import options
 
     # prepare data
-    in_file = "Data/output.h5"
-    save_file = "Data/lepton_track_data.pkl"
+    in_file = "../Data/output.h5"
+    save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
         in_file, save_file, overwrite=False)
 

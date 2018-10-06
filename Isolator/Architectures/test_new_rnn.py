@@ -6,6 +6,10 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
 import pdb
 
+def Tensor_length(track):
+    """Finds the length of the non zero tensor"""
+    return int(torch.nonzero(track).shape[0]/track.shape[1])
+
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
 
@@ -24,20 +28,34 @@ class RNN(nn.Module):
 
     def _init_hidden(self):
         ''' creates hidden layer of given specification'''
-        hidden = torch.zeros(self.n_layers,
-             self.batch_size, self.size[1])
+        hidden = torch.zeros(self.n_layers*self.n_directions,
+                             self.batch_size, self.size[1])
         return hidden
 
     def forward(self, tracks):
+
         self.rnn.flatten_parameters()
-        n_tracks = ((tracks==0).sum(dim=2).numpy()!=0).argmax(axis=1) # find out how many tracks are in each event
+
+        n_tracks= torch.tensor([Tensor_length(tracks[i]) for i in range(len(tracks))])
+        sorted_n,indices= torch.sort(n_tracks, descending=True)
+        sorted_tracks=tracks[indices]
+        track_info=zip(sorted_n,sorted_tracks)
+        # n_tracks = ((tracks == 0).sum(dim=2).numpy() != 0).argmax(
+        #     axis=1)  # find out how many tracks are in each event
+
+        # track_info = [info for info in sorted(
+        #     zip(tracks, n_tracks), key=lambda pair: pair[1])]  # sort tracks data by n_tracks
+
+        #tracks = torch.stack([i[0] for i in track_info])
+
+        #_tracks = torch.tensor([i[1] for i in track_info], dtype=torch.int32)
+        # transpose first and second dimensions
+        # tracks = tracks.transpose(0, 1)
         pdb.set_trace()
-        track_info = [info for info in sorted(zip(tracks, n_tracks), key=lambda pair: pair[1])] # sort tracks data by n_tracks
-        tracks = torch.stack([i[0] for i in track_info])
-        n_tracks = torch.tensor([i[1] for i in track_info], dtype=torch.int32)
+        output, hidden = self.rnn(
+            pack_padded_sequence(sorted_tracks, lengths=sorted_n))
+
         pdb.set_trace()
-        tracks = tracks.transpose(0,1) # transpose first and second dimensions
-        output, hidden = self.rnn(pack_padded_sequence(tracks, lengths=n_tracks))
         fc_output = self.fc(hidden[-1])
         return fc_output
 

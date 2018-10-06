@@ -3,8 +3,8 @@ import numpy as np
 import itertools as it
 import random
 from torch.utils.data import DataLoader, Dataset
-import torch
 import torch.nn as nn
+
 
 class LeptonTrackDataset:
 
@@ -19,7 +19,8 @@ class LeptonTrackDataset:
         return self
 
     def reshuffle(self):
-        self.read_order = it.chain(random.sample(range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)))
+        self.read_order = it.chain(random.sample(
+            range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)))
 
     def __next__(self):
         try:
@@ -30,8 +31,10 @@ class LeptonTrackDataset:
         lepton, tracks = self.leptons_with_tracks[i]
         lepton = torch.from_numpy(lepton).float()
         tracks = torch.from_numpy(np.array(tracks)).float()
-        truth = torch.LongTensor([int(lepton[12]) in [2, 6]]) # 'truth_type': 2/6=prompt; 3/7=HF
+        # 'truth_type': 2/6=prompt; 3/7=HF
+        truth = torch.LongTensor([int(lepton[12]) in [2, 6]])
         return truth, lepton, tracks
+
 
 def collate(batch):
     '''pads the data with 0's'''
@@ -41,6 +44,7 @@ def collate(batch):
             (item[0]) for item in batch]
     target = torch.stack([item[1] for item in batch])
     return [torch.stack(data), target]
+
 
 class Torchdata(Dataset):
     """takes a list of lepton data and uses

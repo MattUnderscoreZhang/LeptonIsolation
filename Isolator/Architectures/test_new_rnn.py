@@ -39,7 +39,6 @@ class RNN(nn.Module):
         n_tracks= torch.tensor([Tensor_length(tracks[i]) for i in range(len(tracks))])
         sorted_n,indices= torch.sort(n_tracks, descending=True)
         sorted_tracks=tracks[indices]
-        track_info=zip(sorted_n,sorted_tracks)
         # n_tracks = ((tracks == 0).sum(dim=2).numpy() != 0).argmax(
         #     axis=1)  # find out how many tracks are in each event
 
@@ -51,11 +50,9 @@ class RNN(nn.Module):
         #_tracks = torch.tensor([i[1] for i in track_info], dtype=torch.int32)
         # transpose first and second dimensions
         # tracks = tracks.transpose(0, 1)
-        pdb.set_trace()
         output, hidden = self.rnn(
-            pack_padded_sequence(sorted_tracks, lengths=sorted_n))
+            pack_padded_sequence(sorted_tracks, lengths=sorted_n, batch_first=True))
 
-        pdb.set_trace()
         fc_output = self.fc(hidden[-1])
         return fc_output
 

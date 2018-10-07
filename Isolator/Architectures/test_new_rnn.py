@@ -23,12 +23,13 @@ class RNN(nn.Module):
         self.size = options["n_size"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
-        self.rnn = nn.RNN(
+        self.rnn = nn.GRU(
             input_size=self.size[0], hidden_size=self.size[1],
             batch_first=True, num_layers=self.n_layers,
             bidirectional=options["bidirectional"])
         self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def _init_hidden(self):
         ''' creates hidden layer of given specification'''
@@ -45,12 +46,8 @@ class RNN(nn.Module):
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
 
-        output, hidden = self.rnn(
-            pack_padded_sequence(sorted_tracks,
-                                 lengths=sorted_n, batch_first=True))
-
-
-        output, _ = torch.nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
+        output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
+                                                       lengths=sorted_n, batch_first=True))
 
         fc_output = self.fc(hidden[-1])
 
@@ -68,15 +65,18 @@ class RNN(nn.Module):
             self.train()
         else:
             self.eval()
-        self.zero_grad()
         total_loss = 0
         total_acc = 0
         raw_results = []
         all_truth = []
         for i, data in enumerate(events, 1):
+            self.optimizer.zero_grad()
             track_info, truth = data
             output = self.forward(track_info)
-            loss = self.loss_function(output.data, torch.max(truth, 1)[0])
+            loss = self.loss_function(output, torch.max(truth, 1)[0])
+            if do_training is True:
+                loss.backward()
+                self.optimizer.step()
             total_loss += loss.data.item()
             total_acc += self.accuracy(output, truth)
             raw_results.append(output.data.detach().numpy()[0][0])
@@ -85,11 +85,8 @@ class RNN(nn.Module):
         total_acc = total_acc.float() / len(events.dataset)
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
-        # if do_training:
-        # total_loss.backward()
-        # for param in self.parameters():
-        #     param.data.add_(-self.learning_rate, param.grad.data)
-        return total_loss.data.item(), total_acc.data.item(),raw_results, all_truth
+
+        return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)

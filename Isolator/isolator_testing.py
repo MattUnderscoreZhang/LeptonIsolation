@@ -111,24 +111,24 @@ class RNN_Trainer:
         plt.clf()
 
         # separation
-        HF_flag = [i == 0 for i in self.test_truth]
-        prompt_flag = [i == 1 for i in self.test_truth]
-        HF_raw_results = np.array(self.test_raw_results)[HF_flag]
-        prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
-        hist_bins = np.arange(0, 1, 0.01)
-        plt.hist(prompt_raw_results, histtype='step', color='r',
-                 label="Prompt", weights=np.ones_like(prompt_raw_results) /
-                 float(len(prompt_raw_results)), bins=hist_bins)
-        plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-                 weights=np.ones_like(HF_raw_results) /
-                 float(len(HF_raw_results)), bins=hist_bins)
-        plt.title("RNN Results")
-        plt.xlabel("Result")
-        plt.ylabel("Percentage")
-        plt.grid('on', linestyle='--')
-        plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "separation.png")
-        plt.clf()
+        # HF_flag = [i == 0 for i in self.test_truth]
+        # prompt_flag = [i == 1 for i in self.test_truth]
+        # HF_raw_results = np.array(self.test_raw_results)[HF_flag]
+        # prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
+        # hist_bins = np.arange(0, 1, 0.01)
+        # plt.hist(prompt_raw_results, histtype='step', color='r',
+        #          label="Prompt", weights=np.ones_like(prompt_raw_results) /
+        #          float(len(prompt_raw_results)), bins=hist_bins)
+        # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
+        #          weights=np.ones_like(HF_raw_results) /
+        #          float(len(HF_raw_results)), bins=hist_bins)
+        # plt.title("RNN Results")
+        # plt.xlabel("Result")
+        # plt.ylabel("Percentage")
+        # plt.grid('on', linestyle='--')
+        # plt.legend(loc='best')
+        # plt.savefig(self.plot_save_dir + "separation.png")
+        # plt.clf()
 
     def train_and_test(self):
         self.prepare()

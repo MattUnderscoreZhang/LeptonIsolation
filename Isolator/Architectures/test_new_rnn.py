@@ -12,6 +12,13 @@ def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
+def fliptruth(tensor):
+    # we create a copy of the original tensor, 
+    # because of the way we are replacing them.
+    res = tensor.clone()
+    res[tensor==0] = 1.0
+    res[tensor!=0] = 0.0
+    return res
 
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
@@ -65,7 +72,7 @@ class RNN(nn.Module):
     def accuracy(self, output, truth):
 
         predicted, _ = torch.max(output.data, -1)
-        acc = (torch.round(predicted).float() == truth.float()).sum()
+        acc = (fliptruth(torch.round(predicted).float()).float() == truth[:,0].float()).sum()
         return acc.float() / len(truth)
 
     def do_train(self, events, do_training=True):
@@ -90,7 +97,7 @@ class RNN(nn.Module):
             raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events.dataset)
-        total_acc = total_acc.float() / len(events.dataset)
+        total_acc = total_acc.float() / len(events.dataset)*100
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
 

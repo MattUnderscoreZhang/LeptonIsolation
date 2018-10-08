@@ -85,6 +85,7 @@ class RNN_Trainer:
         '''Plots all the necessary details from the trained model'''
 
         # loss
+
         plt.plot(self.history[LOSS][TRAIN][BATCH],
                  'o-', color='g', label="Training loss")
         plt.plot(self.history[LOSS][TEST][BATCH],
@@ -98,6 +99,7 @@ class RNN_Trainer:
         plt.clf()
 
         # accuracy
+
         plt.plot(self.history[ACC][TRAIN][BATCH], 'o-',
                  color='g', label="Training accuracy")
         plt.plot(self.history[ACC][TEST][BATCH], 'o-',
@@ -111,6 +113,7 @@ class RNN_Trainer:
         plt.clf()
 
         # separation
+        
         # HF_flag = [i == 0 for i in self.test_truth]
         # prompt_flag = [i == 1 for i in self.test_truth]
         # HF_raw_results = np.array(self.test_raw_results)[HF_flag]

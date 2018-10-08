@@ -5,6 +5,7 @@ import random
 from torch.utils.data import DataLoader, Dataset
 import torch
 import torch.nn as nn
+import pdb
 
 class LeptonTrackDataset:
 
@@ -19,14 +20,10 @@ class LeptonTrackDataset:
         return self
 
     def reshuffle(self):
-        self.read_order = it.chain(random.sample(range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)))
+        self.read_order = random.sample(range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks))
 
-    def __next__(self):
-        try:
-            i = next(self.read_order)
-        except StopIteration:
-            self.reshuffle()
-            i = next(self.read_order)
+    def get(self, index):
+        i = self.read_order[index]
         lepton, tracks = self.leptons_with_tracks[i]
         lepton = torch.from_numpy(lepton).float()
         tracks = torch.from_numpy(np.array(tracks)).float()
@@ -52,15 +49,12 @@ class Torchdata(Dataset):
 
     def __getitem__(self, index, length=False):
         '''gets the data at a given index'''
-        dataiter = next(self.file)
-        for i in range(index - 1):
-            # there is probably a better way to do this
-            dataiter = next(self.file)
-
+        data = (self.file.get(index))
+        # pdb.set_trace()
         if length is False:
-            return dataiter[2], dataiter[0]
+            return data[2], data[0]
         else:
-            return dataiter[2], len(dataiter[2])
+            return data[2], len(data[2])
 
     def __len__(self):
         return len(self.file)

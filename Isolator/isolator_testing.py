@@ -49,11 +49,11 @@ class RNN_Trainer:
 
         training_loader = DataLoader(
             self.train_set, batch_size=options['batch_size'],
-            collate_fn=collate, shuffle=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         testing_loader = DataLoader(
             self.test_set, batch_size=options['batch_size'],
-            collate_fn=collate, shuffle=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         return training_loader, testing_loader
 
@@ -68,8 +68,8 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f,\
-             Test Loss: %0.2f, Test Acc: %0.2f" % (
+            print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "\
+                "Test Loss: %0.4f, Test Acc: %0.4f" % (
                 batch_n, train_loss, train_acc, test_loss, test_acc))
 
     def test(self):

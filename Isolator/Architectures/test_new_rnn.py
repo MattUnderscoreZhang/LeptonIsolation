@@ -54,8 +54,8 @@ class RNN(nn.Module):
 
     def accuracy(self, output, truth):
         predicted, _ = torch.max(output.data, -1)
-        acc = (torch.round(predicted).float() == truth.float()).sum()
-        return acc.float() / len(truth)
+        acc = (torch.round(predicted).float() == truth[:,0].float()).sum().float() / len(truth)
+        return acc
 
     def do_train(self, events, do_training=True):
         if do_training:
@@ -79,7 +79,7 @@ class RNN(nn.Module):
             raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events.dataset)
-        total_acc = total_acc.float() / len(events.dataset)
+        total_acc = total_acc.float() / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
         return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth

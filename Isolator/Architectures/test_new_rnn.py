@@ -7,18 +7,9 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import pdb
 
-
 def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
-
-def fliptruth(tensor):
-    # we create a copy of the original tensor, 
-    # because of the way we are replacing them.
-    res = tensor.clone()
-    res[tensor==0] = 1.0
-    res[tensor!=0] = 0.0
-    return res
 
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
@@ -35,44 +26,35 @@ class RNN(nn.Module):
                 input_size=self.size[0], hidden_size=self.size[1],
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-
         elif options['RNN_type'] is 'LSTM':
             self.rnn = nn.LSTM(
                 input_size=self.size[0], hidden_size=self.size[1],
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
                 input_size=self.size[0], hidden_size=self.size[1],
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-
         self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
     def forward(self, tracks):
-
         self.rnn.flatten_parameters()
-
         n_tracks = torch.tensor([Tensor_length(tracks[i])
                                  for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
-
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
                                                        lengths=sorted_n, batch_first=True))
-
         fc_output = self.fc(hidden[-1])
-
         return fc_output
 
     def accuracy(self, output, truth):
-
         predicted, _ = torch.max(output.data, -1)
-        acc = (fliptruth(torch.round(predicted).float()).float() == truth[:,0].float()).sum()
+        acc = (torch.round(predicted).float() == truth.float()).sum()
         return acc.float() / len(truth)
 
     def do_train(self, events, do_training=True):
@@ -97,10 +79,9 @@ class RNN(nn.Module):
             raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events.dataset)
-        total_acc = total_acc.float() / len(events.dataset)*100
+        total_acc = total_acc.float() / len(events.dataset)
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
-
         return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
 
     def do_eval(self, events, do_training=False):

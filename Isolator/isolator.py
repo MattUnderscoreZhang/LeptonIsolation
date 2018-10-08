@@ -4,15 +4,17 @@ import datetime
 import Loader.loader as loader
 from Architectures.RNN import RNN
 from torch.utils.data import DataLoader
-# from Analysis import cones
+from Analysis import cones
 import matplotlib.pyplot as plt
-# import seaborn as sns
+import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import Torchdata, collate
 from torch.utils.data import DataLoader, Dataset
+import pdb
+
+#################
 # Train and test #
 ##################
-
 
 class RNN_Trainer:
 
@@ -61,9 +63,9 @@ class RNN_Trainer:
         train_loss = 0
         train_acc = 0
         for batch_n in range(self.options['n_batches']):
-            training_loader, testing_loader = self.make_batch()
-            train_loss, train_acc, _, _ = self.rnn.do_train(training_loader)
-            test_loss, test_acc, _, _ = self.rnn.do_eval(testing_loader)
+            training_batch, testing_batch = self.make_batch()
+            train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
+            test_loss, test_acc, _, _ = self.rnn.do_eval(testing_batch)
             self.history[LOSS][TRAIN][BATCH].append(train_loss)
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
@@ -94,7 +96,7 @@ class RNN_Trainer:
         plt.ylabel("Loss")
         plt.grid('on', linestyle='--')
         plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "loss_new.png")
+        plt.savefig(self.plot_save_dir + "loss.png")
         plt.clf()
 
         # accuracy
@@ -107,28 +109,30 @@ class RNN_Trainer:
         plt.ylabel("Accuracy")
         plt.grid('on', linestyle='--')
         plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "accuracy_new.png")
+        plt.savefig(self.plot_save_dir + "accuracy.png")
         plt.clf()
 
-        # separation
-        HF_flag = [i == 0 for i in self.test_truth]
-        prompt_flag = [i == 1 for i in self.test_truth]
-        HF_raw_results = np.array(self.test_raw_results)[HF_flag]
-        prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
-        hist_bins = np.arange(0, 1, 0.01)
-        plt.hist(prompt_raw_results, histtype='step', color='r',
-                 label="Prompt", weights=np.ones_like(prompt_raw_results) /
-                 float(len(prompt_raw_results)), bins=hist_bins)
-        plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-                 weights=np.ones_like(HF_raw_results) /
-                 float(len(HF_raw_results)), bins=hist_bins)
-        plt.title("RNN Results")
-        plt.xlabel("Result")
-        plt.ylabel("Percentage")
-        plt.grid('on', linestyle='--')
-        plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "separation.png")
-        plt.clf()
+        # # separation
+        # self.test_truth = [i[0] for i in self.test_truth]
+        # HF_flag = [i == 0 for i in self.test_truth]
+        # prompt_flag = [i == 1 for i in self.test_truth]
+        # HF_raw_results = np.array(self.test_raw_results)[HF_flag]
+        # prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
+        # hist_bins = np.arange(0, 1, 0.01)
+        # pdb.set_trace()
+        # plt.hist(prompt_raw_results, histtype='step', color='r',
+                 # label="Prompt", weights=np.ones_like(prompt_raw_results) /
+                 # float(len(prompt_raw_results)), bins=hist_bins)
+        # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
+                 # weights=np.ones_like(HF_raw_results) /
+                 # float(len(HF_raw_results)), bins=hist_bins)
+        # plt.title("RNN Results")
+        # plt.xlabel("Result")
+        # plt.ylabel("Percentage")
+        # plt.grid('on', linestyle='--')
+        # plt.legend(loc='best')
+        # plt.savefig(self.plot_save_dir + "separation.png")
+        # plt.clf()
 
     def train_and_test(self):
         self.prepare()
@@ -139,7 +143,6 @@ class RNN_Trainer:
 #################
 # Main function #
 #################
-
 
 if __name__ == "__main__":
 
@@ -164,7 +167,5 @@ if __name__ == "__main__":
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
-
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
-    # RNN_trainer.arch_print()
     RNN_trainer.train_and_test()

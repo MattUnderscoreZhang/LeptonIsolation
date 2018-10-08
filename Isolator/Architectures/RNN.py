@@ -1,73 +1,87 @@
+'''This file aims to try pytorch rnn module implementation as a
+new neural network architecture'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pdb
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import pdb, time
 
-################
-# Architecture #
-################
+def Tensor_length(track):
+    """Finds the length of the non zero tensor"""
+    return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 class RNN(nn.Module):
+    """RNN module implementing pytorch rnn"""
 
     def __init__(self, options):
-        super().__init__()
-        self.n_hidden_output_neurons = options['n_hidden_output_neurons']
-        self.n_hidden_middle_neurons = options['n_hidden_middle_neurons']
+        super(RNN, self).__init__()
+        self.n_directions = int(options["bidirectional"]) + 1
+        self.n_layers = options["n_layers"]
+        self.size = options["n_size"]
+        self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
-        self.hidden_layer_1 = nn.Linear(
-            options['n_track_features'] + self.n_hidden_output_neurons, self.n_hidden_middle_neurons)
-        self.hidden_layer_2 = nn.Linear(
-            self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
-        self.hidden_layer_3 = nn.Linear(
-            self.n_hidden_middle_neurons, self.n_hidden_middle_neurons)
-        self.hidden_out_layer = nn.Linear(
-            self.n_hidden_middle_neurons, self.n_hidden_output_neurons)
-        self.output_layer = nn.Linear(self.n_hidden_middle_neurons, 2)
-        self.softmax = nn.Softmax(dim=1)
+        if options['RNN_type'] is 'vanilla':
+            self.rnn = nn.RNN(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+        elif options['RNN_type'] is 'LSTM':
+            self.rnn = nn.LSTM(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+        elif options['RNN_type'] is 'GRU':
+            self.rnn = nn.GRU(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+        self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
-    def forward(self, track, hidden):
-        track = track.view(1, track.size()[0])
-        x = torch.cat((track, hidden), 1)
-        x = torch.tanh(self.hidden_layer_1(x))
-        x = torch.tanh(self.hidden_layer_2(x))
-        x = torch.tanh(self.hidden_layer_3(x))
-        hidden = torch.tanh(self.hidden_out_layer(x))
-        output = F.relu(self.output_layer(x))
-        output = self.softmax(output)
-        return output, hidden
+    def forward(self, tracks):
+        self.rnn.flatten_parameters()
+        n_tracks = torch.tensor([Tensor_length(tracks[i])
+                                 for i in range(len(tracks))])
+        sorted_n, indices = torch.sort(n_tracks, descending=True)
+        sorted_tracks = tracks[indices]
+        output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
+                                                       lengths=sorted_n, batch_first=True))
+        fc_output = self.fc(hidden[-1])
+        return fc_output
 
     def accuracy(self, output, truth):
-        _, top_i = output.data.topk(1)
-        category = top_i[0][0]
-        return (category == truth.data[0])
+        predicted, _ = torch.max(output.data, -1)
+        acc = (torch.round(predicted).float() == truth[:,0].float()).sum().float() / len(truth)
+        return acc
 
     def do_train(self, events, do_training=True):
         if do_training:
             self.train()
         else:
             self.eval()
-        self.zero_grad()
         total_loss = 0
         total_acc = 0
         raw_results = []
         all_truth = []
-        for event in events:
-            hidden = torch.zeros(1, self.n_hidden_output_neurons)
-            truth, lepton, tracks = event
-            # print(event)
-            for track in tracks:
-                output, hidden = self.forward(track, hidden)
-            total_loss += self.loss_function(output, truth)
+        for i, data in enumerate(events, 1):
+            self.optimizer.zero_grad()
+            track_info, truth = data
+            output = self.forward(track_info)
+            loss = self.loss_function(output, torch.max(truth, 1)[0])
+            if do_training is True:
+                loss.backward()
+                self.optimizer.step()
+            total_loss += loss.data.item()
             total_acc += self.accuracy(output, truth)
-            raw_results.append(output.detach().numpy()[0][0])
+            raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
-        total_loss /= len(events)
-        total_acc = total_acc.float() / len(events)
-        if do_training:
-            total_loss.backward()
-            for param in self.parameters():
-                param.data.add_(-self.learning_rate, param.grad.data)
+        total_loss /= len(events.dataset)
+        total_acc = total_acc.float() / len(events.dataset) * self.batch_size
+        total_loss = torch.tensor(total_loss)
+        total_acc = torch.tensor(total_acc)
         return total_loss.data.item(), total_acc.data.item(), raw_results, all_truth
 
     def do_eval(self, events, do_training=False):

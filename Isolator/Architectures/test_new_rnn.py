@@ -23,23 +23,31 @@ class RNN(nn.Module):
         self.size = options["n_size"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
-        self.rnn = nn.GRU(
-            input_size=self.size[0], hidden_size=self.size[1],
-            batch_first=True, num_layers=self.n_layers,
-            bidirectional=options["bidirectional"])
+        if options['RNN_type'] is 'vanilla':
+            self.rnn = nn.RNN(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
+        elif options['RNN_type'] is 'LSTM':
+            self.rnn = nn.LSTM(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
+        elif options['RNN_type'] is 'GRU':
+            self.rnn = nn.GRU(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
         self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-    def _init_hidden(self):
-        ''' creates hidden layer of given specification'''
-        hidden = torch.zeros(self.n_layers * self.n_directions,
-                             self.batch_size, self.size[1])
-        return hidden
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
     def forward(self, tracks):
 
-        hidden = self._init_hidden()#
         self.rnn.flatten_parameters()
 
         n_tracks = torch.tensor([Tensor_length(tracks[i])

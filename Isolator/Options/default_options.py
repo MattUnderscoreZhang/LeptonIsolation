@@ -1,4 +1,5 @@
 options = {}
+options["RNN_type"]="vanilla"
 options['n_hidden_output_neurons'] = 128
 options['n_hidden_middle_neurons'] = 128
 options['learning_rate'] = 0.0001

@@ -12,6 +12,13 @@ def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
+def fliptruth(tensor):
+    # we create a copy of the original tensor, 
+    # because of the way we are replacing them.
+    res = tensor.clone()
+    res[tensor==0] = 1.0
+    res[tensor!=0] = 0.0
+    return res
 
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
@@ -23,23 +30,31 @@ class RNN(nn.Module):
         self.size = options["n_size"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
-        self.rnn = nn.GRU(
-            input_size=self.size[0], hidden_size=self.size[1],
-            batch_first=True, num_layers=self.n_layers,
-            bidirectional=options["bidirectional"])
+        if options['RNN_type'] is 'vanilla':
+            self.rnn = nn.RNN(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
+        elif options['RNN_type'] is 'LSTM':
+            self.rnn = nn.LSTM(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
+        elif options['RNN_type'] is 'GRU':
+            self.rnn = nn.GRU(
+                input_size=self.size[0], hidden_size=self.size[1],
+                batch_first=True, num_layers=self.n_layers,
+                bidirectional=options["bidirectional"])
+
         self.fc = nn.Linear(self.size[1], self.size[2])
         self.loss_function = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-
-    def _init_hidden(self):
-        ''' creates hidden layer of given specification'''
-        hidden = torch.zeros(self.n_layers * self.n_directions,
-                             self.batch_size, self.size[1])
-        return hidden
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
     def forward(self, tracks):
 
-        hidden = self._init_hidden()#
         self.rnn.flatten_parameters()
 
         n_tracks = torch.tensor([Tensor_length(tracks[i])
@@ -57,7 +72,7 @@ class RNN(nn.Module):
     def accuracy(self, output, truth):
 
         predicted, _ = torch.max(output.data, -1)
-        acc = (torch.round(predicted).float() == truth.float()).sum()
+        acc = (fliptruth(torch.round(predicted).float()).float() == truth[:,0].float()).sum()
         return acc.float() / len(truth)
 
     def do_train(self, events, do_training=True):
@@ -82,7 +97,7 @@ class RNN(nn.Module):
             raw_results.append(output.data.detach().numpy()[0][0])
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events.dataset)
-        total_acc = total_acc.float() / len(events.dataset)
+        total_acc = total_acc.float() / len(events.dataset)*100
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
 

@@ -39,6 +39,7 @@ class RNN(nn.Module):
 
     def forward(self, tracks):
 
+        hidden = self._init_hidden()#
         self.rnn.flatten_parameters()
 
         n_tracks = torch.tensor([Tensor_length(tracks[i])
@@ -55,7 +56,6 @@ class RNN(nn.Module):
 
     def accuracy(self, output, truth):
 
-        pdb.set_trace()
         predicted, _ = torch.max(output.data, -1)
         acc = (torch.round(predicted).float() == truth.float()).sum()
         return acc.float() / len(truth)

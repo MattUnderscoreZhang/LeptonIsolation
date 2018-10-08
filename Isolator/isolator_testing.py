@@ -68,8 +68,8 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            print("Batch: %d, Train Loss: %0.2f, Train Acc: %0.2f,\
-             Test Loss: %0.2f, Test Acc: %0.2f" % (
+            print("Batch: %d, Train Loss: %f, Train Acc: %f,\
+             Test Loss: %f, Test Acc: %f" % (
                 batch_n, train_loss, train_acc, test_loss, test_acc))
 
     def test(self):
@@ -85,6 +85,7 @@ class RNN_Trainer:
         '''Plots all the necessary details from the trained model'''
 
         # loss
+
         plt.plot(self.history[LOSS][TRAIN][BATCH],
                  'o-', color='g', label="Training loss")
         plt.plot(self.history[LOSS][TEST][BATCH],
@@ -98,6 +99,7 @@ class RNN_Trainer:
         plt.clf()
 
         # accuracy
+
         plt.plot(self.history[ACC][TRAIN][BATCH], 'o-',
                  color='g', label="Training accuracy")
         plt.plot(self.history[ACC][TEST][BATCH], 'o-',
@@ -111,24 +113,25 @@ class RNN_Trainer:
         plt.clf()
 
         # separation
-        HF_flag = [i == 0 for i in self.test_truth]
-        prompt_flag = [i == 1 for i in self.test_truth]
-        HF_raw_results = np.array(self.test_raw_results)[HF_flag]
-        prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
-        hist_bins = np.arange(0, 1, 0.01)
-        plt.hist(prompt_raw_results, histtype='step', color='r',
-                 label="Prompt", weights=np.ones_like(prompt_raw_results) /
-                 float(len(prompt_raw_results)), bins=hist_bins)
-        plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-                 weights=np.ones_like(HF_raw_results) /
-                 float(len(HF_raw_results)), bins=hist_bins)
-        plt.title("RNN Results")
-        plt.xlabel("Result")
-        plt.ylabel("Percentage")
-        plt.grid('on', linestyle='--')
-        plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "separation.png")
-        plt.clf()
+        
+        # HF_flag = [i == 0 for i in self.test_truth]
+        # prompt_flag = [i == 1 for i in self.test_truth]
+        # HF_raw_results = np.array(self.test_raw_results)[HF_flag]
+        # prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
+        # hist_bins = np.arange(0, 1, 0.01)
+        # plt.hist(prompt_raw_results, histtype='step', color='r',
+        #          label="Prompt", weights=np.ones_like(prompt_raw_results) /
+        #          float(len(prompt_raw_results)), bins=hist_bins)
+        # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
+        #          weights=np.ones_like(HF_raw_results) /
+        #          float(len(HF_raw_results)), bins=hist_bins)
+        # plt.title("RNN Results")
+        # plt.xlabel("Result")
+        # plt.ylabel("Percentage")
+        # plt.grid('on', linestyle='--')
+        # plt.legend(loc='best')
+        # plt.savefig(self.plot_save_dir + "separation.png")
+        # plt.clf()
 
     def train_and_test(self):
         self.prepare()

@@ -18,25 +18,27 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
-        self.size = options["n_size"]
+        self.input_size = options["input_size"]
+        self.hidden_size = options["hidden_size"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
         if options['RNN_type'] is 'vanilla':
             self.rnn = nn.RNN(
-                input_size=self.size[0], hidden_size=self.size[1],
+                input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
         elif options['RNN_type'] is 'LSTM':
             self.rnn = nn.LSTM(
-                input_size=self.size[0], hidden_size=self.size[1],
+                input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
-                input_size=self.size[0], hidden_size=self.size[1],
+                input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-        self.fc = nn.Linear(self.size[1], self.size[2])
+        self.fc = nn.Linear(self.hidden_size, 2)
+        self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
@@ -44,17 +46,20 @@ class RNN(nn.Module):
     def forward(self, tracks):
         self.rnn.flatten_parameters()
         n_tracks = torch.tensor([Tensor_length(tracks[i])
-                                 for i in range(len(tracks))])
+            for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
-                                                       lengths=sorted_n, batch_first=True))
-        fc_output = self.fc(hidden[-1])
-        return fc_output
+            lengths=sorted_n, batch_first=True))
+        output = self.softmax(self.fc(hidden[-1]))
+        return output
 
     def accuracy(self, output, truth):
-        predicted, _ = torch.max(output.data, -1)
+        # predicted, _ = torch.max(output.data, -1)
+        predicted = output.data[:,0]
         acc = (torch.round(predicted).float() == truth[:,0].float()).sum().float() / len(truth)
+        # if acc < 0.3:
+            # pdb.set_trace()
         return acc
 
     def do_train(self, events, do_training=True):
@@ -70,7 +75,7 @@ class RNN(nn.Module):
             self.optimizer.zero_grad()
             track_info, truth = data
             output = self.forward(track_info)
-            loss = self.loss_function(output, torch.max(truth, 1)[0])
+            loss = self.loss_function(output, truth[:,0])
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()

@@ -95,7 +95,7 @@ class RNN_Trainer:
         plt.ylabel("Loss")
         plt.grid('on', linestyle='--')
         plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "loss.png")
+        plt.savefig(self.plot_save_dir + "loss_new.png")
         plt.clf()
 
         # accuracy
@@ -109,7 +109,7 @@ class RNN_Trainer:
         plt.ylabel("Accuracy")
         plt.grid('on', linestyle='--')
         plt.legend(loc='best')
-        plt.savefig(self.plot_save_dir + "accuracy.png")
+        plt.savefig(self.plot_save_dir + "accuracy_new.png")
         plt.clf()
 
         # separation

@@ -10,11 +10,15 @@ import seaborn as sns
 from DataStructures.HistoryData import *
 from DataStructures.LeptonTrackDataset import Torchdata, collate
 from torch.utils.data import DataLoader, Dataset
+from tensorboardX import SummaryWriter
 import pdb
 
 #################
 # Train and test #
 ##################
+
+writer = SummaryWriter()
+
 
 class RNN_Trainer:
 
@@ -70,9 +74,13 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "\
-                "Test Loss: %0.4f, Test Acc: %0.4f" % (
-                batch_n, train_loss, train_acc, test_loss, test_acc))
+            writer.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
+            writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
+            writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
+            writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
+                  "Test Loss: %0.4f, Test Acc: %0.4f" % (
+                      batch_n, train_loss, train_acc, test_loss, test_acc))
 
     def test(self):
         test_batch = []
@@ -121,11 +129,11 @@ class RNN_Trainer:
         # hist_bins = np.arange(0, 1, 0.01)
         # pdb.set_trace()
         # plt.hist(prompt_raw_results, histtype='step', color='r',
-                 # label="Prompt", weights=np.ones_like(prompt_raw_results) /
-                 # float(len(prompt_raw_results)), bins=hist_bins)
+        # label="Prompt", weights=np.ones_like(prompt_raw_results) /
+        # float(len(prompt_raw_results)), bins=hist_bins)
         # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-                 # weights=np.ones_like(HF_raw_results) /
-                 # float(len(HF_raw_results)), bins=hist_bins)
+        # weights=np.ones_like(HF_raw_results) /
+        # float(len(HF_raw_results)), bins=hist_bins)
         # plt.title("RNN Results")
         # plt.xlabel("Result")
         # plt.ylabel("Percentage")
@@ -140,6 +148,7 @@ class RNN_Trainer:
         self.test()
         self.plot()
 
+
 #################
 # Main function #
 #################
@@ -151,7 +160,7 @@ if __name__ == "__main__":
 
     # prepare data
     in_file = "../Data/output.h5"
-    save_file = "../Data/lepton_track_data.pkl"
+    save_file = "../Data/lepton_track_data_2.pkl"
     leptons_with_tracks = loader.create_or_load(
         in_file, save_file, overwrite=False)
 
@@ -169,3 +178,6 @@ if __name__ == "__main__":
             leptons_with_tracks['normed_tracks']))
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()
+
+    writer.export_scalars_to_json("./all_scalars.json")
+    writer.close()

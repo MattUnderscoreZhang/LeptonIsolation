@@ -19,3 +19,9 @@ Helper code for high energy calculation
 Data Converters for easy use with neural networks
 ## Options
 Serves as configuration files for the neural network
+
+# Run Instructions
+## RNN
+Create an options file in Isolator/Options/. Use default_options.py as a template.
+In Isolator/isolator.py, on the first line of the main function, load in your options file.
+Run the RNN with "python isolator.py". Use Python 3.

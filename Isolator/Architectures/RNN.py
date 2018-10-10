@@ -4,7 +4,8 @@ new neural network architecture'''
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
+import numpy as np
 import pdb
 import time
 
@@ -31,22 +32,25 @@ class RNN(nn.Module):
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
+            
         elif options['RNN_type'] is 'LSTM':
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
+            
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
+            
         self.fc = nn.Linear(self.hidden_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
-        # self.loss_function = nn.CrossEntropyLoss()
-        self.loss_function= nn.BCELoss()
+        self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
+
 
     def forward(self, tracks):
         self.rnn.flatten_parameters()
@@ -57,15 +61,17 @@ class RNN(nn.Module):
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
                                                        lengths=sorted_n, batch_first=True))
 
-        output = self.softmax(self.fc(hidden[-1]))
+        out = F.relu(self.fc(hidden[-1]))
 
-        return output
+        # out=self.softmax(hidden[-1])
+        # pdb.set_trace()
+        return out
 
     def accuracy(self, output, truth):
+        # predicted, _ = torch.max(output.data, -1)
         predicted = output.data[:, 0]
-
-        # pdb.set_trace()
-        acc = (predicted.float()==truth[:,0].float()).sum().float().item()/len(truth)
+        acc = (torch.round(predicted).float() ==
+               truth.float()).sum().float() / len(truth)
         # if acc < 0.3:
         # pdb.set_trace()
         return acc
@@ -82,21 +88,25 @@ class RNN(nn.Module):
         
         for i, data in enumerate(events, 1):
             track_info, truth = data
+            truth = truth[:, 0]
             output = self.forward(track_info)
-            loss = self.loss_function(output[:,0], truth[:, 0].float())
+            loss = self.loss_function(output, truth)
+            
             if do_training is True:
                 self.optimizer.zero_grad()
+                # print("loss:\t",loss)
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()
             total_acc += self.accuracy(output, truth)
-            raw_results.append(output.data.detach().numpy()[0][0])
+            raw_results.append(output.data.detach().numpy())
             all_truth.append(truth.detach().numpy()[0])
         total_loss /= len(events.dataset)
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
-        return total_loss.data.item(), total_acc.data.item(), raw_results, torch.tensor(all_truth)[:,0]
+        # pdb.set_trace()
+        return total_loss.data.item(), total_acc.data.item(), raw_results, torch.tensor(np.array(all_truth))
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)

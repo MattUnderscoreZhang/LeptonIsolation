@@ -153,7 +153,7 @@ if __name__ == "__main__":
     in_file = "../Data/output.h5"
     save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
-        in_file, save_file, overwrite=False)
+        in_file, save_file, overwrite=False, pseudodata=True)
 
     # make ptcone and etcone comparison plots
     plot_save_dir = "../Plots/"
@@ -163,7 +163,7 @@ if __name__ == "__main__":
         leptons_with_tracks['normed_tracks']))
     labels = [leptons_with_tracks['lepton_labels'],
         leptons_with_tracks['track_labels']]
-    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
     lwt = list(

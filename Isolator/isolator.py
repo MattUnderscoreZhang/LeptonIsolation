@@ -159,9 +159,11 @@ if __name__ == "__main__":
     plot_save_dir = "../Plots/"
     pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     lwt = list(zip(
-        leptons_with_tracks['unnormed_leptons'],
-        leptons_with_tracks['unnormed_tracks']))
-    # cones.compare_ptcone_and_etcone(lwt, plot_save_dir)
+        leptons_with_tracks['normed_leptons'],
+        leptons_with_tracks['normed_tracks']))
+    labels = [leptons_with_tracks['lepton_labels'],
+        leptons_with_tracks['track_labels']]
+    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
     lwt = list(

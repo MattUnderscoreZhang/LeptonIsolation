@@ -5,9 +5,9 @@ import HEP.HEP as HEP
 import numpy as np
 import pdb
 
-############################
-# Group leptons and tracks #
-############################
+####################
+# Helper functions #
+####################
 
 def group_leptons_and_tracks(leptons, tracks):
 
@@ -66,11 +66,114 @@ def group_leptons_and_tracks(leptons, tracks):
     track_labels = ['dR', 'pT']
     return grouped_leptons, grouped_tracks, track_labels
 
+def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):
+
+    unfolded_leptons = np.array(unnormed_leptons)
+    unfolded_tracks = np.array([i for lep_tracks in unnormed_tracks for i in lep_tracks])
+    lepton_means = unfolded_leptons.mean(axis=0)
+    lepton_stds = unfolded_leptons.std(axis=0)
+    track_means = unfolded_tracks.mean(axis=0)
+    track_stds = unfolded_tracks.std(axis=0)
+    for i in [0, 12]: # ignore pdgID and truth_type
+        lepton_means[i] = 0
+        lepton_stds[i] = 1
+    normed_leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
+    normed_tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
+
+    return normed_leptons, normed_tracks
+
+####################
+# Data preparation #
+####################
+
+def convert_real_data(in_file):
+
+    # load data and get feature index dictionaries
+    print("Loading data")
+    data = h5.File(in_file)
+    electrons = data['electrons'][()]
+    muons = data['muons'][()]
+    tracks = data['tracks'][()]
+    n_events = electrons.shape[0]
+    lepton_labels = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
+
+    # group leptons with their nearby tracks
+    print("Grouping leptons and tracks")
+    unnormed_leptons = []
+    unnormed_tracks = []
+    track_labels = []
+    for event_n in range(n_events):
+        if event_n%1000 == 0:
+            print("Event %d/%d" % (event_n, n_events))
+        leptons = np.append(electrons[event_n], muons[event_n])
+        leptons = np.array([i for i in leptons if ~np.isnan(i[1])])
+        if len(leptons)==0: continue
+        grouped_leptons, grouped_tracks, track_labels = group_leptons_and_tracks(leptons, tracks[event_n])
+        unnormed_leptons += grouped_leptons
+        unnormed_tracks += grouped_tracks
+    pdb.set_trace()
+
+    # have the same number of HF as prompt leptons
+    HF_lep_types = [i[12] in [3, 7] for i in unnormed_leptons]
+    prompt_lep_types = [i[12] in [2, 6] for i in unnormed_leptons]
+    good_HF_leptons = np.array(unnormed_leptons)[HF_lep_types]
+    good_prompt_leptons = np.array(unnormed_leptons)[prompt_lep_types]
+    good_HF_tracks = np.array(unnormed_tracks)[HF_lep_types]
+    good_prompt_tracks = np.array(unnormed_tracks)[prompt_lep_types]
+    n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
+    unnormed_leptons = list(good_HF_leptons)[:n_each_type] + list(good_prompt_leptons)[:n_each_type]
+    unnormed_tracks = list(good_HF_tracks)[:n_each_type] + list(good_prompt_tracks)[:n_each_type]
+
+    # normalize and create final data structure
+    normed_leptons, normed_tracks = normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks)
+    leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks, 'lepton_labels': lepton_labels, 'track_labels': track_labels}
+
+    # # separate prompt and HF leptons
+    # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
+    # HF_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
+
+    return leptons_with_tracks
+
+def generate_pseudodata():
+
+    lepton_labels = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
+    track_labels = ['dR', 'pT']
+
+    n_lep_each_type = 10000
+
+    unnormed_leptons = []
+    unnormed_tracks = []
+    for _ in range(n_lep_each_type):
+        # create a random HF lepton and tracks
+        new_lepton = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3] # only truth_type matters here
+        new_tracks = []
+        n_tracks = 2
+        for _ in range(n_tracks):
+            new_track = [0, 0]
+            new_tracks.append(new_track)
+        unnormed_leptons.append(np.array(new_lepton))
+        unnormed_tracks.append(np.array(new_tracks))
+        # create a random isolated lepton and tracks
+        new_lepton = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2] # only truth_type matters here
+        new_tracks = []
+        n_tracks = 2
+        for _ in range(n_tracks):
+            new_track = [1, 1]
+            new_tracks.append(new_track)
+        unnormed_leptons.append(np.array(new_lepton))
+        unnormed_tracks.append(np.array(new_tracks))
+
+    # normalize and create final data structure
+    normed_leptons, normed_tracks = normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks)
+    leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks, 'lepton_labels': lepton_labels, 'track_labels': track_labels}
+
+    return leptons_with_tracks
+
 #####################
 # Save or load data #
 #####################
 
-def create_or_load(in_file, save_file_name, overwrite=False):
+def create_or_load(in_file, save_file_name, overwrite=False, pseudodata=False):
 
     # open save file if it already exists
     if os.path.exists(save_file_name) and not overwrite:
@@ -85,58 +188,10 @@ def create_or_load(in_file, save_file_name, overwrite=False):
         else:
             print("Creating save file")
 
-        # load data and get feature index dictionaries
-        print("Loading data")
-        data = h5.File(in_file)
-        electrons = data['electrons'][()]
-        muons = data['muons'][()]
-        tracks = data['tracks'][()]
-        n_events = electrons.shape[0]
-        lepton_labels = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0', 'ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'truth_type']
-
-        # group leptons with their nearby tracks
-        print("Grouping leptons and tracks")
-        unnormed_leptons = []
-        unnormed_tracks = []
-        track_labels = []
-        for event_n in range(n_events):
-            if event_n%1000 == 0:
-                print("Event %d/%d" % (event_n, n_events))
-            leptons = np.append(electrons[event_n], muons[event_n])
-            leptons = np.array([i for i in leptons if ~np.isnan(i[1])])
-            if len(leptons)==0: continue
-            grouped_leptons, grouped_tracks, track_labels = group_leptons_and_tracks(leptons, tracks[event_n])
-            unnormed_leptons += grouped_leptons
-            unnormed_tracks += grouped_tracks
-
-        # have the same number of HF as prompt leptons
-        HF_lep_types = [i[12] in [3, 7] for i in unnormed_leptons]
-        prompt_lep_types = [i[12] in [2, 6] for i in unnormed_leptons]
-        good_HF_leptons = np.array(unnormed_leptons)[HF_lep_types]
-        good_prompt_leptons = np.array(unnormed_leptons)[prompt_lep_types]
-        good_HF_tracks = np.array(unnormed_tracks)[HF_lep_types]
-        good_prompt_tracks = np.array(unnormed_tracks)[prompt_lep_types]
-        n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
-        unnormed_leptons = list(good_HF_leptons)[:n_each_type] + list(good_prompt_leptons)[:n_each_type]
-        unnormed_tracks = list(good_HF_tracks)[:n_each_type] + list(good_prompt_tracks)[:n_each_type]
-
-        # normalize and create final data structure
-        unfolded_leptons = np.array(unnormed_leptons)
-        unfolded_tracks = np.array([i for lep_tracks in unnormed_tracks for i in lep_tracks])
-        lepton_means = unfolded_leptons.mean(axis=0)
-        lepton_stds = unfolded_leptons.std(axis=0)
-        track_means = unfolded_tracks.mean(axis=0)
-        track_stds = unfolded_tracks.std(axis=0)
-        for i in [0, 12]: # ignore pdgID and truth_type
-            lepton_means[i] = 0
-            lepton_stds[i] = 1
-        normed_leptons = [(i-lepton_means)/lepton_stds for i in unnormed_leptons]
-        normed_tracks = [[(j-track_means)/track_stds for j in i] for i in unnormed_tracks]
-        leptons_with_tracks = {'unnormed_leptons': unnormed_leptons, 'normed_leptons': normed_leptons, 'unnormed_tracks': unnormed_tracks, 'normed_tracks': normed_tracks, 'lepton_labels': lepton_labels, 'track_labels': track_labels}
-
-        # # separate prompt and HF leptons
-        # isolated_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==1]
-        # HF_leptons = [lepton for lepton in data if lepton[lep_feature_dict['lepIso_lep_isolated']]==0]
+        if pseudodata:
+            leptons_with_tracks = generate_pseudodata()
+        else:
+            leptons_with_tracks = convert_real_data(in_file)
 
         with open(save_file_name, 'wb') as out_file:
             pickle.dump(leptons_with_tracks, out_file)

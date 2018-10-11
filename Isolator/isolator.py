@@ -4,7 +4,7 @@ import datetime
 import Loader.loader as loader
 from Architectures.RNN import RNN
 from torch.utils.data import DataLoader
-from Analysis import cones
+from Analysis import FeatureComparer
 import matplotlib.pyplot as plt
 import seaborn as sns
 from DataStructures.HistoryData import *
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     #     leptons_with_tracks['normed_tracks']))
     # labels = [leptons_with_tracks['lepton_labels'],
     #     leptons_with_tracks['track_labels']]
-    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # FeatureComparer.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # make ptcone and etcone comparison plots - unnormed
     # plot_save_dir = "../Plots_unnormed/"
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     #     leptons_with_tracks['unnormed_tracks']))
     # labels = [leptons_with_tracks['lepton_labels'],
     #     leptons_with_tracks['track_labels']]
-    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # FeatureComparer.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
 

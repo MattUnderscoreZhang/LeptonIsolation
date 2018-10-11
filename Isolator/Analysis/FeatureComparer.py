@@ -7,7 +7,6 @@ import pdb
 # Calculate cones #
 ###################
 
-
 def calculate_ptcone_and_etcone(leptons_with_tracks_i, labels):
 
     lepton = leptons_with_tracks_i[0]
@@ -60,7 +59,6 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i, labels):
 ####################
 # Comparison plots #
 ####################
-
 
 def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir):
 

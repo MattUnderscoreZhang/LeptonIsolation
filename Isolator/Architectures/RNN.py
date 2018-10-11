@@ -55,7 +55,7 @@ class RNN(nn.Module):
     def forward(self, tracks, leptons):
         self.rnn.flatten_parameters()
         n_tracks = torch.tensor([Tensor_length(tracks[i])
-                                 for i in range(len(tracks))])
+            for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
         sorted_leptons = leptons[indices]
@@ -71,12 +71,8 @@ class RNN(nn.Module):
 
     def accuracy(self, output, truth):
 
-        # pdb.set_trace()
         predicted = torch.round(output)[:, 0]
-        # print(output[:,0])
         acc = (predicted == truth.float()).sum().float() / len(truth)
-        # if acc < 0.3:
-        # pdb.set_trace()
         return acc
 
     def do_train(self, events, do_training=True):

@@ -111,7 +111,6 @@ def convert_real_data(in_file):
         grouped_leptons, grouped_tracks, track_labels = group_leptons_and_tracks(leptons, tracks[event_n])
         unnormed_leptons += grouped_leptons
         unnormed_tracks += grouped_tracks
-    pdb.set_trace()
 
     # have the same number of HF as prompt leptons
     HF_lep_types = [i[12] in [3, 7] for i in unnormed_leptons]

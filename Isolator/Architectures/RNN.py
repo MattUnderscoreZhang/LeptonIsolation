@@ -64,8 +64,7 @@ class RNN(nn.Module):
         out = self.softmax(out)
         return out, indices  # passing indices for reorganizing truth
 
-    def accuracy(self, output, truth):
-        predicted = torch.round(output)[:, 0]
+    def accuracy(self, predicted, truth):
         acc = (predicted == truth.float()).sum().float() / len(truth)
         return acc
 
@@ -89,10 +88,11 @@ class RNN(nn.Module):
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()
-            total_acc += self.accuracy(output.data.detach(),
+            predicted = torch.round(output)[:, 0]
+            total_acc += self.accuracy(predicted.data.detach(),
                                        truth.data.detach()[indices])
-            raw_results.append(output.data.detach().numpy())
-            all_truth.append(truth.detach()[indices].numpy()[0])
+            raw_results += list(output[:,0].data.detach().numpy())
+            all_truth += list(truth.detach()[indices].numpy())
         total_loss /= len(events.dataset)
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)

@@ -151,7 +151,6 @@ class RNN_Trainer:
         self.test()
         self.plot()
 
-
 #################
 # Main function #
 #################
@@ -165,7 +164,7 @@ if __name__ == "__main__":
     in_file = "../Data/output.h5"
     save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
-        in_file, save_file, overwrite=False, pseudodata=True)
+        in_file, save_file, overwrite=False, pseudodata=False)
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
 
     # make ptcone and etcone comparison plots - normed

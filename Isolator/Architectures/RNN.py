@@ -47,7 +47,7 @@ class RNN(nn.Module):
             
         self.fc = nn.Linear(self.hidden_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
-        self.loss_function = nn.CrossEntropyLoss()
+        self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
@@ -58,22 +58,23 @@ class RNN(nn.Module):
                                  for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
+        # pdb.set_trace()
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
                                                        lengths=sorted_n, batch_first=True))
 
-        out = F.relu(self.fc(hidden[-1]))
+        out = self.fc(hidden[-1])
+        out=self.softmax(out)
 
-        # out=self.softmax(hidden[-1])
-        # pdb.set_trace()
-        return out
+        return out,indices
 
     def accuracy(self, output, truth):
-        # predicted, _ = torch.max(output.data, -1)
-        predicted = output.data[:, 0]
-        acc = (torch.round(predicted).float() ==
-               truth.float()).sum().float() / len(truth)
-        # if acc < 0.3:
+
         # pdb.set_trace()
+        predicted= torch.round(output)[:,0]
+        # print(output[:,0])
+        acc = (predicted == truth.float()).sum().float() / len(truth)
+        # if acc < 0.3:
+            # pdb.set_trace()
         return acc
 
     def do_train(self, events, do_training=True):
@@ -87,20 +88,24 @@ class RNN(nn.Module):
         all_truth = []
         
         for i, data in enumerate(events, 1):
+            self.optimizer.zero_grad()
             track_info, truth = data
             truth = truth[:, 0]
-            output = self.forward(track_info)
-            loss = self.loss_function(output, truth)
-            
+            # pdb.set_trace()
+            output,indices = self.forward(track_info)
+
+            # loss = self.loss_function(output, truth.long())
+            loss=self.loss_function(output[:,0],truth[indices].float())
+
             if do_training is True:
-                self.optimizer.zero_grad()
+                
                 # print("loss:\t",loss)
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()
-            total_acc += self.accuracy(output, truth)
+            total_acc += self.accuracy(output.data.detach(), truth.data.detach()[indices])
             raw_results.append(output.data.detach().numpy())
-            all_truth.append(truth.detach().numpy()[0])
+            all_truth.append(truth.detach()[indices].numpy()[0])
         total_loss /= len(events.dataset)
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)

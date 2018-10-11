@@ -96,7 +96,7 @@ class RNN_Trainer:
 
         # loss
         plt.plot(self.history[LOSS][TRAIN][BATCH],
-                 'o-', color='g', label="Training loss")
+                 'o-', color='g', label="Training loss")        
         plt.plot(self.history[LOSS][TEST][BATCH],
                  'o-', color='r', label="Test loss")
         plt.title("Loss")
@@ -162,37 +162,38 @@ if __name__ == "__main__":
     in_file = "../Data/output.h5"
     save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
-        in_file, save_file, overwrite=False)
+        in_file, save_file, overwrite=False, pseudodata=False)
 
     # pdb.set_trace()
     # make ptcone and etcone comparison plots
-    plot_save_dir = "../Plots_normed/"
-    pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
-    lwt = list(zip(
-        leptons_with_tracks['normed_leptons'],
-        leptons_with_tracks['normed_tracks']))
+    # plot_save_dir = "../Plots_normed/"
+    # pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
+    # lwt = list(zip(
+    #     leptons_with_tracks['normed_leptons'],
+    #     leptons_with_tracks['normed_tracks']))
 
-    labels = [leptons_with_tracks['lepton_labels'],
-        leptons_with_tracks['track_labels']]
-    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # labels = [leptons_with_tracks['lepton_labels'],
+    #     leptons_with_tracks['track_labels']]
+    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
-    # make ptcone and etcone comparison plots
-    pdb.set_trace() 
-    plot_save_dir = "../Plots_unnormed/"
-    pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
-    lwt = list(zip(
-        leptons_with_tracks['unnormed_leptons'],
-        leptons_with_tracks['unnormed_tracks']))
-    labels = [leptons_with_tracks['lepton_labels'],
-        leptons_with_tracks['track_labels']]
-    cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+
+    # plot_save_dir = "../Plots_unnormed/"
+    # pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
+    # lwt = list(zip(
+    #     leptons_with_tracks['unnormed_leptons'],
+    #     leptons_with_tracks['unnormed_tracks']))
+    # labels = [leptons_with_tracks['lepton_labels'],
+    #     leptons_with_tracks['track_labels']]
+    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
+
+    plot_save_dir = "../Plots/"
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
-    # RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
-    # RNN_trainer.train_and_test()
+    RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
+    RNN_trainer.train_and_test()
 
-    # writer.export_scalars_to_json("./all_scalars.json")
+    writer.export_scalars_to_json("./all_scalars.json")
     writer.close()

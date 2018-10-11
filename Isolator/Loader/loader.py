@@ -49,8 +49,8 @@ def group_leptons_and_tracks(leptons, tracks):
             dd0 = abs(lepton['d0']-track['d0'])
             dz0 = abs(lepton['z0']-track['z0'])
             if dR<0.5:
-                # nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
-                nearby_tracks.append(np.array([dR, track['pT']], dtype=float))
+                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0, track['charge'], track['eta'], track['pT'], track['theta'], track['d0'], track['z0'], track['chiSquared']], dtype=float))
+                # nearby_tracks.append(np.array([dR, track['pT']], dtype=float))
 
         # sort by dR and remove tracks associated to lepton
         nearby_tracks.sort(key=lambda x: x[0])
@@ -62,8 +62,8 @@ def group_leptons_and_tracks(leptons, tracks):
             grouped_leptons.append(np.array([i for i in lepton]))
             grouped_tracks.append(np.array(nearby_tracks, dtype=float))
 
-    # track_labels = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
-    track_labels = ['dR', 'pT']
+    track_labels = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0', 'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
+    # track_labels = ['dR', 'pT']
     return grouped_leptons, grouped_tracks, track_labels
 
 def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):

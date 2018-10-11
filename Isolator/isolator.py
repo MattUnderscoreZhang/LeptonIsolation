@@ -166,6 +166,7 @@ if __name__ == "__main__":
     leptons_with_tracks = loader.create_or_load(
         in_file, save_file, overwrite=False, pseudodata=False)
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
+    options['track_size'] = len(leptons_with_tracks['track_labels'])
 
     # make ptcone and etcone comparison plots - normed
     # plot_save_dir = "../Plots_normed/"

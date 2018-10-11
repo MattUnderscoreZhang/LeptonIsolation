@@ -20,7 +20,7 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
-        self.input_size = options["input_size"]
+        self.input_size = options["track_size"]
         self.hidden_size = options["hidden_size"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_size"]

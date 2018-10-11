@@ -32,25 +32,24 @@ class RNN(nn.Module):
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-            
+
         elif options['RNN_type'] is 'LSTM':
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-            
+
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
-            
+
         self.fc = nn.Linear(self.hidden_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
-
 
     def forward(self, tracks):
         self.rnn.flatten_parameters()
@@ -63,18 +62,18 @@ class RNN(nn.Module):
                                                        lengths=sorted_n, batch_first=True))
 
         out = self.fc(hidden[-1])
-        out=self.softmax(out)
+        out = self.softmax(out)
 
-        return out,indices
+        return out, indices  # passing indices for reorganizing Truth
 
     def accuracy(self, output, truth):
 
         # pdb.set_trace()
-        predicted= torch.round(output)[:,0]
+        predicted = torch.round(output)[:, 0]
         # print(output[:,0])
         acc = (predicted == truth.float()).sum().float() / len(truth)
         # if acc < 0.3:
-            # pdb.set_trace()
+        # pdb.set_trace()
         return acc
 
     def do_train(self, events, do_training=True):
@@ -86,31 +85,28 @@ class RNN(nn.Module):
         total_acc = 0
         raw_results = []
         all_truth = []
-        
+
         for i, data in enumerate(events, 1):
             self.optimizer.zero_grad()
             track_info, truth = data
             truth = truth[:, 0]
-            # pdb.set_trace()
-            output,indices = self.forward(track_info)
+            output, indices = self.forward(track_info)
 
-            # loss = self.loss_function(output, truth.long())
-            loss=self.loss_function(output[:,0],truth[indices].float())
+            loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:
-                
-                # print("loss:\t",loss)
+
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()
-            total_acc += self.accuracy(output.data.detach(), truth.data.detach()[indices])
+            total_acc += self.accuracy(output.data.detach(),
+                                       truth.data.detach()[indices])
             raw_results.append(output.data.detach().numpy())
             all_truth.append(truth.detach()[indices].numpy()[0])
         total_loss /= len(events.dataset)
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
-        # pdb.set_trace()
         return total_loss.data.item(), total_acc.data.item(), raw_results, torch.tensor(np.array(all_truth))
 
     def do_eval(self, events, do_training=False):

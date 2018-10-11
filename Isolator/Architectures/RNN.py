@@ -24,6 +24,7 @@ class RNN(nn.Module):
         self.n_layers = options["n_layers"]
         self.input_size = options["input_size"]
         self.hidden_size = options["hidden_size"]
+        self.lepton_size = options["lepton_size"]
         self.output_size = options["output_size"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
@@ -45,23 +46,25 @@ class RNN(nn.Module):
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
 
-        self.fc = nn.Linear(self.hidden_size, self.output_size)
+        self.fc = nn.Linear(self.hidden_size+self.lepton_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
-    def forward(self, tracks):
+    def forward(self, tracks, leptons):
         self.rnn.flatten_parameters()
         n_tracks = torch.tensor([Tensor_length(tracks[i])
                                  for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
-        # pdb.set_trace()
+        sorted_leptons = leptons[indices]
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
                                                        lengths=sorted_n, batch_first=True))
 
-        out = self.fc(hidden[-1])
+        combined_out=torch.cat((sorted_leptons,hidden[-1]),dim=1)
+
+        out = self.fc(combined_out)
         out = self.softmax(out)
 
         return out, indices  # passing indices for reorganizing Truth
@@ -88,9 +91,9 @@ class RNN(nn.Module):
 
         for i, data in enumerate(events, 1):
             self.optimizer.zero_grad()
-            track_info, truth = data
+            track_info, lepton_info, truth = data
             truth = truth[:, 0]
-            output, indices = self.forward(track_info)
+            output, indices = self.forward(track_info,lepton_info)
 
             loss = self.loss_function(output[:, 0], truth[indices].float())
 

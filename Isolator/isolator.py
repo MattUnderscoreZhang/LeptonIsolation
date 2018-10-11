@@ -17,8 +17,8 @@ import pdb
 # Train and test #
 ##################
 
+
 writer = SummaryWriter()
-    
 
 class RNN_Trainer:
 
@@ -129,11 +129,13 @@ class RNN_Trainer:
         # hist_bins = np.arange(0, 1, 0.01)
         # pdb.set_trace()
         # plt.hist(prompt_raw_results, histtype='step', color='r',
+
         # label="Prompt", weights=np.ones_like(prompt_raw_results) /
         # float(len(prompt_raw_results)), bins=hist_bins)
         # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
         # weights=np.ones_like(HF_raw_results) /
         # float(len(HF_raw_results)), bins=hist_bins)
+
         # plt.title("RNN Results")
         # plt.xlabel("Result")
         # plt.ylabel("Percentage")
@@ -192,7 +194,7 @@ if __name__ == "__main__":
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
-    # pdb.set_trace()
+
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()
 

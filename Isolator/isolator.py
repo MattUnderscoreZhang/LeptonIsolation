@@ -244,11 +244,12 @@ if __name__ == "__main__":
     # FeatureComparer.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
-
     plot_save_dir = "../Plots/"
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
+    good_leptons = [i[leptons_with_tracks['lepton_labels'].index('ptcone20')]>0 for i in leptons_with_tracks['unnormed_leptons']]
+    lwt = np.array(lwt)[good_leptons]
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()
 

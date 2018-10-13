@@ -3,15 +3,14 @@ new neural network architecture'''
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pack_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
-import pdb
-import time
+
 
 def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
+
 
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
@@ -44,7 +43,8 @@ class RNN(nn.Module):
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"])
 
-        self.fc = nn.Linear(self.hidden_size+self.lepton_size, self.output_size)
+        self.fc = nn.Linear(self.hidden_size +
+                            self.lepton_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
@@ -53,18 +53,18 @@ class RNN(nn.Module):
     def forward(self, tracks, leptons):
         self.rnn.flatten_parameters()
         n_tracks = torch.tensor([Tensor_length(tracks[i])
-            for i in range(len(tracks))])
+                                 for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
         sorted_tracks = tracks[indices]
         sorted_leptons = leptons[indices]
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
-                                                       lengths=sorted_n, batch_first=True))
+                                                       lengths=sorted_n,
+                                                       batch_first=True))
 
-        combined_out=torch.cat((sorted_leptons,hidden[-1]),dim=1)
+        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
         out = self.fc(combined_out)
         out = self.softmax(out)
         return out, indices  # passing indices for reorganizing truth
-
 
     def accuracy(self, predicted, truth):
         acc = (predicted == truth.float()).sum().float() / len(truth)
@@ -84,7 +84,7 @@ class RNN(nn.Module):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = data
             truth = truth[:, 0]
-            output, indices = self.forward(track_info,lepton_info)
+            output, indices = self.forward(track_info, lepton_info)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:
@@ -94,13 +94,14 @@ class RNN(nn.Module):
             predicted = torch.round(output)[:, 0]
             total_acc += self.accuracy(predicted.data.detach(),
                                        truth.data.detach()[indices])
-            raw_results += list(output[:,0].data.detach().numpy())
+            raw_results += list(output[:, 0].data.detach().numpy())
             all_truth += list(truth.detach()[indices].numpy())
         total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)
-        return total_loss.data.item(), total_acc.data.item(), raw_results, torch.tensor(np.array(all_truth))
+        return total_loss.data.item(), total_acc.data.item(),\
+            raw_results, torch.tensor(np.array(all_truth))
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)

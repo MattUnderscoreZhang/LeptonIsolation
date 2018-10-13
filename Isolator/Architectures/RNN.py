@@ -21,9 +21,9 @@ class RNN(nn.Module):
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
-        self.hidden_size = options["hidden_size"]
+        self.hidden_size = options["hidden_neurons"]
         self.lepton_size = options["lepton_size"]
-        self.output_size = options["output_size"]
+        self.output_size = options["output_neurons"]
         self.batch_size = options["batch_size"]
         self.learning_rate = options['learning_rate']
         if options['RNN_type'] is 'vanilla':
@@ -65,9 +65,8 @@ class RNN(nn.Module):
         out = self.softmax(out)
         return out, indices  # passing indices for reorganizing truth
 
-    def accuracy(self, output, truth):
 
-        predicted = torch.round(output)[:, 0]
+    def accuracy(self, predicted, truth):
         acc = (predicted == truth.float()).sum().float() / len(truth)
         return acc
 
@@ -92,11 +91,12 @@ class RNN(nn.Module):
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()
-            total_acc += self.accuracy(output.data.detach(),
+            predicted = torch.round(output)[:, 0]
+            total_acc += self.accuracy(predicted.data.detach(),
                                        truth.data.detach()[indices])
-            raw_results.append(output.data.detach().numpy())
-            all_truth.append(truth.detach()[indices].numpy()[0])
-        total_loss /= len(events.dataset)
+            raw_results += list(output[:,0].data.detach().numpy())
+            all_truth += list(truth.detach()[indices].numpy())
+        total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         total_acc = torch.tensor(total_acc)

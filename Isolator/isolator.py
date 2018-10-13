@@ -199,8 +199,8 @@ class RNN_Trainer:
         plt.grid('on', linestyle='--')
         plt.title('ROC Curves for Classification')
         plt.legend(loc="lower right")
-        plt.show()
-        # plt.savefig("compare_ROC.png")
+        # plt.show()
+        plt.savefig(self.plot_save_dir+"compare_ROC.png")
         plt.clf()
 
     def train_and_test(self):

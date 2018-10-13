@@ -4,7 +4,7 @@ import datetime
 import Loader.loader as loader
 from Architectures.RNN import RNN
 from torch.utils.data import DataLoader
-from Analysis import cones
+from Analysis import FeatureComparer
 import matplotlib.pyplot as plt
 import seaborn as sns
 from DataStructures.HistoryData import *
@@ -13,12 +13,16 @@ from torch.utils.data import DataLoader, Dataset
 from tensorboardX import SummaryWriter
 import pdb
 
-#################
+###############
+# Tensorboard #
+###############
+
+writer = SummaryWriter()
+
+##################
 # Train and test #
 ##################
 
-
-writer = SummaryWriter()
 
 class RNN_Trainer:
 
@@ -130,11 +134,11 @@ class RNN_Trainer:
         # pdb.set_trace()
         # plt.hist(prompt_raw_results, histtype='step', color='r',
 
-        # label="Prompt", weights=np.ones_like(prompt_raw_results) /
-        # float(len(prompt_raw_results)), bins=hist_bins)
+             # label="Prompt", weights=np.ones_like(prompt_raw_results) /
+             # float(len(prompt_raw_results)), bins=hist_bins)
         # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-        # weights=np.ones_like(HF_raw_results) /
-        # float(len(HF_raw_results)), bins=hist_bins)
+             # weights=np.ones_like(HF_raw_results) /
+             # float(len(HF_raw_results)), bins=hist_bins)
 
         # plt.title("RNN Results")
         # plt.xlabel("Result")
@@ -150,7 +154,6 @@ class RNN_Trainer:
         self.test()
         self.plot()
 
-
 #################
 # Main function #
 #################
@@ -165,20 +168,20 @@ if __name__ == "__main__":
     save_file = "../Data/lepton_track_data.pkl"
     leptons_with_tracks = loader.create_or_load(
         in_file, save_file, overwrite=False, pseudodata=False)
+    options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
+    options['track_size'] = len(leptons_with_tracks['track_labels'])
 
-    # pdb.set_trace()
-    # make ptcone and etcone comparison plots
+    # make ptcone and etcone comparison plots - normed
     # plot_save_dir = "../Plots_normed/"
     # pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     # lwt = list(zip(
     #     leptons_with_tracks['normed_leptons'],
     #     leptons_with_tracks['normed_tracks']))
-
     # labels = [leptons_with_tracks['lepton_labels'],
     #     leptons_with_tracks['track_labels']]
-    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # FeatureComparer.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
-
+    # make ptcone and etcone comparison plots - unnormed
     # plot_save_dir = "../Plots_unnormed/"
     # pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     # lwt = list(zip(
@@ -186,7 +189,7 @@ if __name__ == "__main__":
     #     leptons_with_tracks['unnormed_tracks']))
     # labels = [leptons_with_tracks['lepton_labels'],
     #     leptons_with_tracks['track_labels']]
-    # cones.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+    # FeatureComparer.compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
 
     # perform training
 

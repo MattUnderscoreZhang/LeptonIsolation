@@ -9,11 +9,9 @@ import numpy as np
 import pdb
 import time
 
-
 def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
-
 
 class RNN(nn.Module):
     """RNN module implementing pytorch rnn"""
@@ -22,7 +20,7 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
-        self.input_size = options["input_size"]
+        self.input_size = options["track_size"]
         self.hidden_size = options["hidden_size"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_size"]
@@ -63,11 +61,9 @@ class RNN(nn.Module):
                                                        lengths=sorted_n, batch_first=True))
 
         combined_out=torch.cat((sorted_leptons,hidden[-1]),dim=1)
-
         out = self.fc(combined_out)
         out = self.softmax(out)
-
-        return out, indices  # passing indices for reorganizing Truth
+        return out, indices  # passing indices for reorganizing truth
 
     def accuracy(self, output, truth):
 
@@ -90,11 +86,9 @@ class RNN(nn.Module):
             track_info, lepton_info, truth = data
             truth = truth[:, 0]
             output, indices = self.forward(track_info,lepton_info)
-
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:
-
                 loss.backward()
                 self.optimizer.step()
             total_loss += loss.data.item()

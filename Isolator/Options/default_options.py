@@ -3,7 +3,6 @@ options["RNN_type"]="GRU"
 options['learning_rate'] = 0.0001
 options['training_split'] = 0.7
 options['batch_size'] = 100
-# options['n_batches'] = 100
 options['n_batches'] = 50
 options['n_layers'] = 5
 options['hidden_neurons'] = 128

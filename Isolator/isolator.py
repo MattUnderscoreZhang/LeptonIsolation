@@ -60,16 +60,16 @@ class RNN_Trainer:
     def make_batch(self):
 
         training_loader = DataLoader(
-            self.train_set, batch_size=options['batch_size'],
+            self.train_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
 
         testing_loader = DataLoader(
-            self.test_set, batch_size=options['batch_size'],
+            self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
 
         return training_loader, testing_loader
 
-    def train(self):
+    def train(self, Print=True):
         train_loss = 0
         train_acc = 0
         for batch_n in range(self.options['n_batches']):
@@ -84,15 +84,17 @@ class RNN_Trainer:
             writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
             writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
             writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
-            print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
-                  "Test Loss: %0.4f, Test Acc: %0.4f" % (
-                      batch_n, train_loss, train_acc, test_loss, test_acc))
+            if Print:
+                print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
+                      "Test Loss: %0.4f, Test Acc: %0.4f" % (
+                          batch_n, train_loss, train_acc, test_loss, test_acc))
+        return train_loss, test_loss
 
     def test(self):
         test_batch = []
         self.test_set.file.reshuffle()
         testing_loader = DataLoader(
-            self.test_set, batch_size=options['batch_size'],
+            self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True)
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
             testing_loader)
@@ -102,7 +104,7 @@ class RNN_Trainer:
 
         # loss
         plt.plot(self.history[LOSS][TRAIN][BATCH],
-                 'o-', color='g', label="Training loss")        
+                 'o-', color='g', label="Training loss")
         plt.plot(self.history[LOSS][TEST][BATCH],
                  'o-', color='r', label="Test loss")
         plt.title("Loss")
@@ -136,11 +138,11 @@ class RNN_Trainer:
         # pdb.set_trace()
         # plt.hist(prompt_raw_results, histtype='step', color='r',
 
-             # label="Prompt", weights=np.ones_like(prompt_raw_results) /
-             # float(len(prompt_raw_results)), bins=hist_bins)
+        # label="Prompt", weights=np.ones_like(prompt_raw_results) /
+        # float(len(prompt_raw_results)), bins=hist_bins)
         # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-             # weights=np.ones_like(HF_raw_results) /
-             # float(len(HF_raw_results)), bins=hist_bins)
+        # weights=np.ones_like(HF_raw_results) /
+        # float(len(HF_raw_results)), bins=hist_bins)
 
         # plt.title("RNN Results")
         # plt.xlabel("Result")
@@ -162,18 +164,21 @@ class RNN_Trainer:
         # extract ptcone info
         leptons = leptons_with_tracks['unnormed_leptons']
         lepton_keys = leptons_with_tracks['lepton_labels']
-        isolated = [int(lepton[lepton_keys.index('truth_type')] in [2, 6]) for lepton in leptons]
+        isolated = [int(lepton[lepton_keys.index('truth_type')] in [2, 6])
+                    for lepton in leptons]
         cones = {}
-        pt_keys = ['ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
+        pt_keys = ['ptcone20', 'ptcone30', 'ptcone40',
+                   'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
         for key in pt_keys:
             cones[key] = [lepton[lepton_keys.index(key)] for lepton in leptons]
             max_key = max(cones[key])
             min_key = min(cones[key])
             range_key = max_key - min_key
-            cones[key] = [(i-min_key)/range_key for i in cones[key]]
+            cones[key] = [(i - min_key) / range_key for i in cones[key]]
 
         # get rid of events with ptcone=0
-        good_leptons = [lepton[lepton_keys.index('ptcone20')]>0 for lepton in leptons]
+        good_leptons = [lepton[lepton_keys.index(
+            'ptcone20')] > 0 for lepton in leptons]
         leptons = np.array(leptons)[good_leptons]
         isolated = np.array(isolated)[good_leptons]
         for key in pt_keys:
@@ -186,7 +191,8 @@ class RNN_Trainer:
             plt.plot(tpr, fpr, lw=2, label=key)
 
         # RNN curve
-        fpr, tpr, thresholds = metrics.roc_curve(self.test_truth, self.test_raw_results)
+        fpr, tpr, thresholds = metrics.roc_curve(
+            self.test_truth, self.test_raw_results)
         roc_auc = metrics.auc(fpr, tpr)
         plt.plot(fpr, tpr, lw=2, label='RNN')
 
@@ -200,18 +206,21 @@ class RNN_Trainer:
         plt.title('ROC Curves for Classification')
         plt.legend(loc="lower right")
         # plt.show()
-        plt.savefig(self.plot_save_dir+"compare_ROC.png")
+        plt.savefig(self.plot_save_dir + "compare_ROC.png")
         plt.clf()
 
-    def train_and_test(self):
+    def train_and_test(self,Print=True):
+        '''Module to rum the execute the network'''
         self.prepare()
-        self.train()
+        loss = self.train(Print)
         self.test()
-        self.plot()
+        # self.plot()
+        return loss
 
 #################
 # Main function #
 #################
+
 
 if __name__ == "__main__":
 
@@ -252,7 +261,8 @@ if __name__ == "__main__":
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
 
-    good_leptons = [i[leptons_with_tracks['lepton_labels'].index('ptcone20')]>0 for i in leptons_with_tracks['unnormed_leptons']]
+    good_leptons = [i[leptons_with_tracks['lepton_labels'].index(
+        'ptcone20')] > 0 for i in leptons_with_tracks['unnormed_leptons']]
     lwt = np.array(lwt)[good_leptons]
     RNN_trainer = RNN_Trainer(options, lwt, plot_save_dir)
     RNN_trainer.train_and_test()

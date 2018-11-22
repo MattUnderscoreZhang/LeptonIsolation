@@ -52,6 +52,7 @@ class RNN(nn.Module):
 
     def forward(self, tracks, leptons):
         self.rnn.flatten_parameters()
+        # list of event lengths
         n_tracks = torch.tensor([Tensor_length(tracks[i])
                                  for i in range(len(tracks))])
         sorted_n, indices = torch.sort(n_tracks, descending=True)
@@ -62,7 +63,7 @@ class RNN(nn.Module):
                                                        batch_first=True))
 
         combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
-        out = self.fc(combined_out)
+        out = self.fc(combined_out)  # add lepton data to the matrix
         out = self.softmax(out)
         return out, indices  # passing indices for reorganizing truth
 

@@ -28,7 +28,7 @@ writer = SummaryWriter()
 
 class RNN_Trainer:
 
-    def __init__(self, options, leptons_with_tracks, plot_save_dir):
+    def __init__(self, options, leptons_with_tracks, plot_save_dir=False):
         self.options = options
         self.n_events = len(leptons_with_tracks)
         self.n_training_events = int(
@@ -214,7 +214,8 @@ class RNN_Trainer:
         self.prepare()
         loss = self.train(Print)
         self.test()
-        # self.plot()
+        if plot_save_dir:
+            self.plot()
         return loss
 
 #################

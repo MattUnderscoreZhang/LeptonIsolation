@@ -42,7 +42,7 @@ def minimizer(**params):
     options['n_layers'] = params['n_layers']
     options['hidden_neurons'] = params['hidden_neurons']
     trainer = RNN_Trainer(options, lwt)
-    loss = trainer.train_and_test(Print=False)
+    loss = trainer.train_and_test()
 
     return loss
 

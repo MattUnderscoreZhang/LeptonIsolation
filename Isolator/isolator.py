@@ -88,7 +88,7 @@ class RNN_Trainer:
                 print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
                           batch_n, train_loss, train_acc, test_loss, test_acc))
-        return train_loss, test_loss
+        return train_loss
 
     def test(self):
         test_batch = []
@@ -214,7 +214,7 @@ class RNN_Trainer:
         self.prepare()
         loss = self.train(Print)
         self.test()
-        if plot_save_dir:
+        if self.plot_save_dir:
             self.plot()
         return loss
 

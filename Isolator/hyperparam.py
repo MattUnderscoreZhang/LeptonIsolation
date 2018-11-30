@@ -38,6 +38,8 @@ def option_maker(N_hidden, NL, LR):
 @use_named_args(space)
 def minimizer(**params):
 
+    global options,lwt
+
     options['learning_rate'] = params['learning_rate']
     options['n_layers'] = params['n_layers']
     options['hidden_neurons'] = params['hidden_neurons']
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
 
-    reg_gp = gp_minimize(minimizer, space, verbose=True)
+    reg_gp = gp_minimize(minimizer, space, verbose=True, n_jobs=-1)
 
     print('best score: {}'.format(reg_gp.fun))
     print('best params:')

@@ -15,18 +15,21 @@ with open(data_filename, 'rb') as data_file:
 # extract ptcone info
 leptons = leptons_with_tracks['unnormed_leptons']
 lepton_keys = leptons_with_tracks['lepton_labels']
-isolated = [int(lepton[lepton_keys.index('truth_type')] in [2, 6]) for lepton in leptons]
+isolated = [int(lepton[lepton_keys.index('truth_type')] in [2, 6])
+            for lepton in leptons]
 cones = {}
-pt_keys = ['ptcone20', 'ptcone30', 'ptcone40', 'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
+pt_keys = ['ptcone20', 'ptcone30', 'ptcone40',
+           'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
 for key in pt_keys:
     cones[key] = [lepton[lepton_keys.index(key)] for lepton in leptons]
     max_key = max(cones[key])
     min_key = min(cones[key])
     range_key = max_key - min_key
-    cones[key] = [(i-min_key)/range_key for i in cones[key]]
+    cones[key] = [(i - min_key) / range_key for i in cones[key]]
 
 # get rid of events with ptcone=0
-good_leptons = [lepton[lepton_keys.index('ptcone20')]>0 for lepton in leptons]
+good_leptons = [lepton[lepton_keys.index(
+    'ptcone20')] > 0 for lepton in leptons]
 leptons = np.array(leptons)[good_leptons]
 isolated = np.array(isolated)[good_leptons]
 for key in pt_keys:

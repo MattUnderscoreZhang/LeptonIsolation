@@ -1,3 +1,5 @@
+To clone this directory with the RNN paper submodule, clone using the "git clone --recurse-submodules" command.
+
 # Functionality
 ## Create H5 files
 Use ROOTToH5 to cluster leptons and tracks, and convert from ROOT to H5.
@@ -19,6 +21,8 @@ Helper code for high energy calculation
 Data Converters for easy use with neural networks
 ## Options
 Serves as configuration files for the neural network
+## Paper
+A submodule containing the RNN paper
 
 # Run Instructions
 ## RNN

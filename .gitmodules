@@ -1,0 +1,3 @@
+[submodule "Paper"]
+	path = Paper
+	url = https://github.com/BucketOfFish/RNN_Paper.git

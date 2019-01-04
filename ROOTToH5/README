@@ -1,6 +1,9 @@
 Based on https://gitlab.cern.ch/atlas-flavor-tagging-tools/training-dataset-dumper/tree/master
 and https://github.com/dguest/mlbnn
 
+Run on lxplus for access to CERN-relevant libraries.
+
+mkdir build/
 cd build/
 source ../dumpxAOD/setup.sh
 cmake ../dumpxAOD

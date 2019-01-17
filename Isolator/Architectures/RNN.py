@@ -68,7 +68,7 @@ class RNN(nn.Module):
         return out, indices  # passing indices for reorganizing truth
 
     def accuracy(self, predicted, truth):
-        acc = (predicted == truth.float()).sum().float() / len(truth)
+        acc = torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
         return acc
 
     def do_train(self, events, do_training=True):
@@ -91,16 +91,16 @@ class RNN(nn.Module):
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()
-            total_loss += loss.data.item()
+            total_loss += loss.clone()
             predicted = torch.round(output)[:, 0]
             total_acc += self.accuracy(predicted.data.detach(),
-                                       truth.data.detach()[indices])
+                                       truth.data.detach()[indices]).clone()
             raw_results += list(output[:, 0].data.detach().numpy())
             all_truth += list(truth.detach()[indices].numpy())
         total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size
-        total_loss = torch.tensor(total_loss)
-        total_acc = torch.tensor(total_acc)
+        # total_loss = torch.tensor(total_loss)
+        # total_acc = torch.tensor(total_acc)
         return total_loss.data.item(), total_acc.data.item(),\
             raw_results, torch.tensor(np.array(all_truth))
 

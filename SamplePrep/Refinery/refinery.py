@@ -1,12 +1,8 @@
 import os
 import h5py as h5
 import pickle
-import HEP.HEP as HEP
+import HEP
 import numpy as np
-
-####################
-# Helper functions #
-####################
 
 
 def group_leptons_and_tracks(leptons, tracks):
@@ -107,10 +103,6 @@ def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):
                      for i in unnormed_tracks]
 
     return normed_leptons, normed_tracks
-
-####################
-# Data preparation #
-####################
 
 
 def convert_real_data(in_file):
@@ -222,32 +214,30 @@ def generate_pseudodata():
 
     return leptons_with_tracks
 
-#####################
-# Save or load data #
-#####################
 
+def refine_data(in_file, save_file_name, overwrite=False, pseudodata=False):
 
-def create_or_load(in_file, save_file_name, overwrite=False, pseudodata=False):
-
-    # open save file if it already exists
-    if os.path.exists(save_file_name) and not overwrite:
-        print("File exists - loading")
-        with open(save_file_name, 'rb') as out_file:
-            leptons_with_tracks = pickle.load(out_file)
-
-    # else, group leptons and tracks and save the data
-    else:
-        if os.path.exists(save_file_name):
+    if os.path.exists(save_file_name):
+        if overwrite:
             print("File exists - overwriting")
         else:
-            print("Creating save file")
+            print("File exists - not overwriting")
+            return
+    else:
+        print("Creating save file")
 
-        if pseudodata:
-            leptons_with_tracks = generate_pseudodata()
-        else:
-            leptons_with_tracks = convert_real_data(in_file)
+    if pseudodata:
+        leptons_with_tracks = generate_pseudodata()
+    else:
+        leptons_with_tracks = convert_real_data(in_file)
 
-        with open(save_file_name, 'wb') as out_file:
-            pickle.dump(leptons_with_tracks, out_file)
+    with open(save_file_name, 'wb') as out_file:
+        pickle.dump(leptons_with_tracks, out_file)
 
     return leptons_with_tracks
+
+
+if __name__ == "__main__":
+    in_file = "../Data/output.h5"
+    save_file = "../Data/lepton_track_data.pkl"
+    leptons_with_tracks = refine_data(in_file, save_file, overwrite=False, pseudodata=False)

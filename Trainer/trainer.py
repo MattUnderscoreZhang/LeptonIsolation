@@ -94,8 +94,6 @@ class RNN_Trainer:
         self.prepare()
         loss = self.train(do_print)
         self.test()
-        if self.plot_save_dir:
-            self.plot()
         return loss
 
 #################

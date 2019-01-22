@@ -1,3 +1,5 @@
+This package takes ROOT input and converts relevant lepton and track data into H5 format.
+
 Based on https://gitlab.cern.ch/atlas-flavor-tagging-tools/training-dataset-dumper/tree/master
 and https://github.com/dguest/mlbnn
 

@@ -1,5 +1,6 @@
 options = {}
-options["RNN_type"]="GRU"
+options["input_data"] = "public/data/RNN/lepton_track_data.pkl"
+options["RNN_type"] = "GRU"
 options['learning_rate'] = 0.0001
 options['training_split'] = 0.7
 options['batch_size'] = 100

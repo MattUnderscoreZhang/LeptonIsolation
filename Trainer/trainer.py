@@ -1,6 +1,5 @@
 import numpy as np
 from Architectures.RNN import RNN
-from DataStructures.HistoryData import HistoryData, LOSS, ACC, TRAIN, VALIDATION, TEST, BATCH, EPOCH
 from DataStructures.LeptonTrackDataset import Torchdata, collate
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
@@ -10,7 +9,6 @@ import pickle as pkl
 # Tensorboard #
 ###############
 
-writer = SummaryWriter()
 
 ##################
 # Train and test #
@@ -27,9 +25,7 @@ class RNN_Trainer:
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-
-        # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
-        self.history = HistoryData()
+        self.history_logger = SummaryWriter()
         self.test_truth = []
         self.test_raw_results = []
 
@@ -66,14 +62,10 @@ class RNN_Trainer:
             training_batch, testing_batch = self.make_batch()
             train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
             test_loss, test_acc, _, _ = self.rnn.do_eval(testing_batch)
-            self.history[LOSS][TRAIN][BATCH].append(train_loss)
-            self.history[ACC][TRAIN][BATCH].append(train_acc)
-            self.history[LOSS][TEST][BATCH].append(test_loss)
-            self.history[ACC][TEST][BATCH].append(test_acc)
-            writer.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
-            writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
-            writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
-            writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
+            self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
+            self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
+            self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
             if Print:
                 print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
@@ -95,6 +87,10 @@ class RNN_Trainer:
         loss = self.train(do_print)
         self.test()
         return loss
+
+    def log_history(self):
+        self.history_logger.export_scalars_to_json("./all_scalars.json")
+        self.history_logger.close()
 
 #################
 # Main function #
@@ -123,5 +119,5 @@ if __name__ == "__main__":
     RNN_trainer = RNN_Trainer(options, lwt)
     RNN_trainer.train_and_test()
 
-    # writer.export_scalars_to_json("./all_scalars.json")
-    writer.close()
+    # log history
+    RNN_trainer.log_history()

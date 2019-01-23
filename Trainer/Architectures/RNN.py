@@ -12,11 +12,11 @@ def Tensor_length(track):
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 
-class RNN(nn.Module):
+class Net(nn.Module):
     """RNN module implementing pytorch rnn"""
 
     def __init__(self, options):
-        super(RNN, self).__init__()
+        super(Net, self).__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
@@ -100,9 +100,11 @@ class RNN(nn.Module):
         total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
-        total_acc = torch.tensor(total_acc)
         return total_loss.data.item(), total_acc.data.item(),\
             raw_results, torch.tensor(np.array(all_truth))
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)
+
+    def get_net(self):
+        return self.rnn

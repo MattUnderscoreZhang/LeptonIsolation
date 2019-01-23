@@ -7,8 +7,8 @@ from tensorboardX import SummaryWriter
 import pickle as pkl
 import argparse
 import torch
-#GPU Compatibility
 
+#GPU Compatibility
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
@@ -65,11 +65,11 @@ class RNN_Trainer:
 
         training_loader = DataLoader(
             self.train_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, drop_last=True, pin_memory=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, drop_last=True, pin_memory=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         return training_loader, testing_loader
 
@@ -84,10 +84,10 @@ class RNN_Trainer:
             self.history[ACC][TRAIN][BATCH].append(train_acc)
             self.history[LOSS][TEST][BATCH].append(test_loss)
             self.history[ACC][TEST][BATCH].append(test_acc)
-            writer.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
-            writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
-            writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
-            writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            # writer.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
+            # writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
+            # writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
+            # writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
             if Print:
                 print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
@@ -99,15 +99,16 @@ class RNN_Trainer:
         self.test_set.file.reshuffle()
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, pin_memory=True)
+            collate_fn=collate, shuffle=True)
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
             testing_loader)
 
-    def train_and_test(self, do_print=True):
-        '''Module to rum the execute the network'''
+    def train_and_test(self, do_print=True, save=True):
+        '''Function to run and the execute the network'''
         self.prepare()
         loss = self.train(do_print)
         self.test()
+        torch.save(self.rnn.state_dict(), 'trained_model.pth')
         return loss
 
 #################
@@ -136,6 +137,7 @@ if __name__ == "__main__":
     lwt = np.array(lwt)[good_leptons]
     RNN_trainer = RNN_Trainer(options, lwt)
     RNN_trainer.train_and_test()
+
 
     # writer.export_scalars_to_json("./all_scalars.json")
     # writer.close()

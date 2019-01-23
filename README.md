@@ -1,4 +1,3 @@
 # Training Instructions
-Create an options file in Trainer/Options/. Use default_options.py as a template.
-In Trainer/trainer.py, on the first line of the main function, load in your options file.
-Run the RNN with "python trainer.py". Use Python 3.
+isolator.py is the steering file. It's in charge of performing training, saving the results, and performing analysis.
+Edit isolator.py and run with "python isolator.py".

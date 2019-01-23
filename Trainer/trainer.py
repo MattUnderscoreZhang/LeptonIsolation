@@ -103,7 +103,7 @@ if __name__ == "__main__":
     from Options.default_options import options
 
     # load data
-    data_file = "../Data/lepton_track_data.pkl"
+    data_file = options['input_data']
     leptons_with_tracks = pkl.load(open(data_file, 'rb'))
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])

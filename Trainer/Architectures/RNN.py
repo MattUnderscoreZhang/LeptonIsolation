@@ -5,6 +5,21 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
+import argparse
+
+#GPU Compatibility
+
+parser = argparse.ArgumentParser(description='Trainer')
+parser.add_argument('--disable-cuda', action='store_true',
+                    help='Disable CUDA')
+args = parser.parse_args()
+args.device = None
+if not args.disable_cuda and torch.cuda.is_available():
+    args.device = torch.device('cuda')
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+else:
+    args.device = torch.device('cpu')
+
 
 
 def Tensor_length(track):
@@ -59,7 +74,7 @@ class RNN(nn.Module):
         sorted_tracks = tracks[indices]
         sorted_leptons = leptons[indices]
         output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
-                                                       lengths=sorted_n,
+                                                       lengths=sorted_n.cpu(),
                                                        batch_first=True))
 
         combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
@@ -84,8 +99,12 @@ class RNN(nn.Module):
         for i, data in enumerate(events, 1):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = data
-            truth = truth[:, 0]
+            track_info=track_info.to(args.device)
+            lepton_info=lepton_info.to(args.device)
+            truth = truth[:, 0].to(args.device)
             output, indices = self.forward(track_info, lepton_info)
+            output=output.to(args.device)
+            indices=indices.to(args.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:

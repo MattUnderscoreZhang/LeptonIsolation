@@ -5,12 +5,26 @@ from DataStructures.LeptonTrackDataset import Torchdata, collate
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 import pickle as pkl
+import argparse
+import torch
+#GPU Compatibility
+
+parser = argparse.ArgumentParser(description='Trainer')
+parser.add_argument('--disable-cuda', action='store_true',
+                    help='Disable CUDA')
+args = parser.parse_args()
+args.device = None
+if not args.disable_cuda and torch.cuda.is_available():
+    args.device = torch.device('cuda')
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+else:
+    args.device = torch.device('cpu')
 
 ###############
 # Tensorboard #
 ###############
 
-writer = SummaryWriter()
+# writer = SummaryWriter()
 
 ##################
 # Train and test #
@@ -45,17 +59,17 @@ class RNN_Trainer:
         self.test_set = Torchdata(self.test_events)
 
         # set up RNN
-        self.rnn = RNN(self.options)
+        self.rnn = RNN(self.options).to(args.device)
 
     def make_batch(self):
 
         training_loader = DataLoader(
             self.train_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, drop_last=True)
+            collate_fn=collate, shuffle=True, drop_last=True, pin_memory=True)
 
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, drop_last=True)
+            collate_fn=collate, shuffle=True, drop_last=True, pin_memory=True)
 
         return training_loader, testing_loader
 
@@ -85,7 +99,7 @@ class RNN_Trainer:
         self.test_set.file.reshuffle()
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True)
+            collate_fn=collate, shuffle=True, pin_memory=True)
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
             testing_loader)
 
@@ -124,4 +138,4 @@ if __name__ == "__main__":
     RNN_trainer.train_and_test()
 
     # writer.export_scalars_to_json("./all_scalars.json")
-    writer.close()
+    # writer.close()

@@ -85,7 +85,7 @@ class Net(nn.Module):
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.options['learning_rate'])
 
-        self.rnn = nn.DataParallel(self.rnn).to(args.device)
+        # self.rnn = nn.DataParallel(self.rnn).to(args.device) # https://discuss.pytorch.org/t/multi-layer-rnn-with-dataparallel/4450/8
 
 
     def forward(self, padded_seq, sorted_leptons):
@@ -116,6 +116,8 @@ class Net(nn.Module):
             lepton_info = lepton_info.to(args.device)
             truth = truth[:, 0].to(args.device)
 
+
+
             # setting up for packing padded sequence
             n_tracks = torch.tensor([Tensor_length(track_info[i])
                                      for i in range(len(track_info))])
@@ -124,7 +126,7 @@ class Net(nn.Module):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-
+            # import pdb; pdb.set_trace()
             padded_seq = pack_padded_sequence(
                 sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
             output = self.forward(padded_seq, sorted_leptons)
@@ -135,18 +137,17 @@ class Net(nn.Module):
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()
-            total_loss += loss.clone()
+            total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
-            total_acc += self.accuracy(predicted.data.detach(),
-                                       truth.data.detach()[indices]).clone()
-            raw_results += list(output[:, 0].data.detach().numpy())
-            all_truth += list(truth.detach()[indices].numpy())
+            total_acc += float(self.accuracy(predicted.data.detach(),
+                                       truth.data.detach()[indices]))
+            raw_results += output[:, 0].detach().tolist()
+            all_truth += truth[indices].detach().tolist()
         total_loss = total_loss / len(events.dataset) * self.options['batch_size']
         total_acc = total_acc / len(events.dataset) * self.options['batch_size']
-        # total_loss = torch.tensor(total_loss)
-        # total_acc = torch.tensor(total_acc)
-        return total_loss.data.item(), total_acc.data.item(),\
-            raw_results, torch.tensor(np.array(all_truth))
+
+        return total_loss, total_acc,\
+            raw_results, all_truth
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)

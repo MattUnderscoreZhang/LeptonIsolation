@@ -1,5 +1,5 @@
 import numpy as np
-from Architectures.RNN import RNN
+from Architectures.RNN import RNN, Net
 from DataStructures.HistoryData import HistoryData, LOSS, ACC, TRAIN, VALIDATION, TEST, BATCH, EPOCH
 from DataStructures.LeptonTrackDataset import Torchdata, collate
 from torch.utils.data import DataLoader
@@ -59,7 +59,7 @@ class RNN_Trainer:
         self.test_set = Torchdata(self.test_events)
 
         # set up RNN
-        self.rnn = RNN(self.options).to(args.device)
+        self.rnn = Net(self.options)
 
     def make_batch(self):
 

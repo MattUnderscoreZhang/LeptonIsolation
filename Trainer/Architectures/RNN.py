@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 import argparse
 
-#GPU Compatibility
+# GPU Compatibility
 
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
@@ -19,7 +19,6 @@ if not args.disable_cuda and torch.cuda.is_available():
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 else:
     args.device = torch.device('cpu')
-
 
 
 def Tensor_length(track):
@@ -38,8 +37,7 @@ class RNN(nn.Module):
         self.hidden_size = options["hidden_neurons"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_neurons"]
-        self.batch_size = options["batch_size"]
-        self.learning_rate = options['learning_rate']
+
         if options['RNN_type'] is 'vanilla':
             self.rnn = nn.RNN(
                 input_size=self.input_size, hidden_size=self.hidden_size,
@@ -61,10 +59,7 @@ class RNN(nn.Module):
         self.fc = nn.Linear(self.hidden_size +
                             self.lepton_size, self.output_size)
         self.softmax = nn.Softmax(dim=1)
-        self.loss_function = nn.BCEWithLogitsLoss()
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.learning_rate)
-
+        
     def forward(self, padded_seq, sorted_leptons):
         self.rnn.flatten_parameters()
         output, hidden = self.rnn(padded_seq)
@@ -74,15 +69,39 @@ class RNN(nn.Module):
         out = self.softmax(out)
         return out
 
+
+
+    
+
+
+class Net(nn.Module):
+    """Super class for the complete neural net"""
+
+    def __init__(self, options):
+        super(Net, self).__init__()
+        self.options = options
+        self.rnn = RNN(options)
+        self.loss_function = nn.BCEWithLogitsLoss()
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.options['learning_rate'])
+
+        self.rnn = nn.DataParallel(self.rnn).to(args.device)
+
+
+    def forward(self, padded_seq, sorted_leptons):
+        x = self.rnn(padded_seq, sorted_leptons)
+        return x
+
     def accuracy(self, predicted, truth):
-        acc = torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
+        acc = torch.from_numpy(
+            np.array((predicted == truth.float()).sum().float() / len(truth)))
         return acc
 
     def do_train(self, events, do_training=True):
         if do_training:
-            self.train()
+            self.rnn.train()
         else:
-            self.eval()
+            self.rnn.eval()
         total_loss = 0
         total_acc = 0
         raw_results = []
@@ -93,23 +112,24 @@ class RNN(nn.Module):
 
             track_info, lepton_info, truth = data
             # moving tensors to adequate device
-            track_info=track_info.to(args.device)
-            lepton_info=lepton_info.to(args.device)
+            track_info = track_info.to(args.device)
+            lepton_info = lepton_info.to(args.device)
             truth = truth[:, 0].to(args.device)
 
             # setting up for packing padded sequence
             n_tracks = torch.tensor([Tensor_length(track_info[i])
-                                 for i in range(len(track_info))])
+                                     for i in range(len(track_info))])
 
             sorted_n, indices = torch.sort(n_tracks, descending=True)
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
 
-            padded_seq=pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-            output= self.forward(padded_seq, sorted_leptons)
-            output=output.to(args.device)
-            indices=indices.to(args.device)
+            padded_seq = pack_padded_sequence(
+                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.forward(padded_seq, sorted_leptons)
+            output = output.to(args.device)
+            indices = indices.to(args.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:
@@ -121,8 +141,8 @@ class RNN(nn.Module):
                                        truth.data.detach()[indices]).clone()
             raw_results += list(output[:, 0].data.detach().numpy())
             all_truth += list(truth.detach()[indices].numpy())
-        total_loss = total_loss / len(events.dataset) * self.batch_size
-        total_acc = total_acc / len(events.dataset) * self.batch_size
+        total_loss = total_loss / len(events.dataset) * self.options['batch_size']
+        total_acc = total_acc / len(events.dataset) * self.options['batch_size']
         # total_loss = torch.tensor(total_loss)
         # total_acc = torch.tensor(total_acc)
         return total_loss.data.item(), total_acc.data.item(),\

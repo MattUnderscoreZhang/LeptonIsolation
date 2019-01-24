@@ -8,7 +8,7 @@ import pickle as pkl
 import argparse
 import torch
 
-#GPU Compatibility
+# GPU Compatibility
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
@@ -95,11 +95,13 @@ class RNN_Trainer:
         return train_loss
 
     def test(self):
-        # test_batch = []
+
         self.test_set.file.reshuffle()
+        
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True)
+
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
             testing_loader)
 
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     from Options.default_options import options
 
     # load data
-    data_file = "../Data/lepton_track_data.pkl"
+    data_file = options['input_data']
     leptons_with_tracks = pkl.load(open(data_file, 'rb'))
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])

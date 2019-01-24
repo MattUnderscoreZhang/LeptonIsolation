@@ -44,19 +44,19 @@ class RNN(nn.Module):
             self.rnn = nn.RNN(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"])
+                bidirectional=options["bidirectional"]).to(args.device)
 
         elif options['RNN_type'] is 'LSTM':
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"])
+                bidirectional=options["bidirectional"]).to(args.device)
 
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"])
+                bidirectional=options["bidirectional"]).to(args.device)
 
         self.fc = nn.Linear(self.hidden_size +
                             self.lepton_size, self.output_size)
@@ -65,22 +65,14 @@ class RNN(nn.Module):
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
-    def forward(self, tracks, leptons):
+    def forward(self, padded_seq, sorted_leptons):
         self.rnn.flatten_parameters()
-        # list of event lengths
-        n_tracks = torch.tensor([Tensor_length(tracks[i])
-                                 for i in range(len(tracks))])
-        sorted_n, indices = torch.sort(n_tracks, descending=True)
-        sorted_tracks = tracks[indices]
-        sorted_leptons = leptons[indices]
-        output, hidden = self.rnn(pack_padded_sequence(sorted_tracks,
-                                                       lengths=sorted_n.cpu(),
-                                                       batch_first=True))
+        output, hidden = self.rnn(padded_seq)
 
         combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
         out = self.fc(combined_out)  # add lepton data to the matrix
         out = self.softmax(out)
-        return out, indices  # passing indices for reorganizing truth
+        return out
 
     def accuracy(self, predicted, truth):
         acc = torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
@@ -98,11 +90,24 @@ class RNN(nn.Module):
 
         for i, data in enumerate(events, 1):
             self.optimizer.zero_grad()
+
             track_info, lepton_info, truth = data
+            # moving tensors to adequate device
             track_info=track_info.to(args.device)
             lepton_info=lepton_info.to(args.device)
             truth = truth[:, 0].to(args.device)
-            output, indices = self.forward(track_info, lepton_info)
+
+            # setting up for packing padded sequence
+            n_tracks = torch.tensor([Tensor_length(track_info[i])
+                                 for i in range(len(track_info))])
+
+            sorted_n, indices = torch.sort(n_tracks, descending=True)
+            # reodering information according to sorted indices
+            sorted_tracks = track_info[indices].to(args.device)
+            sorted_leptons = lepton_info[indices].to(args.device)
+
+            padded_seq=pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output= self.forward(padded_seq, sorted_leptons)
             output=output.to(args.device)
             indices=indices.to(args.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())

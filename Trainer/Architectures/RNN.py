@@ -3,7 +3,6 @@ new neural network architecture'''
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 import argparse
 
@@ -21,6 +20,32 @@ else:
     args.device = torch.device('cpu')
 
 
+def Pack_padded_sequence(input, lengths, batch_first=False):
+    if lengths[-1] <= 0:
+        raise ValueError("length of all samples has to be greater than 0, "
+                         "but found an element in 'lengths' that is <=0")
+    if batch_first:
+        input = input.transpose(0, 1)
+
+    steps = []
+    batch_sizes = []
+    lengths_iter = reversed(lengths)
+    batch_size = input.size(1)
+    if len(lengths) != batch_size:
+        raise ValueError("lengths array has incorrect size")
+
+    prev_l = 0
+    for i, l in enumerate(lengths_iter):
+        l = l.data.item()
+        if l > prev_l:
+            c_batch_size = batch_size - i
+            steps.append(input[prev_l:l, :c_batch_size].contiguous().view(-1, input.size(2)))
+            batch_sizes.extend([c_batch_size] * (l - prev_l))
+            prev_l = l
+
+    return nn.utils.rnn.PackedSequence(torch.cat(steps), torch.tensor(batch_sizes))
+
+
 def Tensor_length(track):
     """Finds the length of the non zero tensor"""
     return int(torch.nonzero(track).shape[0] / track.shape[1])
@@ -31,13 +56,14 @@ class Model(nn.Module):
 
     def __init__(self, options):
         super(Model, self).__init__()
-        # self.options = options
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
         self.hidden_size = options["hidden_neurons"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_neurons"]
+        self.learning_rate = options["learning_rate"]
+        self.batch_size = options["batch_size"]
 
         if options['RNN_type'] is 'RNN':
             self.rnn = nn.RNN(
@@ -63,7 +89,7 @@ class Model(nn.Module):
 
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.options['learning_rate'])
+            self.parameters(), lr=self.learning_rate)
         # self.rnn = nn.DataParallel(self.rnn).to(args.device) # https://discuss.pytorch.org/t/multi-layer-rnn-with-dataparallel/4450/8
 
     def forward(self, padded_seq, sorted_leptons):
@@ -74,7 +100,6 @@ class Model(nn.Module):
         out = self.fc(combined_out)  # add lepton data to the matrix
         out = self.softmax(out)
         return out
-        # return self.rnn(padded_seq, sorted_leptons)
 
     def accuracy(self, predicted, truth):
         acc = torch.from_numpy(
@@ -108,9 +133,9 @@ class Model(nn.Module):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-            # import pdb; pdb.set_trace()
-            padded_seq = pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            lengths = sorted_n.cpu()
+            padded_seq = Pack_padded_sequence(
+                sorted_tracks, lengths=lengths, batch_first=True)
             output = self.forward(padded_seq, sorted_leptons)
             output = output.to(args.device)
             indices = indices.to(args.device)
@@ -129,8 +154,6 @@ class Model(nn.Module):
 
         total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size
-        # total_loss = total_loss / len(events.dataset) * self.options['batch_size']
-        # total_acc = total_acc / len(events.dataset) * self.options['batch_size']
         total_loss = torch.tensor(total_loss)
         # return total_loss.data.item(), total_acc.data.item(),\
         # raw_results, torch.tensor(np.array(all_truth))

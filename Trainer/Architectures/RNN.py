@@ -17,8 +17,35 @@ args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device('cuda')
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    # gpu=True
 else:
     args.device = torch.device('cpu')
+    # gpu=False
+
+def Pack_padded_sequence(input, lengths, batch_first=False):
+    if lengths[-1] <= 0:
+        raise ValueError("length of all samples has to be greater than 0, "
+                         "but found an element in 'lengths' that is <=0")
+    if batch_first:
+        input = input.transpose(0, 1)
+
+    steps = []
+    batch_sizes = []
+    lengths_iter = reversed(lengths)
+    batch_size = input.size(1)
+    if len(lengths) != batch_size:
+        raise ValueError("lengths array has incorrect size")
+
+    prev_l = 0
+    for i, l in enumerate(lengths_iter):
+        l=l.data.item()
+        if l > prev_l:
+            c_batch_size = batch_size - i
+            steps.append(input[prev_l:l, :c_batch_size].contiguous().view(-1, input.size(2)))
+            batch_sizes.extend([c_batch_size] * (l - prev_l))
+            prev_l = l
+
+    return nn.utils.rnn.PackedSequence(torch.cat(steps), torch.tensor(batch_sizes))
 
 
 def Tensor_length(track):
@@ -61,12 +88,14 @@ class RNN(nn.Module):
         self.softmax = nn.Softmax(dim=1)
         
     def forward(self, padded_seq, sorted_leptons):
-        self.rnn.flatten_parameters()
+        # self.rnn.flatten_parameters()
+
         output, hidden = self.rnn(padded_seq)
 
         combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
         out = self.fc(combined_out)  # add lepton data to the matrix
         out = self.softmax(out)
+
         return out
 
 
@@ -80,16 +109,17 @@ class Net(nn.Module):
     def __init__(self, options):
         super(Net, self).__init__()
         self.options = options
-        self.rnn = RNN(options)
+        self.rnn = RNN(options).to(args.device)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.options['learning_rate'])
 
-        # self.rnn = nn.DataParallel(self.rnn).to(args.device) # https://discuss.pytorch.org/t/multi-layer-rnn-with-dataparallel/4450/8
-
+        # https://discuss.pytorch.org/t/multi-layer-rnn-with-dataparallel/4450/8
+        # if gpu is True:
+        #     self.rnn = nn.DataParallel(self.rnn).to(args.device) 
 
     def forward(self, padded_seq, sorted_leptons):
-        x = self.rnn(padded_seq, sorted_leptons)
+        x = self.rnn.forward(padded_seq, sorted_leptons)
         return x
 
     def accuracy(self, predicted, truth):
@@ -116,8 +146,6 @@ class Net(nn.Module):
             lepton_info = lepton_info.to(args.device)
             truth = truth[:, 0].to(args.device)
 
-
-
             # setting up for packing padded sequence
             n_tracks = torch.tensor([Tensor_length(track_info[i])
                                      for i in range(len(track_info))])
@@ -127,7 +155,7 @@ class Net(nn.Module):
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
             # import pdb; pdb.set_trace()
-            padded_seq = pack_padded_sequence(
+            padded_seq = Pack_padded_sequence(
                 sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
             output = self.forward(padded_seq, sorted_leptons)
             output = output.to(args.device)
@@ -151,3 +179,4 @@ class Net(nn.Module):
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)
+

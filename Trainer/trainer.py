@@ -108,6 +108,7 @@ class RNN_Trainer:
     def train_and_test(self, do_print=True, save=True):
         '''Function to run and the execute the network'''
         self.prepare()
+        #import pdb; pdb.set_trace()
         loss = self.train(do_print)
         self.test()
         torch.save(self.rnn.state_dict(), 'trained_model.pth')

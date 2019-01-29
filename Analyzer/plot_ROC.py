@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from sklearn import metrics
 
+
 def plot(history, plot_save_dir):
     '''Plots all the necessary details from the trained model'''
     # loss

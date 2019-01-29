@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
-from .Architectures.RNN import Net
+from .Architectures.RNN import Model
 from .DataStructures.LeptonTrackDataset import Torchdata, collate
 
 
@@ -33,8 +33,8 @@ class RNN_Trainer:
         # prepare the generators
         self.train_set = Torchdata(self.training_events)
         self.test_set = Torchdata(self.test_events)
-        # set up net
-        self.net = Net(self.options)
+        # set up model
+        self.model = Model(self.options)
 
     def make_batch(self):
         training_loader = DataLoader(
@@ -50,8 +50,8 @@ class RNN_Trainer:
         train_acc = 0
         for batch_n in range(self.options['n_batches']):
             training_batch, testing_batch = self.make_batch()
-            train_loss, train_acc, _, _ = self.net.do_train(training_batch)
-            test_loss, test_acc, _, _ = self.net.do_eval(testing_batch)
+            train_loss, train_acc, _, _ = self.model.do_train(training_batch)
+            test_loss, test_acc, _, _ = self.model.do_eval(testing_batch)
             self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
             self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
             self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
@@ -68,7 +68,7 @@ class RNN_Trainer:
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True)
-        _, _, self.test_raw_results, self.test_truth = self.net.do_eval(
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
             testing_loader)
 
     def train_and_test(self, do_print=True):
@@ -78,11 +78,13 @@ class RNN_Trainer:
         self.test()
         return loss
 
-    def save_net(self, save_path):
-        torch.save(self.net.get_net(), save_path)
+    def save_model(self, save_path):
+        net, optimizer = self.model.get_model()
+        torch.save(net, save_path + "/saved_net.pt")
+        torch.save(optimizer, save_path + "/saved_optimizer.pt")
 
     def log_history(self, save_path):
-        self.history_logger.export_scalars_to_json(save_path)
+        # self.history_logger.export_scalars_to_json(save_path + "/scalar_history.json")
         self.history_logger.close()
 
 
@@ -109,5 +111,5 @@ def train(options):
     RNN_trainer.train_and_test()
 
     # save results
-    # RNN_trainer.log_history(output_folder + "/all_scalars.json")
-    RNN_trainer.save_net(output_folder + "/trained_net.pt")
+    RNN_trainer.log_history(output_folder)
+    RNN_trainer.save_model(output_folder)

@@ -12,11 +12,11 @@ def Tensor_length(track):
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 
-class Net(nn.Module):
+class Model(nn.Module):
     """RNN module implementing pytorch rnn"""
 
     def __init__(self, options):
-        super(Net, self).__init__()
+        super(Model, self).__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
@@ -106,5 +106,5 @@ class Net(nn.Module):
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)
 
-    def get_net(self):
-        return self.rnn
+    def get_model(self):
+        return self.rnn, self.optimizer

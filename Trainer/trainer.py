@@ -1,5 +1,6 @@
 import pickle as pkl
 import pathlib
+import argparse
 
 import numpy as np
 import torch
@@ -8,6 +9,19 @@ from tensorboardX import SummaryWriter
 
 from .Architectures.RNN import Model
 from .DataStructures.LeptonTrackDataset import Torchdata, collate
+
+# GPU Compatibility
+
+parser = argparse.ArgumentParser(description='Trainer')
+parser.add_argument('--disable-cuda', action='store_true',
+                    help='Disable CUDA')
+args = parser.parse_args()
+args.device = None
+if not args.disable_cuda and torch.cuda.is_available():
+    args.device = torch.device('cuda')
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+else:
+    args.device = torch.device('cpu')
 
 
 class RNN_Trainer:
@@ -63,19 +77,22 @@ class RNN_Trainer:
         return train_loss
 
     def test(self):
-        # test_batch = []
+
         self.test_set.file.reshuffle()
+
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True)
+
         _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
             testing_loader)
 
-    def train_and_test(self, do_print=True):
-        '''Module to rum the execute the network'''
+    def train_and_test(self, do_print=True, save=True):
+        '''Function to run and the execute the network'''
         self.prepare()
         loss = self.train(do_print)
         self.test()
+        torch.save(self.rnn.state_dict(), 'trained_model.pth')
         return loss
 
     def save_model(self, save_path):

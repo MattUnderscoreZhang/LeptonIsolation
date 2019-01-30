@@ -3,7 +3,7 @@ new neural network architecture'''
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 import numpy as np
 import argparse
 
@@ -22,30 +22,20 @@ else:
     args.device = torch.device('cpu')
     # gpu=False
 
-def Pack_padded_sequence(input, lengths, batch_first=False):
-    if lengths[-1] <= 0:
-        raise ValueError("length of all samples has to be greater than 0, "
-                         "but found an element in 'lengths' that is <=0")
-    if batch_first:
-        input = input.transpose(0, 1)
+def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
+    lengths = torch.as_tensor(lengths, dtype=torch.int64)
+    lengths = lengths.cpu()
+    if enforce_sorted:
+        sorted_indices = None
+    else:
+        lengths, sorted_indices = torch.sort(lengths, descending=True)
+        sorted_indices = sorted_indices.to(input.device)
+        batch_dim = 0 if batch_first else 1
+        input = input.index_select(batch_dim, sorted_indices)
 
-    steps = []
-    batch_sizes = []
-    lengths_iter = reversed(lengths)
-    batch_size = input.size(1)
-    if len(lengths) != batch_size:
-        raise ValueError("lengths array has incorrect size")
-
-    prev_l = 0
-    for i, l in enumerate(lengths_iter):
-        l=l.data.item()
-        if l > prev_l:
-            c_batch_size = batch_size - i
-            steps.append(input[prev_l:l, :c_batch_size].contiguous().view(-1, input.size(2)))
-            batch_sizes.extend([c_batch_size] * (l - prev_l))
-            prev_l = l
-
-    return nn.utils.rnn.PackedSequence(torch.cat(steps), torch.tensor(batch_sizes))
+    data, batch_sizes = \
+        torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+    return PackedSequence(data, batch_sizes )
 
 
 def Tensor_length(track):
@@ -58,13 +48,20 @@ class RNN(nn.Module):
 
     def __init__(self, options):
         super(RNN, self).__init__()
+        self.options=options
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
         self.hidden_size = options["hidden_neurons"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_neurons"]
-
+        self.h_0=nn.Parameter(
+                torch.zeros(
+                    self.n_layers *self.n_directions, 
+                    self.options['batch_size'], 
+                    self.hidden_size).to(args.device))
+ 
+        self.cellstate = False
         if options['RNN_type'] is 'vanilla':
             self.rnn = nn.RNN(
                 input_size=self.input_size, hidden_size=self.hidden_size,
@@ -72,6 +69,7 @@ class RNN(nn.Module):
                 bidirectional=options["bidirectional"]).to(args.device)
 
         elif options['RNN_type'] is 'LSTM':
+            self.cellstate=True
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
@@ -84,17 +82,21 @@ class RNN(nn.Module):
                 bidirectional=options["bidirectional"]).to(args.device)
 
         self.fc = nn.Linear(self.hidden_size +
-                            self.lepton_size, self.output_size)
-        self.softmax = nn.Softmax(dim=1)
+                            self.lepton_size, self.output_size).to(args.device)
+        self.softmax = nn.Softmax(dim=1).to(args.device)
         
     def forward(self, padded_seq, sorted_leptons):
-        # self.rnn.flatten_parameters()
+        # import ipdb; ipdb.set_trace() 
+        
 
-        output, hidden = self.rnn(padded_seq)
-
-        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1)
-        out = self.fc(combined_out)  # add lepton data to the matrix
-        out = self.softmax(out)
+        self.rnn.flatten_parameters()
+        if self.cellstate:
+            output, hidden,cellstate = self.rnn(padded_seq,self.h_0)
+        
+        else: output,hidden=self.rnn(padded_seq, self.h_0)
+        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(args.device)
+        out = self.fc(combined_out).to(args.device)  # add lepton data to the matrix
+        out = self.softmax(out).to(args.device)
 
         return out
 
@@ -154,8 +156,7 @@ class Net(nn.Module):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-            # import pdb; pdb.set_trace()
-            padded_seq = Pack_padded_sequence(
+            padded_seq = hotfix_pack_padded_sequence(
                 sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
             output = self.forward(padded_seq, sorted_leptons)
             output = output.to(args.device)
@@ -167,10 +168,10 @@ class Net(nn.Module):
                 self.optimizer.step()
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
-            total_acc += float(self.accuracy(predicted.data.detach(),
-                                       truth.data.detach()[indices]))
-            raw_results += output[:, 0].detach().tolist()
-            all_truth += truth[indices].detach().tolist()
+            total_acc += float(self.accuracy(predicted.data.cpu().detach(),
+                                       truth.data.cpu().detach()[indices]))
+            raw_results += output[:, 0].cpu().detach().tolist()
+            all_truth += truth[indices].cpu().detach().tolist()
         total_loss = total_loss / len(events.dataset) * self.options['batch_size']
         total_acc = total_acc / len(events.dataset) * self.options['batch_size']
 

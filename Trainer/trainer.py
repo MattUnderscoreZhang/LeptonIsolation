@@ -100,7 +100,7 @@ class RNN_Trainer:
         
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
             testing_loader)

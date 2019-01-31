@@ -82,7 +82,7 @@ class RNN_Trainer:
 
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True)
+            collate_fn=collate, shuffle=True, drop_last=True)
 
         _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
             testing_loader)
@@ -90,10 +90,8 @@ class RNN_Trainer:
     def train_and_test(self, do_print=True, save=True):
         '''Function to run and the execute the network'''
         self.prepare()
-        #import pdb; pdb.set_trace()
         loss = self.train(do_print)
         self.test()
-        torch.save(self.rnn.state_dict(), 'trained_model.pth')
         return loss
 
     def save_model(self, save_path):

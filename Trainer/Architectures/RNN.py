@@ -97,9 +97,7 @@ class Model(nn.Module):
         return out
 
     def accuracy(self, predicted, truth):
-        acc = torch.from_numpy(
-            np.array((predicted == truth.float()).sum().float() / len(truth)))
-        return acc
+        return torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
 
     def do_train(self, events, do_training=True):
         if do_training:
@@ -128,10 +126,8 @@ class Model(nn.Module):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-            padded_seq = hotfix_pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-            output = self.forward(padded_seq, sorted_leptons)
-            output = output.to(args.device)
+            padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.forward(padded_seq, sorted_leptons).to(args.device)
             indices = indices.to(args.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
@@ -143,8 +139,6 @@ class Model(nn.Module):
             total_acc += float(self.accuracy(predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]))
             raw_results += output[:, 0].cpu().detach().tolist()
             all_truth += truth[indices].cpu().detach().tolist()
-        total_loss = total_loss / len(events.dataset) * self.batch_size
-        total_acc = total_acc / len(events.dataset) * self.batch_size
 
         total_loss = total_loss / len(events.dataset) * self.batch_size
         total_acc = total_acc / len(events.dataset) * self.batch_size

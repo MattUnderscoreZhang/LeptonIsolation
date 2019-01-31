@@ -1,14 +1,17 @@
+import pickle as pkl
+import pathlib
+import argparse
+
 import numpy as np
-from Architectures.RNN import RNN, Net
-from DataStructures.HistoryData import HistoryData, LOSS, ACC, TRAIN, VALIDATION, TEST, BATCH, EPOCH
-from DataStructures.LeptonTrackDataset import Torchdata, collate
+import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
-import pickle as pkl
-import argparse
-import torch
+
+from .Architectures.RNN import Model
+from .DataStructures.LeptonTrackDataset import Torchdata, collate
 
 # GPU Compatibility
+
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
@@ -20,20 +23,10 @@ if not args.disable_cuda and torch.cuda.is_available():
 else:
     args.device = torch.device('cpu')
 
-###############
-# Tensorboard #
-###############
-
-# writer = SummaryWriter()
-
-##################
-# Train and test #
-##################
-
 
 class RNN_Trainer:
 
-    def __init__(self, options, leptons_with_tracks):
+    def __init__(self, options, leptons_with_tracks, output_folder):
         self.options = options
         self.n_events = len(leptons_with_tracks)
         self.n_training_events = int(
@@ -41,9 +34,7 @@ class RNN_Trainer:
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-
-        # training results e.g. history[CLASS_LOSS][TRAIN][EPOCH]
-        self.history = HistoryData()
+        self.history_logger = SummaryWriter(output_folder)
         self.test_truth = []
         self.test_raw_results = []
 
@@ -53,24 +44,19 @@ class RNN_Trainer:
         self.training_events = \
             self.leptons_with_tracks[:self.n_training_events]
         self.test_events = self.leptons_with_tracks[self.n_training_events:]
-
         # prepare the generators
         self.train_set = Torchdata(self.training_events)
         self.test_set = Torchdata(self.test_events)
-
-        # set up RNN
-        self.rnn = Net(self.options)
+        # set up model
+        self.model = Model(self.options)
 
     def make_batch(self):
-
         training_loader = DataLoader(
             self.train_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
-
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
-
         return training_loader, testing_loader
 
     def train(self, Print=True):
@@ -78,16 +64,12 @@ class RNN_Trainer:
         train_acc = 0
         for batch_n in range(self.options['n_batches']):
             training_batch, testing_batch = self.make_batch()
-            train_loss, train_acc, _, _ = self.rnn.do_train(training_batch)
-            test_loss, test_acc, _, _ = self.rnn.do_eval(testing_batch)
-            self.history[LOSS][TRAIN][BATCH].append(train_loss)
-            self.history[ACC][TRAIN][BATCH].append(train_acc)
-            self.history[LOSS][TEST][BATCH].append(test_loss)
-            self.history[ACC][TEST][BATCH].append(test_acc)
-            # writer.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
-            # writer.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
-            # writer.add_scalar('Loss/Train Loss', train_loss, batch_n)
-            # writer.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            train_loss, train_acc, _, _ = self.model.do_train(training_batch)
+            test_loss, test_acc, _, _ = self.model.do_eval(testing_batch)
+            self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
+            self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
+            self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
+            self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
             if Print:
                 print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
@@ -97,50 +79,53 @@ class RNN_Trainer:
     def test(self):
 
         self.test_set.file.reshuffle()
-        
+
         testing_loader = DataLoader(
             self.test_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
 
-        _, _, self.test_raw_results, self.test_truth = self.rnn.do_eval(
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
             testing_loader)
 
     def train_and_test(self, do_print=True, save=True):
         '''Function to run and the execute the network'''
         self.prepare()
-        #import pdb; pdb.set_trace()
         loss = self.train(do_print)
         self.test()
-        torch.save(self.rnn.state_dict(), 'trained_model.pth')
         return loss
 
-#################
-# Main function #
-#################
+    def save_model(self, save_path):
+        net, optimizer = self.model.get_model()
+        torch.save(net, save_path + "/saved_net.pt")
+        torch.save(optimizer, save_path + "/saved_optimizer.pt")
+
+    def log_history(self, save_path):
+        # self.history_logger.export_scalars_to_json(save_path + "/scalar_history.json")
+        self.history_logger.close()
 
 
-if __name__ == "__main__":
-
-    # set options
-    from Options.default_options import options
-
+def train(options):
     # load data
     data_file = options['input_data']
     leptons_with_tracks = pkl.load(open(data_file, 'rb'))
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
-
-    # perform training
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
-
     good_leptons = [i[leptons_with_tracks['lepton_labels'].index(
         'ptcone20')] > 0 for i in leptons_with_tracks['unnormed_leptons']]
     lwt = np.array(lwt)[good_leptons]
-    RNN_trainer = RNN_Trainer(options, lwt)
+
+    # prepare outputs
+    output_folder = options['output_folder']
+    if not pathlib.Path(output_folder).exists():
+        pathlib.Path(output_folder).mkdir(parents=True)
+
+    # perform training
+    RNN_trainer = RNN_Trainer(options, lwt, output_folder)
     RNN_trainer.train_and_test()
 
-
-    # writer.export_scalars_to_json("./all_scalars.json")
-    # writer.close()
+    # save results
+    RNN_trainer.log_history(output_folder)
+    RNN_trainer.save_model(output_folder)

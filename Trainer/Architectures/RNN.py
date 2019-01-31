@@ -3,7 +3,7 @@ new neural network architecture'''
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
+from torch.nn.utils.rnn import PackedSequence
 import numpy as np
 import argparse
 
@@ -22,6 +22,7 @@ else:
     args.device = torch.device('cpu')
     # gpu=False
 
+
 def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
     lengths = torch.as_tensor(lengths, dtype=torch.int64)
     lengths = lengths.cpu()
@@ -33,9 +34,8 @@ def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorte
         batch_dim = 0 if batch_first else 1
         input = input.index_select(batch_dim, sorted_indices)
 
-    data, batch_sizes = \
-        torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
-    return PackedSequence(data, batch_sizes )
+    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+    return PackedSequence(data, batch_sizes)
 
 
 def Tensor_length(track):
@@ -43,91 +43,61 @@ def Tensor_length(track):
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 
-class RNN(nn.Module):
+class Model(nn.Module):
     """RNN module implementing pytorch rnn"""
 
     def __init__(self, options):
-        super(RNN, self).__init__()
-        self.options=options
+        super().__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.input_size = options["track_size"]
         self.hidden_size = options["hidden_neurons"]
         self.lepton_size = options["lepton_size"]
         self.output_size = options["output_neurons"]
-        self.h_0=nn.Parameter(
+        self.learning_rate = options["learning_rate"]
+        self.batch_size = options["batch_size"]
+        self.h_0 = nn.Parameter(
                 torch.zeros(
-                    self.n_layers *self.n_directions, 
-                    self.options['batch_size'], 
+                    self.n_layers * self.n_directions,
+                    self.batch_size,
                     self.hidden_size).to(args.device))
- 
+
         self.cellstate = False
-        if options['RNN_type'] is 'vanilla':
+        if options['RNN_type'] is 'RNN':
             self.rnn = nn.RNN(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"]).to(args.device)
-
         elif options['RNN_type'] is 'LSTM':
-            self.cellstate=True
+            self.cellstate = True
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"]).to(args.device)
-
         elif options['RNN_type'] is 'GRU':
             self.rnn = nn.GRU(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
                 bidirectional=options["bidirectional"]).to(args.device)
 
-        self.fc = nn.Linear(self.hidden_size +
-                            self.lepton_size, self.output_size).to(args.device)
+        self.fc = nn.Linear(self.hidden_size + self.lepton_size, self.output_size).to(args.device)
         self.softmax = nn.Softmax(dim=1).to(args.device)
-        
-    def forward(self, padded_seq, sorted_leptons):
-        # import ipdb; ipdb.set_trace() 
-        
+        self.loss_function = nn.BCEWithLogitsLoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
+    def forward(self, padded_seq, sorted_leptons):
         self.rnn.flatten_parameters()
         if self.cellstate:
-            output, hidden,cellstate = self.rnn(padded_seq,self.h_0)
-        
-        else: output,hidden=self.rnn(padded_seq, self.h_0)
+            output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
+        else:
+            output, hidden = self.rnn(padded_seq, self.h_0)
         combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(args.device)
         out = self.fc(combined_out).to(args.device)  # add lepton data to the matrix
         out = self.softmax(out).to(args.device)
-
         return out
 
-
-
-    
-
-
-class Net(nn.Module):
-    """Super class for the complete neural net"""
-
-    def __init__(self, options):
-        super(Net, self).__init__()
-        self.options = options
-        self.rnn = RNN(options).to(args.device)
-        self.loss_function = nn.BCEWithLogitsLoss()
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.options['learning_rate'])
-
-        # https://discuss.pytorch.org/t/multi-layer-rnn-with-dataparallel/4450/8
-        # if gpu is True:
-        #     self.rnn = nn.DataParallel(self.rnn).to(args.device) 
-
-    def forward(self, padded_seq, sorted_leptons):
-        x = self.rnn.forward(padded_seq, sorted_leptons)
-        return x
-
     def accuracy(self, predicted, truth):
-        acc = torch.from_numpy(
-            np.array((predicted == truth.float()).sum().float() / len(truth)))
-        return acc
+        return torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
 
     def do_train(self, events, do_training=True):
         if do_training:
@@ -156,10 +126,8 @@ class Net(nn.Module):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-            padded_seq = hotfix_pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-            output = self.forward(padded_seq, sorted_leptons)
-            output = output.to(args.device)
+            padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.forward(padded_seq, sorted_leptons).to(args.device)
             indices = indices.to(args.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
@@ -168,16 +136,17 @@ class Net(nn.Module):
                 self.optimizer.step()
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
-            total_acc += float(self.accuracy(predicted.data.cpu().detach(),
-                                       truth.data.cpu().detach()[indices]))
+            total_acc += float(self.accuracy(predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]))
             raw_results += output[:, 0].cpu().detach().tolist()
             all_truth += truth[indices].cpu().detach().tolist()
-        total_loss = total_loss / len(events.dataset) * self.options['batch_size']
-        total_acc = total_acc / len(events.dataset) * self.options['batch_size']
 
-        return total_loss, total_acc,\
-            raw_results, all_truth
+        total_loss = total_loss / len(events.dataset) * self.batch_size
+        total_acc = total_acc / len(events.dataset) * self.batch_size
+        total_loss = torch.tensor(total_loss)
+        return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, events, do_training=False):
         return self.do_train(events, do_training=False)
 
+    def get_model(self):
+        return self.rnn, self.optimizer

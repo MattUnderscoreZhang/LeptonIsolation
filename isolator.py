@@ -1,5 +1,5 @@
 from Trainer import trainer
-# import Analyzer
+from Analyzer import compare_ptcone
 
 if __name__ == "__main__":
     '''python isolator.py'''
@@ -18,4 +18,5 @@ if __name__ == "__main__":
     options['output_neurons'] = 2
     options['bidirectional'] = False
 
+    compare_ptcone.compare(options)
     trainer.train(options)

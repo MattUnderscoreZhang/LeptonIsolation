@@ -62,7 +62,7 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i, labels):
 # Comparison plots #
 ####################
 
-def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir):
+def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed=False):
 
     # labels
     lepton_keys = labels[0]
@@ -101,6 +101,9 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir):
         # plt.ylim(0, 200000)
         plt.xlim(0, 50000)
         plt.ylim(0, 50000)
+        if normed:
+            plt.xlim(0, 20)
+            plt.ylim(0, 20)
         plt.savefig(plot_save_dir + feature +
                     "_scatter.png", bbox_inches='tight')
         plt.clf()

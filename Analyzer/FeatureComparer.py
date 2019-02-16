@@ -1,7 +1,8 @@
+import matplotlib
+matplotlib.use('Agg') # NOQA
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
-import pdb
+
 
 ###################
 # Calculate cones #
@@ -55,6 +56,7 @@ def calculate_ptcone_and_etcone(leptons_with_tracks_i, labels):
                 cones['ptvarcone40'] += track_pt
 
     return cones
+
 
 ####################
 # Comparison plots #

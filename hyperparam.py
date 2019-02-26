@@ -1,17 +1,13 @@
 import argparse
 import os
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from torchvision import datasets, transforms
 import pickle as pkl
 import pathlib
-
 from Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
 from DataStructures.LeptonTrackDataset import Torchdata, collate
-
+import pdb
 from ray.tune import Trainable
 
 # Training settings
@@ -104,24 +100,22 @@ class TrainRNN(Trainable):
         self.train_set = Torchdata(self.training_events)
         self.test_set = Torchdata(self.test_events)
 
-        self.training_loader = DataLoader(
+        self.train_loader = DataLoader(
             self.train_set, batch_size=self.args.batch_size,
             collate_fn=collate, shuffle=True, drop_last=True, **kwargs)
         self.test_loader = DataLoader(
             self.test_set, batch_size=self.args.batch_size,
             collate_fn=collate, shuffle=True, drop_last=True, **kwargs)
-
         self.model = Model(vars(self.args))
         if cuda:
             self.model.cuda()
         self.optimizer = optim.Adam(
-            self.parameters(), lr=self.args.learning_rate)
+            self.model.parameters(), lr=self.args.learning_rate)
 
     def _train_iteration(self):
         self.model.train()
         for batch_idx, data in enumerate(self.train_loader):
             self.optimizer.zero_grad()
-
             track_info, lepton_info, truth = data
             # moving tensors to adequate device
             track_info = track_info.to(args.device)
@@ -136,13 +130,15 @@ class TrainRNN(Trainable):
             # reodering information according to sorted indices
             sorted_tracks = track_info[indices].to(args.device)
             sorted_leptons = lepton_info[indices].to(args.device)
-            padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-            output = self.model.forward(padded_seq, sorted_leptons).to(args.device)
+            padded_seq = hotfix_pack_padded_sequence(
+                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.model.forward(
+                padded_seq, sorted_leptons).to(args.device)
             indices = indices.to(args.device)
-            loss = self.model.loss_function(output[:, 0], truth[indices].float())
+            loss = self.model.loss_function(
+                output[:, 0], truth[indices].float())
             loss.backward()
             self.optimizer.step()
-
 
     def _test(self):
         self.model.eval()
@@ -166,15 +162,19 @@ class TrainRNN(Trainable):
                 # reodering information according to sorted indices
                 sorted_tracks = track_info[indices].to(args.device)
                 sorted_leptons = lepton_info[indices].to(args.device)
-                padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-                output = self.model.forward(padded_seq, sorted_leptons).to(args.device)
+                padded_seq = hotfix_pack_padded_sequence(
+                    sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+                output = self.model(
+                    padded_seq, sorted_leptons).to(args.device)
                 indices = indices.to(args.device)
-                test_loss += self.model.loss_function(output[:, 0], truth[indices].float()).item()
+                test_loss += self.model.loss_function(
+                    output[:, 0], truth[indices].float()).item()
                 predicted = torch.round(output)[:, 0]
-                test_acc += float(self.accuracy(predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]))
+                test_acc += float(self.model.accuracy(predicted.data.cpu().detach(),
+                                                truth.data.cpu().detach()[indices]))
 
-        test_loss = test_loss / len(self.test_loader.dataset) * self.batch_size
-        test_acc = test_acc / len(self.test_loader.dataset) * self.batch_size
+        test_loss = test_loss / len(self.test_loader.dataset)
+        test_acc = test_acc / len(self.test_loader.dataset)
         return {"mean_loss": test_loss, "mean_accuracy": test_acc}
 
     def _train(self):
@@ -229,7 +229,10 @@ if __name__ == "__main__":
     arguments = get_dataset(options)
     vars(args).update(arguments[0])
     vars(args).update({'dataset': arguments[1]})
-
+    if not args.disable_cuda and torch.cuda.is_available():
+        args.device = torch.device('cuda')
+    else:
+        args.device = torch.device('cpu')
     ray.init()
     sched = HyperBandScheduler(
         time_attr="training_iteration", reward_attr="neg_mean_loss")
@@ -249,7 +252,7 @@ if __name__ == "__main__":
                 "checkpoint_at_end": True,
                 "config": {
                     "args": args,
-                    "lr": tune.sample_from(
+                    "learning_rate": tune.sample_from(
                         lambda spec: np.random.uniform(0.001, 0.1)),
 
                 }

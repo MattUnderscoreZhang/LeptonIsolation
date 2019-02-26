@@ -7,16 +7,16 @@ import argparse
 
 #GPU Compatibility
 
-parser = argparse.ArgumentParser(description='Trainer')
-parser.add_argument('--disable-cuda', action='store_true',
-                    help='Disable CUDA')
-args = parser.parse_args()
-args.device = None
-if not args.disable_cuda and torch.cuda.is_available():
-    args.device = torch.device('cuda')
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-else:
-    args.device = torch.device('cpu')
+# parser = argparse.ArgumentParser(description='Trainer')
+# parser.add_argument('--disable-cuda', action='store_true',
+#                     help='Disable CUDA')
+# args = parser.parse_args()
+# args.device = None
+# if not args.disable_cuda and torch.cuda.is_available():
+#     args.device = torch.device('cuda')
+#     torch.set_default_tensor_type(torch.cuda.FloatTensor)
+# else:
+#     args.device = torch.device('cpu')
 
 
 

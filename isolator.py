@@ -1,4 +1,4 @@
-from Trainer import trainer
+import trainer
 from Analyzer import compare_ptcone
 
 if __name__ == "__main__":

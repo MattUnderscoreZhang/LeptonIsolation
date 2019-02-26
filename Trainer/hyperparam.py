@@ -3,12 +3,14 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 import torch.optim as optim
 from torchvision import datasets, transforms
 import pickle as pkl
 import pathlib
-# from .Architectures.RNN import Model
-# from .DataStructures.LeptonTrackDataset import Torchdata, collate
+
+from Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
+from DataStructures.LeptonTrackDataset import Torchdata, collate
 
 from ray.tune import Trainable
 
@@ -32,10 +34,10 @@ parser.add_argument(
     metavar='fraction',
     help='ratio of training to testing (default: 0.7)')
 parser.add_argument(
-    '--lr',
+    '--learning_rate',
     type=float,
     default=0.0001,
-    metavar='LR',
+    metavar='learning_rate',
     help='learning rate (default: 0.0001)')
 parser.add_argument(
     '--n_batches',
@@ -73,28 +75,107 @@ args = parser.parse_args()
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device('cuda')
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    cuda=True
+    cuda = True
 else:
     args.device = torch.device('cpu')
-    cuda=False
+    cuda = False
+
 
 class TrainRNN(Trainable):
     def _setup(self, config):
-        args = config.pop("args")
-        vars(args).update(config)
+        self.args = config.pop("args")
+        vars(self.args).update(config)
 
         torch.manual_seed(args.seed)
         kwargs = {}
         if cuda:
             torch.cuda.manual_seed(args.seed)
-            kwargs = {'num_workers': 1, 'pin_memory': True}            
+            kwargs = {'num_workers': 1, 'pin_memory': True}
 
+        self.n_events = len(self.args.dataset)
+        self.n_training_events = int(
+            self.args.training_split * self.n_events)
+        self.leptons_with_tracks = self.args.dataset
+
+        self.training_events = \
+            self.leptons_with_tracks[:self.n_training_events]
+        self.test_events = self.leptons_with_tracks[self.n_training_events:]
+        # prepare the generators
+        self.train_set = Torchdata(self.training_events)
+        self.test_set = Torchdata(self.test_events)
+
+        self.training_loader = DataLoader(
+            self.train_set, batch_size=self.args.batch_size,
+            collate_fn=collate, shuffle=True, drop_last=True, **kwargs)
+        self.test_loader = DataLoader(
+            self.test_set, batch_size=self.args.batch_size,
+            collate_fn=collate, shuffle=True, drop_last=True, **kwargs)
+
+        self.model = Model(vars(self.args))
+        if cuda:
+            self.model.cuda()
+        self.optimizer = optim.Adam(
+            self.parameters(), lr=self.args.learning_rate)
 
     def _train_iteration(self):
-        return
+        self.model.train()
+        for batch_idx, data in enumerate(self.train_loader):
+            self.optimizer.zero_grad()
+
+            track_info, lepton_info, truth = data
+            # moving tensors to adequate device
+            track_info = track_info.to(args.device)
+            lepton_info = lepton_info.to(args.device)
+            truth = truth[:, 0].to(args.device)
+
+            # setting up for packing padded sequence
+            n_tracks = torch.tensor([Tensor_length(track_info[i])
+                                     for i in range(len(track_info))])
+
+            sorted_n, indices = torch.sort(n_tracks, descending=True)
+            # reodering information according to sorted indices
+            sorted_tracks = track_info[indices].to(args.device)
+            sorted_leptons = lepton_info[indices].to(args.device)
+            padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.model.forward(padded_seq, sorted_leptons).to(args.device)
+            indices = indices.to(args.device)
+            loss = self.model.loss_function(output[:, 0], truth[indices].float())
+            loss.backward()
+            self.optimizer.step()
+
 
     def _test(self):
-        return
+        self.model.eval()
+        test_loss = 0
+        test_acc = 0
+        with torch.no_grad():
+            for batch_idx, data in enumerate(self.train_loader):
+                self.optimizer.zero_grad()
+
+                track_info, lepton_info, truth = data
+                # moving tensors to adequate device
+                track_info = track_info.to(args.device)
+                lepton_info = lepton_info.to(args.device)
+                truth = truth[:, 0].to(args.device)
+
+                # setting up for packing padded sequence
+                n_tracks = torch.tensor([Tensor_length(track_info[i])
+                                         for i in range(len(track_info))])
+
+                sorted_n, indices = torch.sort(n_tracks, descending=True)
+                # reodering information according to sorted indices
+                sorted_tracks = track_info[indices].to(args.device)
+                sorted_leptons = lepton_info[indices].to(args.device)
+                padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+                output = self.model.forward(padded_seq, sorted_leptons).to(args.device)
+                indices = indices.to(args.device)
+                test_loss += self.model.loss_function(output[:, 0], truth[indices].float()).item()
+                predicted = torch.round(output)[:, 0]
+                test_acc += float(self.accuracy(predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]))
+
+        test_loss = test_loss / len(self.test_loader.dataset) * self.batch_size
+        test_acc = test_acc / len(self.test_loader.dataset) * self.batch_size
+        return {"mean_loss": test_loss, "mean_accuracy": test_acc}
 
     def _train(self):
         self._train_iteration()
@@ -127,8 +208,7 @@ def get_dataset(options):
     if not pathlib.Path(output_folder).exists():
         pathlib.Path(output_folder).mkdir(parents=True)
 
-    return options,lwt,output_folder
-
+    return options, lwt
 
 
 if __name__ == "__main__":
@@ -144,15 +224,11 @@ if __name__ == "__main__":
 
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "Outputs/HP_tune/"
-    options['learning_rate'] = 0.0001
-    options['training_split'] = 0.7
-    options['batch_size'] = 200
-    options['n_batches'] = 50
-    options['n_layers'] = 5
-    options['hidden_neurons'] = 128
     options['output_neurons'] = 2
     options['bidirectional'] = False
-    arguments=get_dataset(options)
+    arguments = get_dataset(options)
+    vars(args).update(arguments[0])
+    vars(args).update({'dataset': arguments[1]})
 
     ray.init()
     sched = HyperBandScheduler(
@@ -175,8 +251,7 @@ if __name__ == "__main__":
                     "args": args,
                     "lr": tune.sample_from(
                         lambda spec: np.random.uniform(0.001, 0.1)),
-                    "momentum": tune.sample_from(
-                        lambda spec: np.random.uniform(0.1, 0.9)),
+
                 }
             }
         },

@@ -7,8 +7,8 @@ import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
-from .Architectures.RNN import Model
-from .DataStructures.LeptonTrackDataset import Torchdata, collate
+from Architectures.RNN import Model
+from DataStructures.LeptonTrackDataset import Torchdata, collate
 
 # GPU Compatibility
 
@@ -110,6 +110,7 @@ def train(options):
     leptons_with_tracks = pkl.load(open(data_file, 'rb'))
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
+    options['device']=args.device
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))

@@ -8,7 +8,7 @@ if __name__ == "__main__":
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "Outputs/Test/"
 
-    options["RNN_type"] = "RNN"
+    options["RNN_type"] = "GRU"
     options['learning_rate'] = 0.0001
     options['training_split'] = 0.7
     options['batch_size'] = 200

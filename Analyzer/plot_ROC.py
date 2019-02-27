@@ -1,39 +1,41 @@
 import matplotlib.pyplot as plt
 from sklearn import metrics
+import pickle as pkl
+import numpy as np
 
 
-def plot(history, plot_save_dir):
+def plot_history(history, plot_save_dir):
     '''Plots all the necessary details from the trained model'''
-    # loss
-    plt.plot(history[LOSS][TRAIN][BATCH],
-             'o-', color='g', label="Training loss")
-    plt.plot(history[LOSS][TEST][BATCH],
-             'o-', color='r', label="Test loss")
-    plt.title("Loss")
-    plt.xlabel("Batch")
-    plt.ylabel("Loss")
-    plt.grid('on', linestyle='--')
-    plt.legend(loc='best')
-    plt.savefig(plot_save_dir + "loss.png")
-    plt.clf()
+    # # loss
+    # plt.plot(history[LOSS][TRAIN][BATCH],
+             # 'o-', color='g', label="Training loss")
+    # plt.plot(history[LOSS][TEST][BATCH],
+             # 'o-', color='r', label="Test loss")
+    # plt.title("Loss")
+    # plt.xlabel("Batch")
+    # plt.ylabel("Loss")
+    # plt.grid('on', linestyle='--')
+    # plt.legend(loc='best')
+    # plt.savefig(plot_save_dir + "loss.png")
+    # plt.clf()
 
-    # accuracy
-    plt.plot(history[ACC][TRAIN][BATCH], 'o-',
-             color='g', label="Training accuracy")
-    plt.plot(history[ACC][TEST][BATCH], 'o-',
-             color='r', label="Test accuracy")
-    plt.title("Accuracy")
-    plt.xlabel("Batch")
-    plt.ylabel("Accuracy")
-    plt.grid('on', linestyle='--')
-    plt.legend(loc='best')
-    plt.savefig(plot_save_dir + "accuracy.png")
-    plt.clf()
+    # # accuracy
+    # plt.plot(history[ACC][TRAIN][BATCH], 'o-',
+             # color='g', label="Training accuracy")
+    # plt.plot(history[ACC][TEST][BATCH], 'o-',
+             # color='r', label="Test accuracy")
+    # plt.title("Accuracy")
+    # plt.xlabel("Batch")
+    # plt.ylabel("Accuracy")
+    # plt.grid('on', linestyle='--')
+    # plt.legend(loc='best')
+    # plt.savefig(plot_save_dir + "accuracy.png")
+    # plt.clf()
 
     # # separation
-    # self.test_truth = [i[0] for i in self.test_truth]
-    # HF_flag = [i == 0 for i in self.test_truth]
-    # prompt_flag = [i == 1 for i in self.test_truth]
+    # test_truth = [i[0] for i in test_truth]
+    # HF_flag = [i == 0 for i in test_truth]
+    # prompt_flag = [i == 1 for i in test_truth]
     # HF_raw_results = np.array(self.test_raw_results)[HF_flag]
     # prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
     # hist_bins = np.arange(0, 1, 0.01)
@@ -54,12 +56,10 @@ def plot(history, plot_save_dir):
     # plt.savefig(plot_save_dir + "separation.png")
     # plt.clf()
 
-    #######
-    # ROC #
-    #######
+
+def plot_ROC(data_filename, test_raw_results, test_truth):
 
     # open file
-    data_filename = "../Data/lepton_track_data.pkl"
     with open(data_filename, 'rb') as data_file:
         leptons_with_tracks = pkl.load(data_file)
 
@@ -86,17 +86,16 @@ def plot(history, plot_save_dir):
     for key in pt_keys:
         cones[key] = np.array(cones[key])[good_leptons]
 
-    # ptcone curves
+    # make ROC comparison plots
     for key in pt_keys:
         fpr, tpr, thresholds = metrics.roc_curve(isolated, cones[key])
         # roc_auc = metrics.auc(fpr, tpr)
         plt.plot(tpr, fpr, lw=2, label=key)
 
-    # # RNN curve
-    # fpr, tpr, thresholds = metrics.roc_curve(
-        # self.test_truth, self.test_raw_results)
-    # # roc_auc = metrics.auc(fpr, tpr)
-    # plt.plot(fpr, tpr, lw=2, label='RNN')
+    fpr, tpr, thresholds = metrics.roc_curve(
+        test_truth, test_raw_results)
+    # roc_auc = metrics.auc(fpr, tpr)
+    plt.plot(fpr, tpr, lw=2, label='RNN')
 
     # plot style
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
@@ -108,11 +107,6 @@ def plot(history, plot_save_dir):
     plt.title('ROC Curves for Classification')
     plt.legend(loc="lower right")
     # plt.show()
+    plot_save_dir = "Plots/"
     plt.savefig(plot_save_dir + "compare_ROC.png")
     plt.clf()
-
-
-if __name__ == "__main__":
-    history = None # load training history
-    plot_save_dir = "../Plots/"
-    plot(history, plot_save_dir)

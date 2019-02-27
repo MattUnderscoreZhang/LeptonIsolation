@@ -126,10 +126,8 @@ def group_leptons_and_tracks(leptons, tracks):
                                                track['chiSquared']],
                                                dtype=float))
 
-        # sort by dR and remove tracks associated to lepton
-        nearby_tracks.sort(key=lambda x: x[0])
-        if len(nearby_tracks) > 0:
-            nearby_tracks.pop(0)
+        # remove tracks associated to lepton
+        nearby_tracks = remove_lepton_associated_tracks(nearby_tracks)
 
         # add lepton and tracks to return data
         if len(nearby_tracks) > 0:
@@ -183,6 +181,16 @@ def filter_tracks(tracks):
                          good_track_hits & good_track_holes]
 
     return good_tracks
+
+
+def remove_lepton_associated_tracks(tracks):
+    
+    '''Sort tracks by dR to lepton and remove the closest one.'''
+
+    tracks.sort(key=lambda x: x[0])
+    if len(tracks) > 0:
+        tracks.pop(0)
+    return tracks
 
 
 def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):

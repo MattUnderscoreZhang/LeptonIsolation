@@ -7,11 +7,13 @@ import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
+import sys
+sys.path.append("..")  # NOQA
 from .Architectures.RNN import Model
 from .DataStructures.LeptonTrackDataset import Torchdata, collate
+from Analyzer import plot_ROC
 
 # GPU Compatibility
-
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
@@ -76,7 +78,7 @@ class RNN_Trainer:
                           batch_n, train_loss, train_acc, test_loss, test_acc))
         return train_loss
 
-    def test(self):
+    def test(self, data_filename):
 
         self.test_set.file.reshuffle()
 
@@ -87,27 +89,26 @@ class RNN_Trainer:
         _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
             testing_loader)
 
-    def train_and_test(self, do_print=True, save=True):
+        plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
+
+    def train_and_test(self, data_filename, do_print=True, save=True):
         '''Function to run and the execute the network'''
         self.prepare()
         loss = self.train(do_print)
-        self.test()
+        self.test(data_filename)
         return loss
 
     def save_model(self, save_path):
         net, optimizer = self.model.get_model()
         torch.save(net, save_path + "/saved_net.pt")
         torch.save(optimizer, save_path + "/saved_optimizer.pt")
-
-    def log_history(self, save_path):
-        # self.history_logger.export_scalars_to_json(save_path + "/scalar_history.json")
         self.history_logger.close()
 
 
 def train(options):
     # load data
-    data_file = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_file, 'rb'))
+    data_filename = options['input_data']
+    leptons_with_tracks = pkl.load(open(data_filename, 'rb'))
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(
@@ -124,8 +125,7 @@ def train(options):
 
     # perform training
     RNN_trainer = RNN_Trainer(options, lwt, output_folder)
-    RNN_trainer.train_and_test()
+    RNN_trainer.train_and_test(data_filename)
 
     # save results
-    RNN_trainer.log_history(output_folder)
     RNN_trainer.save_model(output_folder)

@@ -108,7 +108,7 @@ class RNN_Trainer:
 def train(options):
     # load data
     data_filename = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_filename, 'rb'))
+    leptons_with_tracks = pkl.load(open(data_filename, 'rb'), encoding='latin1')
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(

@@ -7,19 +7,19 @@ from torch.nn.utils.rnn import PackedSequence
 import numpy as np
 
 
-def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
+def hotfix_pack_padded_sequence(sorted_tracks, lengths, batch_first=False, enforce_sorted=True):
     lengths = torch.as_tensor(lengths, dtype=torch.int64)
     lengths = lengths.cpu()
     if enforce_sorted:
         sorted_indices = None
     else:
         lengths, sorted_indices = torch.sort(lengths, descending=True)
-        sorted_indices = sorted_indices.to(input.device)
+        sorted_indices = sorted_indices.to(sorted_tracks.device)
         batch_dim = 0 if batch_first else 1
-        input = input.index_select(batch_dim, sorted_indices)
+        sorted_tracks = sorted_tracks.index_select(batch_dim, sorted_indices)
 
     data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
-        input, lengths, batch_first)
+        sorted_tracks, lengths, batch_first)
     return PackedSequence(data, batch_sizes)
 
 
@@ -89,7 +89,7 @@ class Model(nn.Module):
     def accuracy(self, predicted, truth):
         return torch.from_numpy(np.array((predicted == truth.float()).sum().float() / len(truth)))
 
-    def do_train(self, events, do_training=True):
+    def do_train(self, batches, do_training=True):
         if do_training:
             self.rnn.train()
         else:
@@ -99,10 +99,10 @@ class Model(nn.Module):
         raw_results = []
         all_truth = []
 
-        for i, data in enumerate(events, 1):
+        for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
 
-            track_info, lepton_info, truth = data
+            track_info, lepton_info, truth = batch
             # moving tensors to adequate device
             track_info = track_info.to(self.device)
             lepton_info = lepton_info.to(self.device)
@@ -132,13 +132,13 @@ class Model(nn.Module):
             raw_results += output[:, 0].cpu().detach().tolist()
             all_truth += truth[indices].cpu().detach().tolist()
 
-        total_loss = total_loss / len(events.dataset) * self.batch_size
-        total_acc = total_acc / len(events.dataset) * self.batch_size
+        total_loss = total_loss / len(batches.dataset) * self.batch_size
+        total_acc = total_acc / len(batches.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
         return total_loss, total_acc, raw_results, all_truth
 
-    def do_eval(self, events, do_training=False):
-        return self.do_train(events, do_training=False)
+    def do_eval(self, batches, do_training=False):
+        return self.do_train(batches, do_training=False)
 
     def get_model(self):
         return self.rnn, self.optimizer

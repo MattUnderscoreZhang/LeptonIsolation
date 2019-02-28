@@ -1,6 +1,5 @@
 import pickle as pkl
 import pathlib
-import argparse
 
 import numpy as np
 import torch
@@ -12,18 +11,6 @@ sys.path.append("..")  # NOQA
 from .Architectures.RNN import Model
 from .DataStructures.LeptonTrackDataset import Torchdata, collate
 from Analyzer import plot_ROC
-
-# GPU Compatibility
-parser = argparse.ArgumentParser(description='Trainer')
-parser.add_argument('--disable-cuda', action='store_true',
-                    help='Disable CUDA')
-args = parser.parse_args()
-args.device = None
-if not args.disable_cuda and torch.cuda.is_available():
-    args.device = torch.device('cuda')
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-else:
-    args.device = torch.device('cpu')
 
 
 class RNN_Trainer:
@@ -52,7 +39,7 @@ class RNN_Trainer:
         # set up model
         self.model = Model(self.options)
 
-    def make_batch(self):
+    def make_batches(self):
         training_loader = DataLoader(
             self.train_set, batch_size=self.options['batch_size'],
             collate_fn=collate, shuffle=True, drop_last=True)
@@ -64,24 +51,24 @@ class RNN_Trainer:
     def train(self, Print=True):
         train_loss = 0
         train_acc = 0
-        for batch_n in range(self.options['n_batches']):
-            training_batch, testing_batch = self.make_batch()
-            train_loss, train_acc, _, _ = self.model.do_train(training_batch)
-            test_loss, test_acc, _, _ = self.model.do_eval(testing_batch)
-            self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
-            self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
-            self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
-            self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
+        for epoch_n in range(self.options['n_epochs']):
+            training_batches, testing_batches = self.make_batches()
+            train_loss, train_acc, _, _ = self.model.do_train(training_batches)
+            test_loss, test_acc, _, _ = self.model.do_eval(testing_batches)
+            self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, epoch_n)
+            self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, epoch_n)
+            self.history_logger.add_scalar('Loss/Train Loss', train_loss, epoch_n)
+            self.history_logger.add_scalar('Loss/Test Loss', test_loss, epoch_n)
             if Print:
                 print("Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
-                          batch_n, train_loss, train_acc, test_loss, test_acc))
+                          epoch_n, train_loss, train_acc, test_loss, test_acc))
         return train_loss
 
     def test(self, data_filename):
         self.test_set.file.reshuffle()
-        _, testing_batch = self.make_batch()
-        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batch)
+        _, testing_batches = self.make_batches()
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
         plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
 
     def train_and_test(self, data_filename, do_print=True, save=True):

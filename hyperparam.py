@@ -7,8 +7,8 @@ import pickle as pkl
 import pathlib
 from Trainer.Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
 from Trainer.DataStructures.LeptonTrackDataset import Torchdata, collate
-import pdb
 from ray.tune import Trainable
+
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Hyperparameter Tuner')
@@ -171,7 +171,7 @@ class TrainRNN(Trainable):
                     output[:, 0], truth[indices].float()).item()
                 predicted = torch.round(output)[:, 0]
                 test_acc += float(self.model.accuracy(predicted.data.cpu().detach(),
-                                                truth.data.cpu().detach()[indices]))
+                                                      truth.data.cpu().detach()[indices]))
 
         test_loss = test_loss / len(self.test_loader.dataset)
         test_acc = test_acc / len(self.test_loader.dataset)
@@ -260,4 +260,3 @@ if __name__ == "__main__":
         },
         verbose=2,
         scheduler=sched)
-

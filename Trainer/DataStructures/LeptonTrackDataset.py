@@ -5,8 +5,8 @@ from torch.utils.data import Dataset
 import torch.nn as nn
 import argparse
 
-#GPU Compatibility
 
+# GPU Compatibility
 parser = argparse.ArgumentParser(description='Trainer')
 parser.add_argument('--disable-cuda', action='store_true',
                     help='Disable CUDA')
@@ -17,7 +17,6 @@ if not args.disable_cuda and torch.cuda.is_available():
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 else:
     args.device = torch.device('cpu')
-
 
 
 class LeptonTrackDataset:

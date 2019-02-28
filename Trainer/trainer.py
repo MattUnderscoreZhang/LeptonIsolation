@@ -79,16 +79,9 @@ class RNN_Trainer:
         return train_loss
 
     def test(self, data_filename):
-
         self.test_set.file.reshuffle()
-
-        testing_loader = DataLoader(
-            self.test_set, batch_size=self.options['batch_size'],
-            collate_fn=collate, shuffle=True, drop_last=True)
-
-        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
-            testing_loader)
-
+        _, testing_batch = self.make_batch()
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batch)
         plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
 
     def train_and_test(self, data_filename, do_print=True, save=True):

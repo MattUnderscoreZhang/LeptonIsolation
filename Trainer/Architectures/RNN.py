@@ -5,22 +5,6 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 import numpy as np
-import argparse
-
-# GPU Compatibility
-
-parser = argparse.ArgumentParser(description='Trainer')
-parser.add_argument('--disable-cuda', action='store_true',
-                    help='Disable CUDA')
-args = parser.parse_args()
-args.device = None
-if not args.disable_cuda and torch.cuda.is_available():
-    args.device = torch.device('cuda')
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    # gpu=True
-else:
-    args.device = torch.device('cpu')
-    # gpu=False
 
 
 def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
@@ -34,7 +18,8 @@ def hotfix_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorte
         batch_dim = 0 if batch_first else 1
         input = input.index_select(batch_dim, sorted_indices)
 
-    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
+        input, lengths, batch_first)
     return PackedSequence(data, batch_sizes)
 
 
@@ -56,34 +41,37 @@ class Model(nn.Module):
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
+        self.device = options["device"]
         self.h_0 = nn.Parameter(
-                torch.zeros(
-                    self.n_layers * self.n_directions,
-                    self.batch_size,
-                    self.hidden_size).to(args.device))
+            torch.zeros(
+                self.n_layers * self.n_directions,
+                self.batch_size,
+                self.hidden_size).to(self.device))
 
         self.cellstate = False
         if options['RNN_type'] is 'RNN':
             self.rnn = nn.RNN(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"]).to(args.device)
+                bidirectional=options["bidirectional"]).to(self.device)
         elif options['RNN_type'] is 'LSTM':
             self.cellstate = True
             self.rnn = nn.LSTM(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"]).to(args.device)
-        elif options['RNN_type'] is 'GRU':
+                bidirectional=options["bidirectional"]).to(self.device)
+        else:
             self.rnn = nn.GRU(
                 input_size=self.input_size, hidden_size=self.hidden_size,
                 batch_first=True, num_layers=self.n_layers,
-                bidirectional=options["bidirectional"]).to(args.device)
+                bidirectional=options["bidirectional"]).to(self.device)
 
-        self.fc = nn.Linear(self.hidden_size + self.lepton_size, self.output_size).to(args.device)
-        self.softmax = nn.Softmax(dim=1).to(args.device)
+        self.fc = nn.Linear(self.hidden_size + self.lepton_size,
+                            self.output_size).to(self.device)
+        self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
     def forward(self, padded_seq, sorted_leptons):
         self.rnn.flatten_parameters()
@@ -91,9 +79,11 @@ class Model(nn.Module):
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
-        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(args.device)
-        out = self.fc(combined_out).to(args.device)  # add lepton data to the matrix
-        out = self.softmax(out).to(args.device)
+        combined_out = torch.cat(
+            (sorted_leptons, hidden[-1]), dim=1).to(self.device)
+        # add lepton data to the matrix
+        out = self.fc(combined_out).to(self.device)
+        out = self.softmax(out).to(self.device)
         return out
 
     def accuracy(self, predicted, truth):
@@ -114,9 +104,9 @@ class Model(nn.Module):
 
             track_info, lepton_info, truth = data
             # moving tensors to adequate device
-            track_info = track_info.to(args.device)
-            lepton_info = lepton_info.to(args.device)
-            truth = truth[:, 0].to(args.device)
+            track_info = track_info.to(self.device)
+            lepton_info = lepton_info.to(self.device)
+            truth = truth[:, 0].to(self.device)
 
             # setting up for packing padded sequence
             n_tracks = torch.tensor([Tensor_length(track_info[i])
@@ -124,11 +114,12 @@ class Model(nn.Module):
 
             sorted_n, indices = torch.sort(n_tracks, descending=True)
             # reodering information according to sorted indices
-            sorted_tracks = track_info[indices].to(args.device)
-            sorted_leptons = lepton_info[indices].to(args.device)
-            padded_seq = hotfix_pack_padded_sequence(sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
-            output = self.forward(padded_seq, sorted_leptons).to(args.device)
-            indices = indices.to(args.device)
+            sorted_tracks = track_info[indices].to(self.device)
+            sorted_leptons = lepton_info[indices].to(self.device)
+            padded_seq = hotfix_pack_padded_sequence(
+                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True)
+            output = self.forward(padded_seq, sorted_leptons).to(self.device)
+            indices = indices.to(self.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
             if do_training is True:
@@ -136,7 +127,8 @@ class Model(nn.Module):
                 self.optimizer.step()
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
-            total_acc += float(self.accuracy(predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]))
+            total_acc += float(self.accuracy(predicted.data.cpu().detach(),
+                                             truth.data.cpu().detach()[indices]))
             raw_results += output[:, 0].cpu().detach().tolist()
             all_truth += truth[indices].cpu().detach().tolist()
 

@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import pickle as pkl
 import pathlib
-from Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
-from DataStructures.LeptonTrackDataset import Torchdata, collate
+from Trainer.Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
+from Trainer.DataStructures.LeptonTrackDataset import Torchdata, collate
 import pdb
 from ray.tune import Trainable
 

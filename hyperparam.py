@@ -36,7 +36,7 @@ parser.add_argument(
     metavar='learning_rate',
     help='learning rate (default: 0.0001)')
 parser.add_argument(
-    '--n_batches',
+    '--n_epochs',
     type=int,
     default=50,
     metavar='N',
@@ -193,7 +193,7 @@ class TrainRNN(Trainable):
 def get_dataset(options):
 
     data_file = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_file, 'rb'))
+    leptons_with_tracks = pkl.load(open(data_file, 'rb'), encoding='latin1')
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         args.device = torch.device('cuda')
     else:
         args.device = torch.device('cpu')
-    ray.init()
+    ray.init(temp_dir=options["output_folder"]+"tmp/")
     sched = HyperBandScheduler(
         time_attr="training_iteration", reward_attr="neg_mean_loss")
     tune.run_experiments(

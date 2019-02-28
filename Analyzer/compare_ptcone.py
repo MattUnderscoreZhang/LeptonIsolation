@@ -167,7 +167,7 @@ def compare(options):
 
     # read data
     data_file = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_file, 'rb'))
+    leptons_with_tracks = pkl.load(open(data_file, 'rb'), encoding='latin1')
 
     # # make ptcone and etcone comparison plots - normed
     # plot_save_dir = "Plots/Normed/"

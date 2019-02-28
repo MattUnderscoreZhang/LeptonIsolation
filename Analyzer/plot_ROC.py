@@ -61,7 +61,7 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
 
     # open file
     with open(data_filename, 'rb') as data_file:
-        leptons_with_tracks = pkl.load(data_file)
+        leptons_with_tracks = pkl.load(data_file, encoding='latin1')
 
     # extract ptcone info
     leptons = leptons_with_tracks['unnormed_leptons']

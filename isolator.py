@@ -27,7 +27,7 @@ if __name__ == "__main__":
     options['learning_rate'] = 0.0001
     options['training_split'] = 0.7
     options['batch_size'] = 200
-    options['n_batches'] = 50
+    options['n_epochs'] = 50
     options['n_layers'] = 5
     options['hidden_neurons'] = 128
     options['output_neurons'] = 2

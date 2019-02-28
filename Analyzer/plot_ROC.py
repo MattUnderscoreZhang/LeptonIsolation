@@ -92,8 +92,7 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
         # roc_auc = metrics.auc(fpr, tpr)
         plt.plot(tpr, fpr, lw=2, label=key)
 
-    fpr, tpr, thresholds = metrics.roc_curve(
-        test_truth, test_raw_results)
+    fpr, tpr, thresholds = metrics.roc_curve(test_truth, test_raw_results)
     # roc_auc = metrics.auc(fpr, tpr)
     plt.plot(fpr, tpr, lw=2, label='RNN')
 

@@ -73,7 +73,7 @@ class RNN_Trainer:
             self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
             self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
             if Print:
-                print("Batch: %d, Train Loss: %0.4f, Train Acc: %0.4f, "
+                print("Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (
                           batch_n, train_loss, train_acc, test_loss, test_acc))
         return train_loss

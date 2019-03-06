@@ -1,16 +1,8 @@
-/Plots*
-/Plots_new_rnn
-/Isolator/Data
-/Data
+/Plots
 /Outputs
-*/runs
-*/*/runs
-/all_scalars.json
 */__pycache__
 */*/__pycache__
 .DS_Store
 */.DS_Store
-*.json
-/SamplePrep/Outputs
 */*.pyc
 */*/*.pyc

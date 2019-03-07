@@ -218,7 +218,7 @@ if __name__ == "__main__":
     import numpy as np
     import ray
     from ray import tune
-    from ray.tune.schedulers import HyperBandScheduler
+    from ray.tune.schedulers import HyperBandScheduler, AsyncHyperBandScheduler
 
     options = {}
 
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     else:
         args.device = torch.device('cpu')
     ray.init()
-    sched = HyperBandScheduler(
+    sched = AsyncHyperBandScheduler(
         time_attr="training_iteration", reward_attr="neg_mean_loss")
     tune.run_experiments(
         {
@@ -253,7 +253,7 @@ if __name__ == "__main__":
                 "config": {
                     "args": args,
                     "learning_rate": tune.sample_from(
-                        lambda spec: np.random.uniform(0.001, 0.1)),
+                        lambda spec: np.random.uniform(0.0001, 0.1)),
 
                 }
             }

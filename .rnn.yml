@@ -275,15 +275,48 @@ dependencies:
   - pytorch=1.0.0=py3.7_cuda10.0.130_cudnn7.4.1_1
   - torchvision=0.2.1=py_2
   - pip:
+    - absl-py==0.7.0
+    - aspy.yaml==1.2.0
+    - astor==0.7.1
+    - cfgv==1.5.0
+    - colorlog==4.0.2
+    - flake8==3.7.7
+    - flake8-polyfill==1.0.2
     - flatbuffers==1.10
     - funcsigs==1.0.2
+    - gast==0.2.2
+    - gitdb2==2.0.5
+    - gitpython==2.1.11
+    - grpcio==1.19.0
+    - identify==1.4.0
+    - keras-applications==1.0.7
+    - keras-preprocessing==1.0.9
     - libarchive-c==2.8
     - lief==0.9.0
+    - mando==0.6.4
+    - markdown==3.0.1
+    - mock==2.0.0
     - msgpack==0.5.6
+    - nodeenv==1.3.3
+    - pbr==5.1.3
+    - plotly==3.6.1
+    - pre-commit==1.14.4
+    - progress==1.5
     - protobuf==3.6.1
+    - radon==3.0.1
     - ray==0.6.4
     - redis==3.2.0
+    - retrying==1.3.3
+    - smmap2==2.0.5
     - tables==3.4.4
+    - tabulate==0.8.3
+    - tensorboard==1.13.1
     - tensorboardx==1.6
+    - tensorflow==1.13.1
+    - tensorflow-estimator==1.13.0
+    - termcolor==1.1.0
+    - toml==0.10.0
     - torch==1.0.0
     - typing==3.6.6
+    - virtualenv==16.4.3
+    - wily==1.12.1

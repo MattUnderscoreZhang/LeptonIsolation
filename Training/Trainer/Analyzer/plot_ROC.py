@@ -4,59 +4,6 @@ import pickle as pkl
 import numpy as np
 
 
-def plot_history(history, plot_save_dir):
-    '''Plots all the necessary details from the trained model'''
-    # # loss
-    # plt.plot(history[LOSS][TRAIN][BATCH],
-             # 'o-', color='g', label="Training loss")
-    # plt.plot(history[LOSS][TEST][BATCH],
-             # 'o-', color='r', label="Test loss")
-    # plt.title("Loss")
-    # plt.xlabel("Batch")
-    # plt.ylabel("Loss")
-    # plt.grid('on', linestyle='--')
-    # plt.legend(loc='best')
-    # plt.savefig(plot_save_dir + "loss.png")
-    # plt.clf()
-
-    # # accuracy
-    # plt.plot(history[ACC][TRAIN][BATCH], 'o-',
-             # color='g', label="Training accuracy")
-    # plt.plot(history[ACC][TEST][BATCH], 'o-',
-             # color='r', label="Test accuracy")
-    # plt.title("Accuracy")
-    # plt.xlabel("Batch")
-    # plt.ylabel("Accuracy")
-    # plt.grid('on', linestyle='--')
-    # plt.legend(loc='best')
-    # plt.savefig(plot_save_dir + "accuracy.png")
-    # plt.clf()
-
-    # # separation
-    # test_truth = [i[0] for i in test_truth]
-    # HF_flag = [i == 0 for i in test_truth]
-    # prompt_flag = [i == 1 for i in test_truth]
-    # HF_raw_results = np.array(self.test_raw_results)[HF_flag]
-    # prompt_raw_results = np.array(self.test_raw_results)[prompt_flag]
-    # hist_bins = np.arange(0, 1, 0.01)
-    # pdb.set_trace()
-    # plt.hist(prompt_raw_results, histtype='step', color='r',
-
-    # label="Prompt", weights=np.ones_like(prompt_raw_results) /
-    # float(len(prompt_raw_results)), bins=hist_bins)
-    # plt.hist(HF_raw_results, histtype='step', color='g', label="HF",
-    # weights=np.ones_like(HF_raw_results) /
-    # float(len(HF_raw_results)), bins=hist_bins)
-
-    # plt.title("RNN Results")
-    # plt.xlabel("Result")
-    # plt.ylabel("Percentage")
-    # plt.grid('on', linestyle='--')
-    # plt.legend(loc='best')
-    # plt.savefig(plot_save_dir + "separation.png")
-    # plt.clf()
-
-
 def plot_ROC(data_filename, test_raw_results, test_truth):
 
     fig = plt.figure()
@@ -107,9 +54,5 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
     plt.grid('on', linestyle='--')
     plt.title('ROC Curves for Classification')
     plt.legend(loc="lower right")
-    # plt.show()
-    plot_save_dir = "Plots/"
-    plt.savefig(plot_save_dir + "compare_ROC.png")
-
 
     return fig

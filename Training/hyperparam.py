@@ -223,7 +223,7 @@ if __name__ == "__main__":
     options = {}
 
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["output_folder"] = "Outputs/HP_tune/"
+    options["output_folder"] = "../Outputs/Runs/HP_tune/"
     options['output_neurons'] = 2
     options['bidirectional'] = False
     arguments = get_dataset(options)

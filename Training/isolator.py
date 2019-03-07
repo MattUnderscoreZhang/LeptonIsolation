@@ -1,7 +1,7 @@
 from Trainer import trainer
-from Analyzer import compare_ptcone
 import argparse
 import torch
+
 
 # GPU Compatibility
 parser = argparse.ArgumentParser(description='Trainer')
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     options = {}
 
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["output_folder"] = "Outputs/Test/"
+    options["output_folder"] = "../Outputs/Runs/Test/"
 
     options["RNN_type"] = "RNN"
     options['learning_rate'] = 0.0001
@@ -33,5 +33,5 @@ if __name__ == "__main__":
     options['output_neurons'] = 2
     options['bidirectional'] = False
     options['device'] = args.device
-    compare_ptcone.compare(options)
+
     trainer.train(options)

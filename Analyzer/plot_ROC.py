@@ -59,6 +59,8 @@ def plot_history(history, plot_save_dir):
 
 def plot_ROC(data_filename, test_raw_results, test_truth):
 
+    fig = plt.figure()
+    plt.clf()
     # open file
     with open(data_filename, 'rb') as data_file:
         leptons_with_tracks = pkl.load(data_file, encoding='latin1')
@@ -108,4 +110,6 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
     # plt.show()
     plot_save_dir = "Plots/"
     plt.savefig(plot_save_dir + "compare_ROC.png")
-    plt.clf()
+
+
+    return fig

@@ -57,6 +57,9 @@ class RNN_Trainer:
             self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
             self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
             self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            for name, param in self.model.named_parameters():
+                self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), batch_n)
+
             if Print:
                 print("Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
                       "Test Loss: %0.4f, Test Acc: %0.4f" % (

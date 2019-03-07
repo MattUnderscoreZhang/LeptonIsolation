@@ -218,7 +218,7 @@ if __name__ == "__main__":
     import numpy as np
     import ray
     from ray import tune
-    from ray.tune.schedulers import HyperBandScheduler, AsyncHyperBandScheduler
+    from ray.tune.schedulers import AsyncHyperBandScheduler
 
     options = {}
 
@@ -233,13 +233,8 @@ if __name__ == "__main__":
         args.device = torch.device('cuda')
     else:
         args.device = torch.device('cpu')
-<<<<<<< HEAD
-    ray.init(temp_dir=options["output_folder"]+"tmp/")
-    sched = HyperBandScheduler(
-=======
     ray.init()
     sched = AsyncHyperBandScheduler(
->>>>>>> 2fbe3c72f0a334b6b2786ed47ea5a0ffea81789f
         time_attr="training_iteration", reward_attr="neg_mean_loss")
     tune.run_experiments(
         {

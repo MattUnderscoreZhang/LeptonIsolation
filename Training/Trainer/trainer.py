@@ -8,7 +8,7 @@ import sys
 sys.path.append("..")  # NOQA
 from .Architectures.RNN import Model
 from .DataStructures.LeptonTrackDataset import Torchdata, collate
-from Analyzer import plot_ROC
+from .Analyzer import plot_ROC
 
 
 class RNN_Trainer:
@@ -21,7 +21,8 @@ class RNN_Trainer:
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-        self.history_logger = SummaryWriter()
+        # self.history_logger = SummaryWriter()
+        self.history_logger = SummaryWriter(options["output_folder"])
         self.test_truth = []
         self.test_raw_results = []
 
@@ -75,9 +76,9 @@ class RNN_Trainer:
         self.test_set.file.reshuffle()
         _, testing_batches = self.make_batches()
         _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
-        fig=plot_ROC.plot_ROC(
+        ROC_fig = plot_ROC.plot_ROC(
             data_filename, self.test_raw_results, self.test_truth)
-        self.history_logger.add_figure('matplotlib', fig)
+        self.history_logger.add_figure('ROC', ROC_fig)
 
     def train_and_test(self, data_filename, do_print=True, save=True):
         '''Function to run and the execute the network'''

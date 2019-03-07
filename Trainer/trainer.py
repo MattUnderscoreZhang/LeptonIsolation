@@ -21,7 +21,7 @@ class RNN_Trainer:
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-        self.history_logger = SummaryWriter(output_folder)
+        self.history_logger = SummaryWriter()
         self.test_truth = []
         self.test_raw_results = []
 
@@ -53,12 +53,17 @@ class RNN_Trainer:
             training_batch, testing_batch = self.make_batch()
             train_loss, train_acc, _, _ = self.model.do_train(training_batch)
             test_loss, test_acc, _, _ = self.model.do_eval(testing_batch)
-            self.history_logger.add_scalar('Accuracy/Train Accuracy', train_acc, batch_n)
-            self.history_logger.add_scalar('Accuracy/Test Accuracy', test_acc, batch_n)
-            self.history_logger.add_scalar('Loss/Train Loss', train_loss, batch_n)
-            self.history_logger.add_scalar('Loss/Test Loss', test_loss, batch_n)
+            self.history_logger.add_scalar(
+                'Accuracy/Train Accuracy', train_acc, batch_n)
+            self.history_logger.add_scalar(
+                'Accuracy/Test Accuracy', test_acc, batch_n)
+            self.history_logger.add_scalar(
+                'Loss/Train Loss', train_loss, batch_n)
+            self.history_logger.add_scalar(
+                'Loss/Test Loss', test_loss, batch_n)
             for name, param in self.model.named_parameters():
-                self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), batch_n)
+                self.history_logger.add_histogram(
+                    name, param.clone().cpu().data.numpy(), batch_n)
 
             if Print:
                 print("Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
@@ -69,8 +74,11 @@ class RNN_Trainer:
     def test(self, data_filename):
         self.test_set.file.reshuffle()
         _, testing_batch = self.make_batch()
-        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batch)
-        plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
+            testing_batch)
+        fig=plot_ROC.plot_ROC(
+            data_filename, self.test_raw_results, self.test_truth)
+        self.history_logger.add_figure('matplotlib', fig)
 
     def train_and_test(self, data_filename, do_print=True, save=True):
         '''Function to run and the execute the network'''
@@ -83,13 +91,16 @@ class RNN_Trainer:
         net, optimizer = self.model.get_model()
         torch.save(net, save_path + "/saved_net.pt")
         torch.save(optimizer, save_path + "/saved_optimizer.pt")
+        self.history_logger.export_scalars_to_json(
+            self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
 
 
 def train(options):
     # load data
     data_filename = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_filename, 'rb'), encoding='latin1')
+    leptons_with_tracks = pkl.load(
+        open(data_filename, 'rb'), encoding='latin1')
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(

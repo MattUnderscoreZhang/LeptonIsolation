@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 import numpy as np
+from tensorboardX import SummaryWriter
 
 
 def hotfix_pack_padded_sequence(sorted_tracks, lengths, batch_first=False, enforce_sorted=True):
@@ -41,6 +42,7 @@ class Model(nn.Module):
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
+        self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.h_0 = nn.Parameter(
             torch.zeros(
@@ -127,10 +129,24 @@ class Model(nn.Module):
                 self.optimizer.step()
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
-            total_acc += float(self.accuracy(predicted.data.cpu().detach(),
-                                             truth.data.cpu().detach()[indices]))
+            accuracy = float(self.accuracy(predicted.data.cpu().detach(),
+                                           truth.data.cpu().detach()[indices]))
+            total_acc += accuracy
             raw_results += output[:, 0].cpu().detach().tolist()
             all_truth += truth[indices].cpu().detach().tolist()
+            if do_training is True:
+                self.history_logger.add_scalar(
+                    'Accuracy/Train Accuracy', accuracy, i)
+                self.history_logger.add_scalar(
+                    'Loss/Train Loss', float(loss), i)
+            else:
+                self.history_logger.add_scalar(
+                    'Accuracy/Test Accuracy', accuracy, i)
+                self.history_logger.add_scalar(
+                    'Loss/Test Loss', float(loss), i)
+            for name, param in self.named_parameters():
+                self.history_logger.add_histogram(
+                    name, param.clone().cpu().data.numpy(), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

@@ -130,11 +130,11 @@ MuonWriter::MuonWriter(H5::Group& output_group):
     );
     fillers.add<float>("PLT",
         [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return NAN;
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
             SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
             const xAOD::IParticle *particle_pointer = NULL;
-            particle_pointer = this->m_current_electrons.at(idx);
+            particle_pointer = this->m_current_muons.at(idx);
             return accessPromptVar(*particle_pointer);
         }
     );

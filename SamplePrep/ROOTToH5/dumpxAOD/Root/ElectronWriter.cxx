@@ -127,9 +127,11 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return NAN;
             SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
-            return accessPromptVar(this->m_current_electrons.at(idx));
+            const xAOD::IParticle *particle_pointer = NULL;
+            particle_pointer = this->m_current_electrons.at(idx);
+            return accessPromptVar(*particle_pointer);
         }
-    }
+    );
 
     // Save up to 20 electrons per event
     m_writer = new H5Utils::WriterXd(output_group, "electrons", fillers, {20});

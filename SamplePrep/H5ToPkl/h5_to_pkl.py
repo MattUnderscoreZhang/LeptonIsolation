@@ -144,11 +144,11 @@ def filter_leptons(leptons):
     MCTruthClassifierDefs.h'''
 
     # 2/3 (6/7) is iso/non-iso electron (muon)
-    HF_lep_types = [i in [3, 7] for i in leptons['truth_type']]
-    prompt_lep_types = [i in [2, 6] for i in leptons['truth_type']]
+    HF_lep_types = [i['truth_type'] in [3, 7] for i in leptons]
+    prompt_lep_types = [i['truth_type'] in [2, 6] for i in leptons]
     # good_pt = leptons['pT'] < 10000
-    good_HF_leptons = leptons[HF_lep_types]
-    good_prompt_leptons = leptons[prompt_lep_types]
+    good_HF_leptons = leptons[np.where(HF_lep_types)]
+    good_prompt_leptons = leptons[np.where(prompt_lep_types)]
     # n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
     # print("Event has", len(leptons), ", good:", n_each_type*2)
     # if n_each_type == 0:

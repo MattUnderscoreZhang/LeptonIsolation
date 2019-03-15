@@ -144,8 +144,8 @@ def filter_leptons(leptons):
     MCTruthClassifierDefs.h'''
 
     # 2/3 (6/7) is iso/non-iso electron (muon)
-    HF_lep_types = [i['truth_type'] in [3, 7] for i in leptons]
-    prompt_lep_types = [i['truth_type'] in [2, 6] for i in leptons]
+    HF_lep_types = [lepton['truth_type'] in [3, 7] for lepton in leptons]
+    prompt_lep_types = [lepton['truth_type'] in [2, 6] for lepton in leptons]
     # good_pt = leptons['pT'] < 10000
     good_HF_leptons = leptons[np.where(HF_lep_types)]
     good_prompt_leptons = leptons[np.where(prompt_lep_types)]
@@ -216,13 +216,13 @@ def balance_classes(data):
 
     '''Reduces number of background events to match number of signal events.'''
 
-    is_HF_lepton = [i[12] in [3, 7] for i in data['unnormed_leptons']]
-    is_prompt_lepton = [i[12] in [2, 6] for i in data['unnormed_leptons']]
+    is_HF_lepton = [lepton[12] in [3, 7] for lepton in data['unnormed_leptons']]
+    is_prompt_lepton = [lepton[12] in [2, 6] for lepton in data['unnormed_leptons']]
     n_each_type = min(sum(is_HF_lepton), sum(is_prompt_lepton))
 
     def balance(data):
-        good_HF_data = np.array(data)[is_HF_lepton][:n_each_type]
-        good_prompt_data = np.array(data)[is_prompt_lepton][:n_each_type]
+        good_HF_data = np.vstack(data)[np.array(is_HF_lepton)][:n_each_type]
+        good_prompt_data = np.vstack(data)[np.array(is_prompt_lepton)][:n_each_type]
         return np.concatenate([good_HF_data, good_prompt_data])
 
     for key in ['unnormed_tracks', 'normed_leptons', 'normed_tracks', 'unnormed_leptons']:

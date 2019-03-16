@@ -221,8 +221,8 @@ def balance_classes(data):
     n_each_type = min(sum(is_HF_lepton), sum(is_prompt_lepton))
 
     def balance(data):
-        good_HF_data = np.vstack(data)[np.array(is_HF_lepton)][:n_each_type]
-        good_prompt_data = np.vstack(data)[np.array(is_prompt_lepton)][:n_each_type]
+        good_HF_data = np.array(data)[np.array(is_HF_lepton)][:n_each_type]
+        good_prompt_data = np.array(data)[np.array(is_prompt_lepton)][:n_each_type]
         return np.concatenate([good_HF_data, good_prompt_data])
 
     for key in ['unnormed_tracks', 'normed_leptons', 'normed_tracks', 'unnormed_leptons']:

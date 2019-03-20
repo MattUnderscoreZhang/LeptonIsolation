@@ -17,27 +17,27 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
     lepton_keys = leptons_with_tracks['lepton_labels']
     isolated = [int(lepton[lepton_keys.index('truth_type')] in [2, 6])
                 for lepton in leptons]
-    cones = {}
-    pt_keys = ['ptcone20', 'ptcone30', 'ptcone40',
-               'ptvarcone20', 'ptvarcone30', 'ptvarcone40']
-    for key in pt_keys:
-        cones[key] = [lepton[lepton_keys.index(key)] for lepton in leptons]
-        max_key = max(cones[key])
-        min_key = min(cones[key])
+    baselines = {}
+    baseline_keys = ['ptcone20', 'ptcone30', 'ptcone40',
+                     'ptvarcone20', 'ptvarcone30', 'ptvarcone40', 'PLT']
+    for key in baseline_keys:
+        baselines[key] = [lepton[lepton_keys.index(key)] for lepton in leptons]
+        max_key = max(baselines[key])
+        min_key = min(baselines[key])
         range_key = max_key - min_key
-        cones[key] = [(i - min_key) / range_key for i in cones[key]]
+        baselines[key] = [(i - min_key) / range_key for i in baselines[key]]
 
     # get rid of events with ptcone=0
     good_leptons = [lepton[lepton_keys.index(
         'ptcone20')] > 0 for lepton in leptons]
     leptons = np.array(leptons)[good_leptons]
     isolated = np.array(isolated)[good_leptons]
-    for key in pt_keys:
-        cones[key] = np.array(cones[key])[good_leptons]
+    for key in baseline_keys:
+        baselines[key] = np.array(baselines[key])[good_leptons]
 
     # make ROC comparison plots
-    for key in pt_keys:
-        fpr, tpr, thresholds = metrics.roc_curve(isolated, cones[key])
+    for key in baseline_keys:
+        fpr, tpr, thresholds = metrics.roc_curve(isolated, baselines[key])
         # roc_auc = metrics.auc(fpr, tpr)
         plt.plot(tpr, fpr, lw=2, label=key)
 

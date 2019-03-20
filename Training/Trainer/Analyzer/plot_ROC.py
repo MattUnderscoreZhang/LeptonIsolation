@@ -25,7 +25,7 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
         max_key = max(baselines[key])
         min_key = min(baselines[key])
         range_key = max_key - min_key
-        baselines[key] = [(i - min_key) / range_key for i in baselines[key]]
+        baselines[key] = [1 - ((i - min_key) / range_key) for i in baselines[key]]  # larger value = less isolated
 
     # get rid of events with ptcone=0
     good_leptons = [lepton[lepton_keys.index(
@@ -39,7 +39,7 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
     for key in baseline_keys:
         fpr, tpr, thresholds = metrics.roc_curve(isolated, baselines[key])
         # roc_auc = metrics.auc(fpr, tpr)
-        plt.plot(tpr, fpr, lw=2, label=key)
+        plt.plot(fpr, tpr, lw=2, label=key)
 
     fpr, tpr, thresholds = metrics.roc_curve(test_truth, test_raw_results)
     # roc_auc = metrics.auc(fpr, tpr)

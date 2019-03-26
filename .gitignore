@@ -1,6 +1,8 @@
 /Plots*
 /Outputs
 /runs
+*/runs
+/Training/runs
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__

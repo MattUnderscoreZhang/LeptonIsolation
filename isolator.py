@@ -24,9 +24,9 @@ if __name__ == "__main__":
     options["output_folder"] = "Outputs/Test/"
 
     options["RNN_type"] = "RNN"
-    options['learning_rate'] = 0.0001
+    options['learning_rate'] = 0.0004
     options['training_split'] = 0.7
-    options['batch_size'] = 200
+    options['batch_size'] = 800
     options['n_epochs'] = 50
     options['n_layers'] = 5
     options['hidden_neurons'] = 128

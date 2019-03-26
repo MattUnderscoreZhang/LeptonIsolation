@@ -144,11 +144,11 @@ def filter_leptons(leptons):
     MCTruthClassifierDefs.h'''
 
     # 2/3 (6/7) is iso/non-iso electron (muon)
-    HF_lep_types = [i in [3, 7] for i in leptons['truth_type']]
-    prompt_lep_types = [i in [2, 6] for i in leptons['truth_type']]
+    HF_lep_types = [lepton['truth_type'] in [3, 7] for lepton in leptons]
+    prompt_lep_types = [lepton['truth_type'] in [2, 6] for lepton in leptons]
     # good_pt = leptons['pT'] < 10000
-    good_HF_leptons = leptons[HF_lep_types]
-    good_prompt_leptons = leptons[prompt_lep_types]
+    good_HF_leptons = leptons[np.where(HF_lep_types)]
+    good_prompt_leptons = leptons[np.where(prompt_lep_types)]
     # n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
     # print("Event has", len(leptons), ", good:", n_each_type*2)
     # if n_each_type == 0:
@@ -216,13 +216,13 @@ def balance_classes(data):
 
     '''Reduces number of background events to match number of signal events.'''
 
-    is_HF_lepton = [i[12] in [3, 7] for i in data['unnormed_leptons']]
-    is_prompt_lepton = [i[12] in [2, 6] for i in data['unnormed_leptons']]
+    is_HF_lepton = [lepton[12] in [3, 7] for lepton in data['unnormed_leptons']]
+    is_prompt_lepton = [lepton[12] in [2, 6] for lepton in data['unnormed_leptons']]
     n_each_type = min(sum(is_HF_lepton), sum(is_prompt_lepton))
 
     def balance(data):
-        good_HF_data = np.array(data)[is_HF_lepton][:n_each_type]
-        good_prompt_data = np.array(data)[is_prompt_lepton][:n_each_type]
+        good_HF_data = np.array(data)[np.array(is_HF_lepton)][:n_each_type]
+        good_prompt_data = np.array(data)[np.array(is_prompt_lepton)][:n_each_type]
         return np.concatenate([good_HF_data, good_prompt_data])
 
     for key in ['unnormed_tracks', 'normed_leptons', 'normed_tracks', 'unnormed_leptons']:
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     all_data["lepton_labels"] = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0',
                      'ptcone20', 'ptcone30', 'ptcone40',
                      'ptvarcone20', 'ptvarcone30',
-                     'ptvarcone40', 'truth_type']
+                     'ptvarcone40', 'truth_type', 'PLT']
     all_data["track_labels"] = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0',
                     'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
 

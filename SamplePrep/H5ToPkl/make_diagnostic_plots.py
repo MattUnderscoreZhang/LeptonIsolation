@@ -1,3 +1,4 @@
+import sys
 import matplotlib
 matplotlib.use('Agg') # NOQA
 import matplotlib.pyplot as plt
@@ -63,10 +64,8 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
     track_keys = labels[1]
 
     # separate flavors
-    # electrons_with_tracks = [
-        # lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')] == 11]
-    # muons_with_tracks = [
-        # lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')] == 13]
+    # electrons_with_tracks = [lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')] == 11]
+    # muons_with_tracks = [lwt for lwt in leptons_with_tracks if lwt[0][lepton_keys.index('pdgID')] == 13]
 
     # calculate ptcone (just muons for now until I figure out electrons)
     print("Calculating ptcone variables")
@@ -166,21 +165,21 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
 def compare(options):
 
     # read data
-    data_file = options['input_data']
+    data_file = options['input_folder'] + "/pkl/lepton_track_data.pkl"
     leptons_with_tracks = pkl.load(open(data_file, 'rb'), encoding='latin1')
 
-    # # make ptcone and etcone comparison plots - normed
-    # plot_save_dir = "Plots/Normed/"
-    # pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
-    # lwt = list(zip(
-        # leptons_with_tracks['normed_leptons'],
-        # leptons_with_tracks['normed_tracks']))
-    # labels = [leptons_with_tracks['lepton_labels'],
-              # leptons_with_tracks['track_labels']]
-    # compare_ptcone_and_etcone(lwt, labels, plot_save_dir, normed=True)
+    # make ptcone and etcone comparison plots - normed
+    plot_save_dir = options['output_folder'] + "/Normed/"
+    pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
+    lwt = list(zip(
+        leptons_with_tracks['normed_leptons'],
+        leptons_with_tracks['normed_tracks']))
+    labels = [leptons_with_tracks['lepton_labels'],
+              leptons_with_tracks['track_labels']]
+    compare_ptcone_and_etcone(lwt, labels, plot_save_dir, normed=True)
 
     # make ptcone and etcone comparison plots - unnormed
-    plot_save_dir = "Plots/Unnormed/"
+    plot_save_dir = options['output_folder'] + "/Unnormed/"
     pathlib.Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
     lwt = list(zip(
         leptons_with_tracks['unnormed_leptons'],
@@ -188,3 +187,11 @@ def compare(options):
     labels = [leptons_with_tracks['lepton_labels'],
               leptons_with_tracks['track_labels']]
     compare_ptcone_and_etcone(lwt, labels, plot_save_dir)
+
+
+if __name__ == "__main__":
+
+    options = {}
+    options['input_folder'] = sys.argv[1]
+    options['output_folder'] = sys.argv[2]
+    compare(options)

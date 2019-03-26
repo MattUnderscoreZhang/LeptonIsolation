@@ -81,11 +81,12 @@ class Model(nn.Module):
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
-        #combined_out = torch.cat(
-        #    (sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        combined_out = hidden[-1]
+        # combined_out = torch.cat(
+        #     (sorted_leptons, hidden[-1]), dim=1).to(self.device)
+
         # add lepton data to the matrix
-        out = self.fc(combined_out).to(self.device)
+        # out = self.fc(combined_out).to(self.device)
+        out = self.fc(hidden[-1]).to(self.device)
         out = self.softmax(out).to(self.device)
         return out
 

@@ -34,6 +34,9 @@ class MuonWriter
         MuonWriter(MuonWriter&) = delete;
         MuonWriter operator=(MuonWriter&) = delete;
 
+        // muon selection
+        void filter_muons_first_stage(const xAOD::MuonContainer& muons);
+
         // function that's actually called to write the event
         void write(const xAOD::MuonContainer& muons);
 

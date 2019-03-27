@@ -142,19 +142,20 @@ ElectronWriter::~ElectronWriter() {
     delete m_writer;
 }
 
-void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
-
-    // electron selection
+void ElectronWriter::filter_electrons_first_stage(const xAOD::ElectronContainer& electrons) {
     m_current_electrons.clear();
     for (const xAOD::Electron *electron : electrons) {
-        // check that electron passes selections
-        //if (!m_elec_llhmedium->accept(electron)) continue;
         if(cacc_lhmedium.isAvailable(*electron) ){
             if (!cacc_lhmedium(*electron)) continue;
-            // store electrons
             m_current_electrons.push_back(electron);
         }
     }
+}
+
+void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
+
+    // electron selection
+    filter_electrons_first_stage(electrons);
 
     // sort electrons by descending pT
     std::sort(m_current_electrons.begin(), m_current_electrons.end(),

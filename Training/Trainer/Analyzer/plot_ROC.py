@@ -1,10 +1,9 @@
 import matplotlib
+matplotlib.use('Agg')  # NOQA
 import matplotlib.pyplot as plt
 from sklearn import metrics
 import pickle as pkl
 import numpy as np
-import pdb
-matplotlib.use('Agg')
 
 
 def plot_ROC(data_filename, test_raw_results, test_truth):
@@ -29,12 +28,10 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
         max_key = max(baselines[key])
         min_key = min(baselines[key])
         range_key = max_key - min_key
-        baselines[key] = [1 - ((i - min_key) / range_key)
-                          for i in baselines[key]]  # larger value = less isolated
+        baselines[key] = [1 - ((i - min_key) / range_key) for i in baselines[key]]  # larger value = less isolated
 
     # get rid of events with ptcone=0
-    good_leptons = [lepton[lepton_keys.index(
-        'ptcone20')] > 0 for lepton in leptons]
+    good_leptons = [lepton[lepton_keys.index('ptcone20')] > 0 for lepton in leptons]
     leptons = np.array(leptons)[good_leptons]
     isolated = np.array(isolated)[good_leptons]
     for key in baseline_keys:

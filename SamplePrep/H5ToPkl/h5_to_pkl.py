@@ -121,7 +121,7 @@ def group_leptons_and_tracks(leptons, tracks):
             if dR < 0.5:
                 nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0,
                                                track['charge'], track['eta'],
-                                               track['pT'], track['theta'],
+                                               track['pT']/lepton['pT'], track['theta'],
                                                track['d0'], track['z0'],
                                                track['chiSquared']],
                                                dtype=float))
@@ -258,7 +258,7 @@ if __name__ == "__main__":
                      'ptvarcone20', 'ptvarcone30',
                      'ptvarcone40', 'truth_type', 'PLT']
     all_data["track_labels"] = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0',
-                    'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
+                    'charge', 'eta', 'pT_track/pT_lep', 'theta', 'd0', 'z0', 'chiSquared']
 
     # balance classes
     all_data = balance_classes(all_data)

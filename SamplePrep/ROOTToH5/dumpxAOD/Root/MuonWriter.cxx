@@ -148,9 +148,7 @@ MuonWriter::~MuonWriter() {
     delete m_writer;
 }
 
-void MuonWriter::write(const xAOD::MuonContainer& muons) {
-
-    // muon selection
+void MuonWriter::filter_muons_first_stage(const xAOD::MuonContainer& muons) {
     m_current_muons.clear();
     for (const xAOD::Muon *muon : muons) {
         // check that muon won't segfault
@@ -162,6 +160,12 @@ void MuonWriter::write(const xAOD::MuonContainer& muons) {
         // store muons
         m_current_muons.push_back(muon);
     }
+}
+
+void MuonWriter::write(const xAOD::MuonContainer& muons) {
+
+    // muon selection
+    filter_muons_first_stage(muons);
 
     // sort muons by descending pT
     std::sort(m_current_muons.begin(), m_current_muons.end(),

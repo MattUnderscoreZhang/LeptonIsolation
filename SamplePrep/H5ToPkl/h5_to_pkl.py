@@ -107,9 +107,9 @@ def filter_leptons(lepton_events):
         return [~np.isnan(lepton[1]) and
                 (lepton['truth_type'] in [3, 7, 2, 6]) and
                 (abs(lepton['z0']*np.sin(2*np.arctan(np.exp(-lepton['eta'])))) < 0.5) 
-                # (((lepton['truth_type'] in [2, 3]) and (lepton['d0'] / sigma(d0) < 5))
-                 # or
-                 # ((lepton['truth_type'] in [6, 7]) and (lepton['d0'] / sigma(d0) < 3)))
+                (((lepton['truth_type'] in [2, 3]) and (lepton['d0_over_sigd0'] < 5))
+                 or
+                 ((lepton['truth_type'] in [6, 7]) and (lepton['d0_over_sigd0'] < 3)))
                 for lepton in event]
 
     good_leptons = np.array([event[np.where(good_leptons(event))]
@@ -138,6 +138,16 @@ def filter_tracks(track_events):
                             for event in track_events])
 
     return good_tracks
+
+
+def remove_lepton_associated_tracks(tracks):
+    
+    '''Sort tracks by dR to lepton and remove the closest one.'''
+
+    tracks.sort(key=lambda x: x[0])
+    if len(tracks) > 0:
+        tracks.pop(0)
+    return tracks
 
 
 def group_leptons_and_tracks(leptons, tracks):
@@ -180,16 +190,6 @@ def group_leptons_and_tracks(leptons, tracks):
             grouped_tracks.append(np.array(nearby_tracks, dtype=float))
 
     return grouped_leptons, grouped_tracks
-
-
-def remove_lepton_associated_tracks(tracks):
-    
-    '''Sort tracks by dR to lepton and remove the closest one.'''
-
-    tracks.sort(key=lambda x: x[0])
-    if len(tracks) > 0:
-        tracks.pop(0)
-    return tracks
 
 
 def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):
@@ -252,7 +252,7 @@ if __name__ == "__main__":
                 all_data[key] += data[key]
 
     # add data labels
-    all_data["lepton_labels"] = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0',
+    all_data["lepton_labels"] = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'd0_over_sigd0', 'z0',
                      'ptcone20', 'ptcone30', 'ptcone40',
                      'ptvarcone20', 'ptvarcone30',
                      'ptvarcone40', 'truth_type', 'PLT']

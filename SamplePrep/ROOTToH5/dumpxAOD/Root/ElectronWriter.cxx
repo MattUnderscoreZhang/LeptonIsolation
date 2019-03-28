@@ -5,6 +5,7 @@
 #include "xAODEgamma/ElectronContainer.h"
 #include "xAODTruth/xAODTruthHelpers.h"
 #include "xAODEgamma/Electron.h"
+#include "xAODTracking/TrackParticlexAODHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -51,6 +52,13 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return NAN;
             return (float)(this->m_current_electrons.at(idx)->trackParticle()->d0());
+        }
+    );
+    fillers.add<float>("d0_over_sigd0",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return NAN;
+            return (float)(xAOD::TrackingHelpers::d0significance(this->m_current_electrons.at(idx)->trackParticle()));
         }
     );
     fillers.add<float>("z0",

@@ -68,6 +68,13 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
             return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0());
         }
     );
+    fillers.add<float>("dz0",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return NAN;
+            return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0() - this->m_primary_vertices_z0.at(idx));
+        }
+    );
     fillers.add<float>("ptcone20",
         [this]() {
             size_t idx = this->m_electron_idx.at(0);
@@ -160,7 +167,7 @@ void ElectronWriter::filter_electrons_first_stage(const xAOD::ElectronContainer&
     }
 }
 
-void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
+void ElectronWriter::write(const xAOD::ElectronContainer& electrons, std::vector<float>& primary_vertices_z0) {
 
     // electron selection
     filter_electrons_first_stage(electrons);
@@ -172,5 +179,6 @@ void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
     });
 
     // write electrons
+    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_electron_idx);
 }

@@ -98,7 +98,7 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
             plt.xlim(0, 20)
             plt.ylim(0, 20)
         plt.savefig(plot_save_dir + feature +
-                    "_scatter.png", bbox_inches='tight')
+                    "_scatter.eps", bbox_inches='tight')
         plt.clf()
 
     # plot comparisons for all lepton features
@@ -120,7 +120,7 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
         plt.title(feature)
         plt.legend(['HF', 'isolated'])  # yes, I think this order is correct
         plt.savefig(plot_save_dir + "lepton_" +
-                    feature + ".png", bbox_inches='tight')
+                    feature + ".eps", bbox_inches='tight')
         plt.clf()
 
     # plot nTracks
@@ -138,7 +138,7 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
              normed=True, bins=bins, histtype='step', linewidth=1)
     plt.title('ntracks')
     plt.legend(['HF', 'isolated'])
-    plt.savefig(plot_save_dir + "ntracks.png", bbox_inches='tight')
+    plt.savefig(plot_save_dir + "ntracks.eps", bbox_inches='tight')
     plt.clf()
 
     # plot comparisons for all track features
@@ -158,7 +158,7 @@ def compare_ptcone_and_etcone(leptons_with_tracks, labels, plot_save_dir, normed
         plt.title(feature)
         plt.legend(['HF', 'isolated'])  # yes, I think this order is correct
         plt.savefig(plot_save_dir + "track_" +
-                    feature + ".png", bbox_inches='tight')
+                    feature + ".eps", bbox_inches='tight')
         plt.clf()
 
 

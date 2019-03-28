@@ -257,7 +257,7 @@ if __name__ == "__main__":
                      'ptvarcone20', 'ptvarcone30',
                      'ptvarcone40', 'truth_type', 'PLT']
     all_data["track_labels"] = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0',
-                    'charge', 'eta', 'pT_track/pT_lep', 'theta', 'd0', 'z0', 'chiSquared']
+                    'charge', 'eta', 'pT_track_over_pT_lep', 'theta', 'd0', 'z0', 'chiSquared']
 
     # balance classes
     all_data = balance_classes(all_data)

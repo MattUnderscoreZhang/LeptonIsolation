@@ -4,7 +4,6 @@ import h5py as h5
 import pickle as pkl
 import HEP
 import numpy as np
-import time
 
 
 def prepare_data(h5_file):
@@ -103,9 +102,14 @@ def filter_leptons(lepton_events):
     PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/
     MCTruthClassifierDefs.h'''
 
+    # 2/3 (6/7) is iso/noniso electron (muon)
     def good_leptons(event):
         return [~np.isnan(lepton[1]) and
-                lepton['truth_type'] in [3, 7, 2, 6]
+                (lepton['truth_type'] in [3, 7, 2, 6]) and
+                (abs(lepton['z0']*np.sin(2*np.arctan(np.exp(-lepton['eta'])))) < 0.5) 
+                # (((lepton['truth_type'] in [2, 3]) and (lepton['d0'] / sigma(d0) < 5))
+                 # or
+                 # ((lepton['truth_type'] in [6, 7]) and (lepton['d0'] / sigma(d0) < 3)))
                 for lepton in event]
 
     good_leptons = np.array([event[np.where(good_leptons(event))]
@@ -124,7 +128,7 @@ def filter_tracks(track_events):
     TrackingCPRecsEarly2018"""
 
     def good_tracks(event):
-        return [track['pT'] > 500 and  # 500 MeV
+        return [track['pT'] > 1000 and  # 1 GeV
                 abs(track['eta']) < 2.5 and
                 (track['nSCTHits'] + track['nPixHits'] >= 7) and (track['nIBLHits'] > 0) and
                 (track['nPixHoles'] + track['nSCTHoles'] <= 2) and (track['nPixHoles'] <= 1)

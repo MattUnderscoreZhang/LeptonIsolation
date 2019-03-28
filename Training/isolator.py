@@ -24,12 +24,12 @@ if __name__ == "__main__":
     options["output_folder"] = "../Outputs/Runs/Test/"
 
     options["RNN_type"] = "RNN"
-    options['learning_rate'] = 0.0005
+    options['learning_rate'] = 0.0003
     options['training_split'] = 0.7
     options['batch_size'] = 500
-    options['n_epochs'] = 50
+    options['n_epochs'] = 75
     options['n_layers'] = 3
-    options['hidden_neurons'] = 256
+    options['hidden_neurons'] = 512
     options['output_neurons'] = 2
     options['bidirectional'] = False
     options['device'] = args.device

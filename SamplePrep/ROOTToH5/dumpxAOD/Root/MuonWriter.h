@@ -38,7 +38,7 @@ class MuonWriter
         void filter_muons_first_stage(const xAOD::MuonContainer& muons);
 
         // function that's actually called to write the event
-        void write(const xAOD::MuonContainer& muons);
+        void write(const xAOD::MuonContainer& muons, std::vector<float>& primary_vertices_z0);
 
     private:
         // the functions that fill the output need to be defined when the
@@ -46,6 +46,7 @@ class MuonWriter
         // must be updated each time we wright.
         std::vector<const xAOD::Muon*> m_current_muons;
         std::vector<size_t> m_muon_idx;
+        std::vector<float> m_primary_vertices_z0;
 
         // selector tool
         CP::MuonSelectionTool* m_muonSelectionTool;

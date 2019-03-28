@@ -73,6 +73,13 @@ MuonWriter::MuonWriter(H5::Group& output_group):
             return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0());
         }
     );
+    fillers.add<float>("dz0",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0() - this->m_primary_vertices_z0.at(idx));
+        }
+    );
     fillers.add<float>("ptcone20",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
@@ -170,7 +177,7 @@ void MuonWriter::filter_muons_first_stage(const xAOD::MuonContainer& muons) {
     }
 }
 
-void MuonWriter::write(const xAOD::MuonContainer& muons) {
+void MuonWriter::write(const xAOD::MuonContainer& muons, std::vector<float>& primary_vertices_z0) {
 
     // muon selection
     filter_muons_first_stage(muons);
@@ -182,5 +189,6 @@ void MuonWriter::write(const xAOD::MuonContainer& muons) {
     });
 
     // write muons
+    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_muon_idx);
 }

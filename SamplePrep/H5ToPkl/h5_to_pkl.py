@@ -106,10 +106,10 @@ def filter_leptons(lepton_events):
     def good_leptons(event):
         return [~np.isnan(lepton[1]) and
                 (lepton['truth_type'] in [3, 7, 2, 6]) and
-                (abs(lepton['z0']*np.sin(2*np.arctan(np.exp(-lepton['eta'])))) < 0.5) 
-                (((lepton['truth_type'] in [2, 3]) and (lepton['d0_over_sigd0'] < 5))
+                (abs(lepton['dz0']*np.sin(2*np.arctan(np.exp(-lepton['eta'])))) < 0.5) 
+                (((lepton['truth_type'] in [2, 3]) and (abs(lepton['d0_over_sigd0']) < 5))
                  or
-                 ((lepton['truth_type'] in [6, 7]) and (lepton['d0_over_sigd0'] < 3)))
+                 ((lepton['truth_type'] in [6, 7]) and (abs(lepton['d0_over_sigd0']) < 3)))
                 for lepton in event]
 
     good_leptons = np.array([event[np.where(good_leptons(event))]

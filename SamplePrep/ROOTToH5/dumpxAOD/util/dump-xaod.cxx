@@ -80,6 +80,8 @@ int main (int argc, char *argv[])
             // Get tracks and leptons
             const xAOD::TrackParticleContainer *tracks = 0;
             RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
+            std::vector<float> *primary_vertices_z0 = 0;
+            RETURN_CHECK(ALG, event.retrieve(primary_vertices_z0, "PrimaryVerticesAuxDyn.z"));
             const xAOD::ElectronContainer *electrons = 0;
             RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
             const xAOD::MuonContainer *muons = 0;
@@ -87,8 +89,8 @@ int main (int argc, char *argv[])
 
             // Write event
             track_writer.write(*tracks);
-            electron_writer.write(*electrons);
-            muon_writer.write(*muons);
+            electron_writer.write(*electrons, *primary_vertices_z0);
+            muon_writer.write(*muons, *primary_vertices_z0);
 
         } // end event loop
     } // end file loop

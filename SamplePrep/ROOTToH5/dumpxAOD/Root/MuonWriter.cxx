@@ -6,6 +6,7 @@
 #include "xAODMuon/Muon.h"
 #include "xAODTruth/xAODTruthHelpers.h"
 #include "MuonSelectorTools/MuonSelectionTool.h"
+#include "xAODTracking/TrackParticlexAODHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -56,6 +57,13 @@ MuonWriter::MuonWriter(H5::Group& output_group):
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return NAN;
             return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->d0());
+        }
+    );
+    fillers.add<float>("d0_over_sigd0",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(xAOD::TrackingHelpers::d0significance(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)));
         }
     );
     fillers.add<float>("z0",

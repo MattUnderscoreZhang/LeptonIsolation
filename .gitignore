@@ -1,8 +1,13 @@
 /Plots*
+<<<<<<< HEAD
 /Output
 /runs
 */runs
 /Training/runs
+=======
+/Outputs
+/runs
+>>>>>>> fcf2f15d37608126192f97ca689b488ca3adf554
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__
@@ -10,5 +15,8 @@
 */.DS_Store
 */*.pyc
 */*/*.pyc
+<<<<<<< HEAD
 Training/runs
 SamplePrep/.asetup.save
+=======
+>>>>>>> fcf2f15d37608126192f97ca689b488ca3adf554

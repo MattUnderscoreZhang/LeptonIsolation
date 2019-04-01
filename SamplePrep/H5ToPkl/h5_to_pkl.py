@@ -65,19 +65,23 @@ def prepare_h5_data(h5_file):
     electrons = h5_file['electrons'][()]
     muons = h5_file['muons'][()]
     tracks = h5_file['tracks'][()]
-    n_events = electrons.shape[0]
+
+    print("Filtering good leptons and tracks")
+    leptons = np.array([np.append(i, j) for i, j in zip(electrons, muons)])
+    leptons = filter_leptons(leptons)
+    non_zero_leptons = [lepton.shape[0] > 0 for lepton in leptons]
+    leptons = leptons[non_zero_leptons]
+    tracks = tracks[non_zero_leptons]
+    tracks = filter_tracks(tracks)
 
     print("Grouping leptons and tracks")
     unnormed_leptons = []
     unnormed_tracks = []
+    n_events = leptons.shape[0]
     for event_n in range(n_events):
         if event_n % 1000 == 0:
             print("Event %d/%d" % (event_n, n_events))
-        leptons = np.append(electrons[event_n], muons[event_n])
-        leptons = np.array([i for i in leptons if ~np.isnan(i[1])])
-        if len(leptons) == 0:
-            continue
-        grouped_leptons, grouped_tracks = group_leptons_and_tracks(leptons, tracks[event_n])
+        grouped_leptons, grouped_tracks = group_leptons_and_tracks(leptons[event_n], tracks[event_n])
         unnormed_leptons += grouped_leptons
         unnormed_tracks += grouped_tracks
 
@@ -92,75 +96,29 @@ def prepare_h5_data(h5_file):
     return leptons_with_tracks
 
 
-def group_leptons_and_tracks(leptons, tracks):
-
-    '''Group leptons with nearby tracks (except tracks associated to lepton itself).'''
-
-    good_leptons = filter_leptons(leptons)
-    good_tracks = filter_tracks(tracks)
-
-    grouped_leptons = []
-    grouped_tracks = []
-
-    for lepton in good_leptons:
-
-        nearby_tracks = []
-
-        # find tracks within dR of lepton i
-        for track in good_tracks:
-
-            if abs((lepton['z0'] - track['z0']) * np.sin(track['theta'])) > 3:
-                continue
-            # calculate and save dR
-            dR = HEP.dR(lepton['phi'], lepton['eta'],
-                        track['phi'], track['eta'])
-            dEta = HEP.dEta(lepton['eta'], track['eta'])
-            dPhi = HEP.dPhi(lepton['phi'], track['phi'])
-            dd0 = abs(lepton['d0'] - track['d0'])
-            dz0 = abs(lepton['z0'] - track['z0'])
-            if dR < 0.5:
-                nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0,
-                                               track['charge'], track['eta'],
-                                               track['pT'], track['theta'],
-                                               track['d0'], track['z0'],
-                                               track['chiSquared']],
-                                               dtype=float))
-
-        # remove tracks associated to lepton
-        nearby_tracks = remove_lepton_associated_tracks(nearby_tracks)
-
-        # add lepton and tracks to return data
-        if len(nearby_tracks) > 0:
-            grouped_leptons.append(np.array(list(lepton)))
-            grouped_tracks.append(np.array(nearby_tracks, dtype=float))
-
-    return grouped_leptons, grouped_tracks
-
-
-def filter_leptons(leptons):
+def filter_leptons(lepton_events):
 
     '''from https://gitlab.cern.ch/atlas/athena/blob/master/
     PhysicsAnalysis/MCTruthClassifier/MCTruthClassifier/
     MCTruthClassifierDefs.h'''
 
-    # 2/3 (6/7) is iso/non-iso electron (muon)
-    HF_lep_types = [lepton['truth_type'] in [3, 7] for lepton in leptons]
-    prompt_lep_types = [lepton['truth_type'] in [2, 6] for lepton in leptons]
-    # good_pt = leptons['pT'] < 10000
-    good_HF_leptons = leptons[np.where(HF_lep_types)]
-    good_prompt_leptons = leptons[np.where(prompt_lep_types)]
-    # n_each_type = min(len(good_HF_leptons), len(good_prompt_leptons))
-    # print("Event has", len(leptons), ", good:", n_each_type*2)
-    # if n_each_type == 0:
-    # return [], []
-    # good_leptons = np.concatenate((good_HF_leptons[:n_each_type],\
-    # good_prompt_leptons[:n_each_type]))
-    good_leptons = np.concatenate((good_HF_leptons, good_prompt_leptons))
+    # 2/3 (6/7) is iso/noniso electron (muon)
+    def good_leptons(event):
+        return [~np.isnan(lepton[1]) and
+                (lepton['truth_type'] in [3, 7, 2, 6]) and
+                (abs(lepton['dz0']*np.sin(2*np.arctan(np.exp(-lepton['eta'])))) < 0.5) 
+                (((lepton['truth_type'] in [2, 3]) and (abs(lepton['d0_over_sigd0']) < 5))
+                 or
+                 ((lepton['truth_type'] in [6, 7]) and (abs(lepton['d0_over_sigd0']) < 3)))
+                for lepton in event]
+
+    good_leptons = np.array([event[np.where(good_leptons(event))]
+                             for event in lepton_events])
 
     return good_leptons
 
 
-def filter_tracks(tracks):
+def filter_tracks(track_events):
 
     """see if track passes selections listed at
     https://twiki.cern.ch/twiki/bin/view/AtlasProtected/
@@ -169,16 +127,15 @@ def filter_tracks(tracks):
     https://twiki.cern.ch/twiki/bin/view/AtlasProtected/
     TrackingCPRecsEarly2018"""
 
-    good_track_pt = tracks['pT'] > 500  # 500 MeV
-    good_track_eta = abs(tracks['eta']) < 2.5
-    good_track_hits = [i + j >= 7 for i, j in zip(
-        tracks['nSCTHits'], tracks['nPixHits'])] and\
-        (tracks['nIBLHits'] > 0)
-    good_track_holes = [i + j <= 2 for i, j in zip(
-        tracks['nPixHoles'], tracks['nSCTHoles'])] and\
-        (tracks['nPixHoles'] <= 1)
-    good_tracks = tracks[good_track_pt & good_track_eta &
-                         good_track_hits & good_track_holes]
+    def good_tracks(event):
+        return [track['pT'] > 1000 and  # 1 GeV
+                abs(track['eta']) < 2.5 and
+                (track['nSCTHits'] + track['nPixHits'] >= 7) and (track['nIBLHits'] > 0) and
+                (track['nPixHoles'] + track['nSCTHoles'] <= 2) and (track['nPixHoles'] <= 1)
+                for track in event]
+
+    good_tracks = np.array([event[np.where(good_tracks(event))]
+                            for event in track_events])
 
     return good_tracks
 
@@ -191,6 +148,48 @@ def remove_lepton_associated_tracks(tracks):
     if len(tracks) > 0:
         tracks.pop(0)
     return tracks
+
+
+def group_leptons_and_tracks(leptons, tracks):
+
+    '''Group leptons with nearby tracks (except tracks associated to lepton itself).'''
+
+    grouped_leptons = []
+    grouped_tracks = []
+
+    for lepton in leptons:
+
+        nearby_tracks = []
+
+        # find tracks within some dR and dz0*sin(theta) of lepton i
+        for track in tracks:
+
+            if abs((lepton['z0'] - track['z0']) * np.sin(track['theta'])) > 3:
+                continue
+            dR = HEP.dR(lepton['phi'], lepton['eta'],
+                        track['phi'], track['eta'])
+            if dR > 0.5:
+                continue
+            dEta = HEP.dEta(lepton['eta'], track['eta'])
+            dPhi = HEP.dPhi(lepton['phi'], track['phi'])
+            dd0 = abs(lepton['d0'] - track['d0'])
+            dz0 = abs(lepton['z0'] - track['z0'])
+            nearby_tracks.append(np.array([dR, dEta, dPhi, dd0, dz0,
+                                           track['charge'], track['eta'],
+                                           track['pT']/lepton['pT'], track['theta'],
+                                           track['d0'], track['z0'],
+                                           track['chiSquared']],
+                                           dtype=float))
+
+        # remove tracks associated to lepton
+        nearby_tracks = remove_lepton_associated_tracks(nearby_tracks)
+
+        # add lepton and tracks to return data
+        if len(nearby_tracks) > 0:
+            grouped_leptons.append(np.array(list(lepton)))
+            grouped_tracks.append(np.array(nearby_tracks, dtype=float))
+
+    return grouped_leptons, grouped_tracks
 
 
 def normalize_leptons_and_tracks(unnormed_leptons, unnormed_tracks):
@@ -253,12 +252,12 @@ if __name__ == "__main__":
                 all_data[key] += data[key]
 
     # add data labels
-    all_data["lepton_labels"] = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'z0',
+    all_data["lepton_labels"] = ['pdgID', 'pT', 'eta', 'phi', 'd0', 'd0_over_sigd0', 'z0',
                      'ptcone20', 'ptcone30', 'ptcone40',
                      'ptvarcone20', 'ptvarcone30',
                      'ptvarcone40', 'truth_type', 'PLT']
     all_data["track_labels"] = ['dR', 'dEta', 'dPhi', 'dd0', 'dz0',
-                    'charge', 'eta', 'pT', 'theta', 'd0', 'z0', 'chiSquared']
+                    'charge', 'eta', 'pT_track_over_pT_lep', 'theta', 'd0', 'z0', 'chiSquared']
 
     # balance classes
     all_data = balance_classes(all_data)

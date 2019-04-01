@@ -16,21 +16,18 @@ class RNN_Trainer:
     def __init__(self, options, leptons_with_tracks, output_folder):
         self.options = options
         self.n_events = len(leptons_with_tracks)
-        self.n_training_events = int(
-            self.options['training_split'] * self.n_events)
+        self.n_training_events = int(self.options['training_split'] * self.n_events)
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-        # self.history_logger = SummaryWriter()
-        self.history_logger = SummaryWriter()
+        self.history_logger = SummaryWriter(options['output_folder'])
         self.test_truth = []
         self.test_raw_results = []
 
     def prepare(self):
         # split train and test
         np.random.shuffle(self.leptons_with_tracks)
-        self.training_events = \
-            self.leptons_with_tracks[:self.n_training_events]
+        self.training_events = self.leptons_with_tracks[:self.n_training_events]
         self.test_events = self.leptons_with_tracks[self.n_training_events:]
         # prepare the generators
         self.train_set = Torchdata(self.training_events)
@@ -51,9 +48,9 @@ class RNN_Trainer:
         train_loss = 0
         train_acc = 0
         for epoch_n in range(self.options['n_epochs']):
-            training_batch, testing_batch = self.make_batches()
-            train_loss, train_acc, _, _ = self.model.do_train(training_batch)
-            test_loss, test_acc, _, _ = self.model.do_eval(testing_batch)
+            training_batches, testing_batches = self.make_batches()
+            train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
+            test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
             self.history_logger.add_scalar(
                 'Accuracy/Train Accuracy', train_acc, epoch_n)
             self.history_logger.add_scalar(
@@ -99,16 +96,12 @@ class RNN_Trainer:
 def train(options):
     # load data
     data_filename = options['input_data']
-    leptons_with_tracks = pkl.load(
-        open(data_filename, 'rb'), encoding='latin1')
+    leptons_with_tracks = pkl.load(open(data_filename, 'rb'), encoding='latin1')
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(
         zip(leptons_with_tracks['normed_leptons'],
             leptons_with_tracks['normed_tracks']))
-    good_leptons = [i[leptons_with_tracks['lepton_labels'].index(
-        'ptcone20')] > 0 for i in leptons_with_tracks['unnormed_leptons']]
-    lwt = np.array(lwt)[good_leptons]
 
     # prepare outputs
     output_folder = options['output_folder']

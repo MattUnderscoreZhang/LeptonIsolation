@@ -6,6 +6,7 @@
 #include "xAODMuon/Muon.h"
 #include "xAODTruth/xAODTruthHelpers.h"
 #include "MuonSelectorTools/MuonSelectionTool.h"
+#include "xAODTracking/TrackParticlexAODHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -58,11 +59,25 @@ MuonWriter::MuonWriter(H5::Group& output_group):
             return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->d0());
         }
     );
+    fillers.add<float>("d0_over_sigd0",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(xAOD::TrackingHelpers::d0significance(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)));
+        }
+    );
     fillers.add<float>("z0",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return NAN;
             return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0());
+        }
+    );
+    fillers.add<float>("dz0",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return NAN;
+            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0() - this->m_primary_vertices_z0.at(idx));
         }
     );
     fillers.add<float>("ptcone20",
@@ -148,9 +163,7 @@ MuonWriter::~MuonWriter() {
     delete m_writer;
 }
 
-void MuonWriter::write(const xAOD::MuonContainer& muons) {
-
-    // muon selection
+void MuonWriter::filter_muons_first_stage(const xAOD::MuonContainer& muons) {
     m_current_muons.clear();
     for (const xAOD::Muon *muon : muons) {
         // check that muon won't segfault
@@ -162,6 +175,12 @@ void MuonWriter::write(const xAOD::MuonContainer& muons) {
         // store muons
         m_current_muons.push_back(muon);
     }
+}
+
+void MuonWriter::write(const xAOD::MuonContainer& muons, std::vector<float>& primary_vertices_z0) {
+
+    // muon selection
+    filter_muons_first_stage(muons);
 
     // sort muons by descending pT
     std::sort(m_current_muons.begin(), m_current_muons.end(),
@@ -170,5 +189,6 @@ void MuonWriter::write(const xAOD::MuonContainer& muons) {
     });
 
     // write muons
+    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_muon_idx);
 }

@@ -1,5 +1,5 @@
 /Plots*
-/Outputs
+/Output
 /runs
 */runs
 /Training/runs
@@ -10,3 +10,5 @@
 */.DS_Store
 */*.pyc
 */*/*.pyc
+Training/runs
+SamplePrep/.asetup.save

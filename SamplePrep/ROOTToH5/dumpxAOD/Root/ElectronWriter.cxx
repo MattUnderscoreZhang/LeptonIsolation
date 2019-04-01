@@ -5,6 +5,7 @@
 #include "xAODEgamma/ElectronContainer.h"
 #include "xAODTruth/xAODTruthHelpers.h"
 #include "xAODEgamma/Electron.h"
+#include "xAODTracking/TrackParticlexAODHelpers.h"
 
 // HDF5 things
 #include "HDF5Utils/HdfTuple.h"
@@ -53,11 +54,25 @@ ElectronWriter::ElectronWriter(H5::Group& output_group):
             return (float)(this->m_current_electrons.at(idx)->trackParticle()->d0());
         }
     );
+    fillers.add<float>("d0_over_sigd0",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return NAN;
+            return (float)(xAOD::TrackingHelpers::d0significance(this->m_current_electrons.at(idx)->trackParticle()));
+        }
+    );
     fillers.add<float>("z0",
         [this]() {
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return NAN;
             return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0());
+        }
+    );
+    fillers.add<float>("dz0",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return NAN;
+            return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0() - this->m_primary_vertices_z0.at(idx));
         }
     );
     fillers.add<float>("ptcone20",
@@ -142,19 +157,20 @@ ElectronWriter::~ElectronWriter() {
     delete m_writer;
 }
 
-void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
-
-    // electron selection
+void ElectronWriter::filter_electrons_first_stage(const xAOD::ElectronContainer& electrons) {
     m_current_electrons.clear();
     for (const xAOD::Electron *electron : electrons) {
-        // check that electron passes selections
-        //if (!m_elec_llhmedium->accept(electron)) continue;
         if(cacc_lhmedium.isAvailable(*electron) ){
             if (!cacc_lhmedium(*electron)) continue;
-            // store electrons
             m_current_electrons.push_back(electron);
         }
     }
+}
+
+void ElectronWriter::write(const xAOD::ElectronContainer& electrons, std::vector<float>& primary_vertices_z0) {
+
+    // electron selection
+    filter_electrons_first_stage(electrons);
 
     // sort electrons by descending pT
     std::sort(m_current_electrons.begin(), m_current_electrons.end(),
@@ -163,5 +179,6 @@ void ElectronWriter::write(const xAOD::ElectronContainer& electrons) {
     });
 
     // write electrons
+    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_electron_idx);
 }

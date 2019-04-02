@@ -20,7 +20,11 @@ class RNN_Trainer:
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
+<<<<<<< HEAD
         self.history_logger = SummaryWriter()
+=======
+        self.history_logger = SummaryWriter(options['output_folder'])
+>>>>>>> d9183ce1679f25357317ebefcbc09ccac12acf5e
         self.test_truth = []
         self.test_raw_results = []
 

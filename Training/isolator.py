@@ -20,7 +20,7 @@ if __name__ == "__main__":
     '''python isolator.py'''
     options = {}
 
-    options["input_data"] = "/public/data/RNN/lepton_track_data_track_pt_not_weighted.pkl"
+    options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "../Outputs/Runs/Test/"
 
     options["RNN_type"] = "RNN"

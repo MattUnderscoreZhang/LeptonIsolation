@@ -16,17 +16,15 @@ class RNN_Trainer:
     def __init__(self, options, leptons_with_tracks, output_folder):
         self.options = options
         self.n_events = len(leptons_with_tracks)
-        self.n_training_events = int(self.options['training_split'] * self.n_events)
+        self.n_training_events = int(
+            self.options['training_split'] * self.n_events)
         self.leptons_with_tracks = leptons_with_tracks
         self.options['n_track_features'] = len(
             self.leptons_with_tracks[0][1][0])
-<<<<<<< HEAD
         self.history_logger = SummaryWriter()
-=======
-        self.history_logger = SummaryWriter(options['output_folder'])
->>>>>>> d9183ce1679f25357317ebefcbc09ccac12acf5e
         self.test_truth = []
         self.test_raw_results = []
+        self.continue_training = options["continue_training"]
 
     def prepare(self):
         # split train and test
@@ -37,7 +35,11 @@ class RNN_Trainer:
         self.train_set = Torchdata(self.training_events)
         self.test_set = Torchdata(self.test_events)
         # set up model
-        self.model = Model(self.options)
+        if self.continue_training is False:
+            self.model = Model(self.options)
+        else:
+            self.model = torch.load(self.options['model_path'])
+        print('Model parameters:\n{}'.format(self.model.parameters))
 
     def make_batches(self):
         training_loader = DataLoader(
@@ -53,8 +55,10 @@ class RNN_Trainer:
         train_acc = 0
         for epoch_n in range(self.options['n_epochs']):
             training_batches, testing_batches = self.make_batches()
-            train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
-            test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
+            train_loss, train_acc, _, train_truth = self.model.do_train(
+                training_batches)
+            test_loss, test_acc, _, test_truth = self.model.do_eval(
+                testing_batches)
             self.history_logger.add_scalar(
                 'Accuracy/Train Accuracy', train_acc, epoch_n)
             self.history_logger.add_scalar(
@@ -76,7 +80,8 @@ class RNN_Trainer:
     def test(self, data_filename):
         self.test_set.file.reshuffle()
         _, testing_batches = self.make_batches()
-        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(
+            testing_batches)
         ROC_fig = plot_ROC.plot_ROC(
             data_filename, self.test_raw_results, self.test_truth)
         self.history_logger.add_figure('ROC', ROC_fig)
@@ -100,7 +105,8 @@ class RNN_Trainer:
 def train(options):
     # load data
     data_filename = options['input_data']
-    leptons_with_tracks = pkl.load(open(data_filename, 'rb'), encoding='latin1')
+    leptons_with_tracks = pkl.load(
+        open(data_filename, 'rb'), encoding='latin1')
     options['lepton_size'] = len(leptons_with_tracks['lepton_labels'])
     options['track_size'] = len(leptons_with_tracks['track_labels'])
     lwt = list(

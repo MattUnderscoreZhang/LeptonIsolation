@@ -21,8 +21,7 @@ else:
 if __name__ == "__main__":
     '''python isolator.py'''
     options = {}
-
-    options["input_data"] = "/public/data/RNN/lepton_track_data_track_pt_not_weighted.pkl"
+    options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "../Outputs/"
     options["model_path"] = options["output_folder"] + "saved_optimizer.pt"
     options["continue_training"] = args.continue_training

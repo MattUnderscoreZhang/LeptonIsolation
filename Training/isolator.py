@@ -25,7 +25,6 @@ if __name__ == "__main__":
     options["output_folder"] = "../Outputs/"
     options["model_path"] = options["output_folder"] + "saved_optimizer.pt"
     options["continue_training"] = args.continue_training
-    print(args.continue_training)
     options["RNN_type"] = "GRU"
     options['learning_rate'] = 0.0003
     options['training_split'] = 0.7

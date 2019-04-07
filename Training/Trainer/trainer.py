@@ -124,3 +124,7 @@ def train(options):
 
     # save results
     RNN_trainer.save_model(output_folder)
+
+#TODO
+# add a way to load models in and train them
+# just loading it it and running doesn't work becuase the model can't acess all the functions we have defined for it.

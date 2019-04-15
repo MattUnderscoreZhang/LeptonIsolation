@@ -32,7 +32,7 @@ def Tensor_length(track):
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 
-class Model(nn.Module):
+class SavedModel(nn.Module):
     """RNN module implementing pytorch rnn"""
 
     def __init__(self, options):
@@ -47,53 +47,9 @@ class Model(nn.Module):
         self.batch_size = options["batch_size"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
-        self.h_0 = nn.Parameter(
-            torch.zeros(
-                self.n_layers * self.n_directions, self.batch_size, self.hidden_size
-            ).to(self.device)
-        )
-
-        self.cellstate = False
-        if options["RNN_type"] == "RNN":
-            self.rnn = nn.RNN(
-                input_size=self.input_size,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                bidirectional=options["bidirectional"],
-            ).to(self.device)
-        elif options["RNN_type"] == "LSTM":
-            self.cellstate = True
-            self.rnn = nn.LSTM(
-                input_size=self.input_size,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                bidirectional=options["bidirectional"],
-            ).to(self.device)
-        else:
-            self.rnn = nn.GRU(
-                input_size=self.input_size,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                bidirectional=options["bidirectional"],
-            ).to(self.device)
-
-        self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.softmax = nn.Softmax(dim=1).to(self.device)
-        self.loss_function = nn.BCEWithLogitsLoss()
+        self.model = torch.load(self.options["model_path"])
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq, sorted_leptons):
-        self.rnn.flatten_parameters()
-        if self.cellstate:
-            output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
-        else:
-            output, hidden = self.rnn(padded_seq, self.h_0)
-        out = self.fc(hidden[-1]).to(self.device)
-        out = self.softmax(out).to(self.device)
-        return out
 
     def accuracy(self, predicted, truth):
         return torch.from_numpy(
@@ -102,9 +58,9 @@ class Model(nn.Module):
 
     def do_train(self, batches, do_training=True):
         if do_training:
-            self.rnn.train()
+            self.model.train()
         else:
-            self.rnn.eval()
+            self.model.eval()
         total_loss = 0
         total_acc = 0
         raw_results = []
@@ -131,7 +87,7 @@ class Model(nn.Module):
             padded_seq = hotfix_pack_padded_sequence(
                 sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
             )
-            output = self.forward(padded_seq, sorted_leptons).to(self.device)
+            output = self.model.forward(padded_seq, sorted_leptons).to(self.device)
             indices = indices.to(self.device)
             loss = self.loss_function(output[:, 0], truth[indices].float())
 
@@ -168,4 +124,4 @@ class Model(nn.Module):
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
-        return self, self.optimizer
+        return self.model, self.optimizer

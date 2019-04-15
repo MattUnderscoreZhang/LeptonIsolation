@@ -6,7 +6,6 @@ import torch.nn as nn
 
 
 class LeptonTrackDataset:
-
     def __init__(self, leptons_with_tracks):
         self.leptons_with_tracks = leptons_with_tracks
         self.reshuffle()
@@ -19,8 +18,8 @@ class LeptonTrackDataset:
 
     def reshuffle(self):
         self.read_order = random.sample(
-            range(len(self.leptons_with_tracks)),
-            len(self.leptons_with_tracks))
+            range(len(self.leptons_with_tracks)), len(self.leptons_with_tracks)
+        )
 
     def get(self, index):
         i = self.read_order[index]
@@ -33,11 +32,10 @@ class LeptonTrackDataset:
 
 
 def collate(batch):
-    '''pads the data with 0's'''
+    """pads the data with 0's"""
     length = torch.tensor([len(item[0]) for item in batch])
     max_size = int(length.max())
-    data = [nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))
-            (item[0]) for item in batch]
+    data = [nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))(item[0]) for item in batch]
     target = torch.stack([item[-1] for item in batch])
     not_rnn_data = torch.stack([item[1] for item in batch])
     return [torch.stack(data), not_rnn_data, target]
@@ -52,8 +50,8 @@ class Torchdata(Dataset):
         self.file = LeptonTrackDataset(lwt)
 
     def __getitem__(self, index):
-        '''gets the data at a given index'''
-        data = (self.file.get(index))
+        """gets the data at a given index"""
+        data = self.file.get(index)
 
         return data[2], data[1], data[0]
 

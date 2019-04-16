@@ -25,7 +25,7 @@ if __name__ == "__main__":
     options = {}
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "./Outputs/"
-    options["state_path"] = options["output_folder"] + "saved_model.pt"
+    options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
     options["RNN_type"] = "GRU"
     options["learning_rate"] = 0.0003

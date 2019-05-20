@@ -3,28 +3,28 @@ new neural network architecture"""
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 import numpy as np
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
-def hotfix_pack_padded_sequence(
-    sorted_tracks, lengths, batch_first=False, enforce_sorted=True
-):
-    lengths = torch.as_tensor(lengths, dtype=torch.int64)
-    lengths = lengths.cpu()
-    if enforce_sorted:
-        sorted_indices = None
-    else:
-        lengths, sorted_indices = torch.sort(lengths, descending=True)
-        sorted_indices = sorted_indices.to(sorted_tracks.device)
-        batch_dim = 0 if batch_first else 1
-        sorted_tracks = sorted_tracks.index_select(batch_dim, sorted_indices)
+# def hotfix_pack_padded_sequence(
+#     sorted_tracks, lengths, batch_first=False, enforce_sorted=True
+# ):
+#     lengths = torch.as_tensor(lengths, dtype=torch.int64)
+#     lengths = lengths.cpu()
+#     if enforce_sorted:
+#         sorted_indices = None
+#     else:
+#         lengths, sorted_indices = torch.sort(lengths, descending=True)
+#         sorted_indices = sorted_indices.to(sorted_tracks.device)
+#         batch_dim = 0 if batch_first else 1
+#         sorted_tracks = sorted_tracks.index_select(batch_dim, sorted_indices)
 
-    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
-        sorted_tracks, lengths, batch_first
-    )
-    return PackedSequence(data, batch_sizes)
+#     data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
+#         sorted_tracks, lengths, batch_first
+#     )
+#     return PackedSequence(data, batch_sizes)
 
 
 def Tensor_length(track):
@@ -83,9 +83,10 @@ class Model(nn.Module):
         self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq, sorted_leptons):
+    def forward(self, padded_seq):
         self.rnn.flatten_parameters()
         if self.cellstate:
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
@@ -101,6 +102,10 @@ class Model(nn.Module):
         )
 
     def do_train(self, batches, do_training=True):
+        """
+        indices have been removed
+        I don't know how the new pack-pad-sequeces works yet
+        """
         if do_training:
             self.rnn.train()
         else:
@@ -119,21 +124,27 @@ class Model(nn.Module):
             lepton_info = lepton_info.to(self.device)
             truth = truth[:, 0].to(self.device)
 
-            # setting up for packing padded sequence
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             )
+            padded_seq = pack_padded_sequence(
+                track_info, n_tracks, batch_first=True, enforce_sorted=False)
 
-            sorted_n, indices = torch.sort(n_tracks, descending=True)
-            # reodering information according to sorted indices
-            sorted_tracks = track_info[indices].to(self.device)
-            sorted_leptons = lepton_info[indices].to(self.device)
-            padded_seq = hotfix_pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
-            )
-            output = self.forward(padded_seq, sorted_leptons).to(self.device)
-            indices = indices.to(self.device)
-            loss = self.loss_function(output[:, 0], truth[indices].float())
+            # # setting up for packing padded sequence
+            # n_tracks = torch.tensor(
+            #     [Tensor_length(track_info[i]) for i in range(len(track_info))]
+            # )
+
+            # sorted_n, indices = torch.sort(n_tracks, descending=True)
+            # # reodering information according to sorted indices
+            # sorted_tracks = track_info[indices].to(self.device)
+            # sorted_leptons = lepton_info[indices].to(self.device)
+            # padded_seq = hotfix_pack_padded_sequence(
+            #     sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
+            # )
+            output = self.forward(padded_seq).to(self.device)
+            # indices = indices.to(self.device)
+            loss = self.loss_function(output[:, 0], truth.float())
 
             if do_training is True:
                 loss.backward()
@@ -142,18 +153,22 @@ class Model(nn.Module):
             predicted = torch.round(output)[:, 0]
             accuracy = float(
                 self.accuracy(
-                    predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]
+                    predicted.data.cpu().detach(), truth.data.cpu().detach()
                 )
             )
             total_acc += accuracy
             raw_results += output[:, 0].cpu().detach().tolist()
-            all_truth += truth[indices].cpu().detach().tolist()
+            all_truth += truth.cpu().detach().tolist()
             if do_training is True:
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", accuracy, i)
-                self.history_logger.add_scalar("Loss/Train Loss", float(loss), i)
+                self.history_logger.add_scalar(
+                    "Accuracy/Train Accuracy", accuracy, i)
+                self.history_logger.add_scalar(
+                    "Loss/Train Loss", float(loss), i)
             else:
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", accuracy, i)
-                self.history_logger.add_scalar("Loss/Test Loss", float(loss), i)
+                self.history_logger.add_scalar(
+                    "Accuracy/Test Accuracy", accuracy, i)
+                self.history_logger.add_scalar(
+                    "Loss/Test Loss", float(loss), i)
             for name, param in self.named_parameters():
                 self.history_logger.add_histogram(
                     name, param.clone().cpu().data.numpy(), i

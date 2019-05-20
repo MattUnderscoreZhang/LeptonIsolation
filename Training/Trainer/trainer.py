@@ -3,7 +3,7 @@ import pathlib
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import sys
 import pdb
 sys.path.append("..")  # NOQA

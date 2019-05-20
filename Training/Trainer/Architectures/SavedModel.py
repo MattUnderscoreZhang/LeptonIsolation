@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 import numpy as np
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 def hotfix_pack_padded_sequence(

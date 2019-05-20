@@ -1,39 +1,50 @@
-"""This file aims to try pytorch rnn module implementation as a
-new neural network architecture"""
+# -*- coding: utf-8 -*-
+"""This module uses pytorch to implement a recurrent neural network capable of
+classifying prompt leptons from heavy flavor ones
+
+Attributes:
+    *
+
+Todo:
+    * test the new pack_padded_sequence implementation
+    * implement commenting practices in rest of the file
+
+"""
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 
 
-# def hotfix_pack_padded_sequence(
-#     sorted_tracks, lengths, batch_first=False, enforce_sorted=True
-# ):
-#     lengths = torch.as_tensor(lengths, dtype=torch.int64)
-#     lengths = lengths.cpu()
-#     if enforce_sorted:
-#         sorted_indices = None
-#     else:
-#         lengths, sorted_indices = torch.sort(lengths, descending=True)
-#         sorted_indices = sorted_indices.to(sorted_tracks.device)
-#         batch_dim = 0 if batch_first else 1
-#         sorted_tracks = sorted_tracks.index_select(batch_dim, sorted_indices)
-
-#     data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
-#         sorted_tracks, lengths, batch_first
-#     )
-#     return PackedSequence(data, batch_sizes)
-
-
 def Tensor_length(track):
-    """Finds the length of the non zero tensor"""
+    """Finds the length of the non zero tensor
+
+    Args:
+        track (torch.tensor): tensor containing the events padded with zeroes at the end
+
+    Returns:
+        Length (int) of the tensor were it not zero-padded
+
+    """
     return int(torch.nonzero(track).shape[0] / track.shape[1])
 
 
 class Model(nn.Module):
-    """RNN module implementing pytorch rnn"""
+    """Model class implementing rnn inheriting structure from pytorch nn module
+
+    Attributes:
+        options (dict) : configuration for the nn
+
+    Methods:
+        forward: steps through the neural net once
+        accuracy: compares predicted values to true values
+        do_train: takes in data and passes the batches to forward to train
+        do_eval: runs the neural net on the data after setting it up for evaluation
+        get_model: returns the model and its optimizer
+
+    """
 
     def __init__(self, options):
         super().__init__()
@@ -52,8 +63,8 @@ class Model(nn.Module):
                 self.n_layers * self.n_directions, self.batch_size, self.hidden_size
             ).to(self.device)
         )
+        self.cellstate = False # set to true only if lstm
 
-        self.cellstate = False
         if options["RNN_type"] == "RNN":
             self.rnn = nn.RNN(
                 input_size=self.input_size,
@@ -87,6 +98,18 @@ class Model(nn.Module):
             self.parameters(), lr=self.learning_rate)
 
     def forward(self, padded_seq):
+        """Takes a padded sequence and passes it through:
+            * the rnn cell
+            * a fully connected layer to get it to the right output size
+            * a softmax to get a probability
+
+        Args:
+            track (torch.tensor): tensor containing the events padded with zeroes at the end
+
+        Returns:
+            Length (int) of the tensor were it not zero-padded
+
+        """
         self.rnn.flatten_parameters()
         if self.cellstate:
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)

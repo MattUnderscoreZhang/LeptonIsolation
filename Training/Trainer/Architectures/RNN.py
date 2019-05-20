@@ -63,7 +63,7 @@ class Model(nn.Module):
                 self.n_layers * self.n_directions, self.batch_size, self.hidden_size
             ).to(self.device)
         )
-        self.cellstate = False # set to true only if lstm
+        self.cellstate = False  # set to true only if lstm
 
         if options["RNN_type"] == "RNN":
             self.rnn = nn.RNN(
@@ -104,10 +104,10 @@ class Model(nn.Module):
             * a softmax to get a probability
 
         Args:
-            track (torch.tensor): tensor containing the events padded with zeroes at the end
+            padded_seq (paddedSequence): a collection for lepton track information
 
         Returns:
-            Length (int) of the tensor were it not zero-padded
+           the probability of particle beng prompt or heavy flavor
 
         """
         self.rnn.flatten_parameters()
@@ -120,14 +120,37 @@ class Model(nn.Module):
         return out
 
     def accuracy(self, predicted, truth):
+        """Compares the predicted values to the true values
+
+        Args:
+            predicted (torch.tensor): predictions from the neural net
+
+        Returns:
+            normalized number of accurate predictions
+
+        """
         return torch.from_numpy(
             np.array((predicted == truth.float()).sum().float() / len(truth))
         )
 
     def do_train(self, batches, do_training=True):
-        """
-        indices have been removed
-        I don't know how the new pack-pad-sequeces works yet
+        """runs the neural net on batches of data passed into it
+
+        Args:
+            batches (torch.dataset object): Shuffled samples of data for evaluation by the model
+                                            contains:
+                                                * track_info
+                                                * lepton_info
+                                                * truth
+            do_training (bool, True by default): flags whether the model is to be run in
+                                                training or evaluation mode
+
+        Returns: total loss, total accuracy, raw results, and all truths
+
+        Notes:
+            indices have been removed
+            I don't know how the new pack-pad-sequeces works yet
+
         """
         if do_training:
             self.rnn.train()
@@ -140,33 +163,21 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-
             track_info, lepton_info, truth = batch
+
             # moving tensors to adequate device
             track_info = track_info.to(self.device)
             lepton_info = lepton_info.to(self.device)
             truth = truth[:, 0].to(self.device)
 
+            # setting up for packing padded sequence
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             )
             padded_seq = pack_padded_sequence(
                 track_info, n_tracks, batch_first=True, enforce_sorted=False)
 
-            # # setting up for packing padded sequence
-            # n_tracks = torch.tensor(
-            #     [Tensor_length(track_info[i]) for i in range(len(track_info))]
-            # )
-
-            # sorted_n, indices = torch.sort(n_tracks, descending=True)
-            # # reodering information according to sorted indices
-            # sorted_tracks = track_info[indices].to(self.device)
-            # sorted_leptons = lepton_info[indices].to(self.device)
-            # padded_seq = hotfix_pack_padded_sequence(
-            #     sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
-            # )
             output = self.forward(padded_seq).to(self.device)
-            # indices = indices.to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())
 
             if do_training is True:
@@ -203,7 +214,29 @@ class Model(nn.Module):
         return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, batches, do_training=False):
+        """Convienience function for running do_train in evaluation mode
+
+        Args:
+            batches (torch.dataset object): Shuffled samples of data for evaluation by the model
+                                            contains:
+                                                * track_info
+                                                * lepton_info
+                                                * truth
+            do_training (bool, False by default): flags whether the model is to be run in
+                                                training or evaluation mode
+
+        Returns: total loss, total accuracy, raw results, and all truths
+
+        """
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
+        """ getter function to help easy storage of the model
+
+        Args:
+            None
+
+        Returns: the model and its optimizer
+
+        """
         return self, self.optimizer

@@ -6,8 +6,7 @@ Attributes:
     *
 
 Todo:
-    * test the new pack_padded_sequence implementation
-    * implement commenting practices in rest of the file
+    * test the new pack_padded_sequence implementation on gpu
 
 """
 

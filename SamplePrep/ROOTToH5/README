@@ -10,4 +10,6 @@ cd build/
 source ../dumpxAOD/setup.sh
 cmake ../dumpxAOD
 make
-./x86_64-slc6-gcc62-opt/bin/dump-xaod /eos/user/m/mazhang/LepIso/MC/IDTIDE/mc16_13TeV.410000.PowhegPythiaEvtGen_P2012_ttbar_hdamp172p5_nonallhad.recon.DAOD_IDTRKVALID.e3698_s2995_r9639/DAOD_IDTRKVALID.11500650._000001.pool.root.1
+ln -s /cvmfs/atlas.cern.ch/repo/sw/software/21.2/AnalysisBaseExternals/21.2.29/InstallArea/x86_64-slc6-gcc62-opt/lib/libhdf5.so libhdf5.so.6
+export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+./x86_64-slc6-gcc62-opt/bin/dump-xaod /eos/user/m/mazhang/LepIso/ROOT/IDTIDE/mc16_13TeV.410000.PowhegPythiaEvtGen_P2012_ttbar_hdamp172p5_nonallhad.recon.DAOD_IDTRKVALID.e3698_s2995_r9639/DAOD_IDTRKVALID.11500650._000001.pool.root.1

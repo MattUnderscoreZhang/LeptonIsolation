@@ -11,6 +11,9 @@
 // ATLAS things
 #include "xAODTracking/TrackParticle.h"
 
+//// PFlow
+//#include "PFlowUtils/RetrievePFOTool.h"
+
 TrackWriter::TrackWriter(H5::Group& output_group):
     m_track_idx(1),
     m_writer(nullptr)
@@ -20,6 +23,7 @@ TrackWriter::TrackWriter(H5::Group& output_group):
     // arguments, but includes a pointer to the class instance, and by
     // extension to the current event.
     H5Utils::VariableFillers fillers;
+    //CP::IRetrievePFOTool *m_pfotool;//!
 
     fillers.add<float>("pT",
         [this]() {
@@ -140,6 +144,17 @@ TrackWriter::TrackWriter(H5::Group& output_group):
             return (float)nHits;
         }
     );
+
+    //// topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
+    //fillers.add<float>("nTRTHits",
+        //[this]() {
+            //size_t idx = this->m_track_idx.at(0);
+            //if (this->m_current_tracks.size() <= idx) return NAN;
+            //uint8_t nHits = 0;
+            //this->m_current_tracks.at(idx)->summaryValue(nHits, xAOD::numberOfTRTHits);
+            //return (float)nHits;
+        //}
+    //);
 
     // Save up to 3000 tracks per event
     m_writer = new H5Utils::WriterXd(output_group, "tracks", fillers, {3000});

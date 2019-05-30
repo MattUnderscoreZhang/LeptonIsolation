@@ -38,8 +38,11 @@ class ElectronWriter
         // electron selection
         void filter_electrons_first_stage(const xAOD::ElectronContainer& electrons);
 
+        // extract primary vertex z0 values
+        void extract_vertex_z0(const xAOD::VertexContainer& primary_vertices);
+
         // function that's actually called to write the event
-        void write(const xAOD::ElectronContainer& electrons, std::vector<float>& primary_vertices_z0);
+        void write(const xAOD::ElectronContainer& electrons, const xAOD::VertexContainer& primary_vertices);
 
     private:
         // the functions that fill the output need to be defined when the

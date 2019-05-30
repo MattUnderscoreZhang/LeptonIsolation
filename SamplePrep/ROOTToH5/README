@@ -12,6 +12,7 @@ cmake ../dumpxAOD
 make
 ln -s /cvmfs/atlas.cern.ch/repo/sw/software/21.2/AnalysisBaseExternals/21.2.29/InstallArea/x86_64-slc6-gcc62-opt/lib/libhdf5.so libhdf5.so.6
 export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
+cd ..
 
 <Test command:>
 ./build/x86_64-slc6-gcc62-opt/bin/dump-xaod /eos/user/m/mazhang/LepIso/ROOT/MUON5/mc16_13TeV.410470.PhPy8EG_A14_ttbar_hdamp258p75_nonallhad.deriv.DAOD_MUON5.e6337_e5984_s3126_r10201_r10210_p3584/DAOD_MUON5.14537525._000001.pool.root.1

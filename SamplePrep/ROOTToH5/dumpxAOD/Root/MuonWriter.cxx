@@ -177,10 +177,20 @@ void MuonWriter::filter_muons_first_stage(const xAOD::MuonContainer& muons) {
     }
 }
 
-void MuonWriter::write(const xAOD::MuonContainer& muons, std::vector<float>& primary_vertices_z0) {
+void MuonWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
+    m_primary_vertices_z0.clear();
+    for (const xAOD::Vertex *vertex : primary_vertices) {
+        m_primary_vertices_z0.push_back(vertex->z());
+    }
+}
+
+void MuonWriter::write(const xAOD::MuonContainer& muons, const xAOD::VertexContainer& primary_vertices) {
 
     // muon selection
     filter_muons_first_stage(muons);
+
+    // extract primary vertex z0 values
+    extract_vertex_z0(primary_vertices);
 
     // sort muons by descending pT
     std::sort(m_current_muons.begin(), m_current_muons.end(),
@@ -189,6 +199,5 @@ void MuonWriter::write(const xAOD::MuonContainer& muons, std::vector<float>& pri
     });
 
     // write muons
-    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_muon_idx);
 }

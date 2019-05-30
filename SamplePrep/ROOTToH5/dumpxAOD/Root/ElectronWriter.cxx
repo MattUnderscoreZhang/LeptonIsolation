@@ -167,10 +167,20 @@ void ElectronWriter::filter_electrons_first_stage(const xAOD::ElectronContainer&
     }
 }
 
-void ElectronWriter::write(const xAOD::ElectronContainer& electrons, std::vector<float>& primary_vertices_z0) {
+void ElectronWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
+    m_primary_vertices_z0.clear();
+    for (const xAOD::Vertex *vertex : primary_vertices) {
+        m_primary_vertices_z0.push_back(vertex->z());
+    }
+}
+
+void ElectronWriter::write(const xAOD::ElectronContainer& electrons, const xAOD::VertexContainer& primary_vertices) {
 
     // electron selection
     filter_electrons_first_stage(electrons);
+
+    // extract primary vertex z0 values
+    extract_vertex_z0(primary_vertices);
 
     // sort electrons by descending pT
     std::sort(m_current_electrons.begin(), m_current_electrons.end(),
@@ -179,6 +189,5 @@ void ElectronWriter::write(const xAOD::ElectronContainer& electrons, std::vector
     });
 
     // write electrons
-    m_primary_vertices_z0 = primary_vertices_z0;
     m_writer->fillWhileIncrementing(m_electron_idx);
 }

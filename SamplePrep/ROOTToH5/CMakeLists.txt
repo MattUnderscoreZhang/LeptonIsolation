@@ -27,9 +27,9 @@ find_package(lwtnn)
 
 # common requirements
 set(_common
-  Root/TrackWriter.cxx
-  Root/ElectronWriter.cxx
-  Root/MuonWriter.cxx
+  src/TrackWriter.cxx
+  src/ElectronWriter.cxx
+  src/MuonWriter.cxx
   INCLUDE_DIRS ${ROOT_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ${LWTNN_INCLUDE_DIRS}
   LINK_LIBRARIES ${ROOT_LIBRARIES} ${HDF5_LIBRARIES} ${LWTNN_LIBRARIES}
   xAODRootAccess
@@ -43,7 +43,7 @@ set(_common
 )
 
 # build the test executable:
-atlas_add_executable( dump-xaod util/dump-xaod.cxx ${_common} )
+atlas_add_executable( ROOT_to_H5 src/ROOT_to_H5.cxx ${_common} )
 
 # Set up grid magic. Atlas uses CPack to package up the local files
 # and submit them to the grid. If you're not looking to run on the

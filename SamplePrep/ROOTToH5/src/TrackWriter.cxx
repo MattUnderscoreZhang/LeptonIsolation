@@ -1,5 +1,5 @@
 // this class's header
-#include "TrackWriter.h"
+#include "../headers/TrackWriter.h"
 
 // EDM things
 #include "xAODTracking/TrackParticleContainer.h"

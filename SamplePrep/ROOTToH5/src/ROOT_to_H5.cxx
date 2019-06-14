@@ -1,7 +1,7 @@
 // local tools
-#include "Root/TrackWriter.h"
-#include "Root/ElectronWriter.h"
-#include "Root/MuonWriter.h"
+#include "../headers/TrackWriter.h"
+#include "../headers/ElectronWriter.h"
+#include "../headers/MuonWriter.h"
 
 // AnalysisBase tool include(s):
 #include "xAODRootAccess/Init.h"

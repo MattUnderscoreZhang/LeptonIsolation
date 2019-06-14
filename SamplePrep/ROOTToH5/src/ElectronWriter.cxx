@@ -1,5 +1,5 @@
 // this class's header
-#include "ElectronWriter.h"
+#include "../headers/ElectronWriter.h"
 
 // EDM things
 #include "xAODEgamma/ElectronContainer.h"

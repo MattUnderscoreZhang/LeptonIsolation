@@ -1,5 +1,5 @@
 // this class's header
-#include "MuonWriter.h"
+#include "../headers/MuonWriter.h"
 
 // EDM things
 #include "xAODMuon/MuonContainer.h"

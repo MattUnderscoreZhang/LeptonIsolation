@@ -121,11 +121,9 @@ def filter_leptons(lepton_events):
 def filter_tracks(track_events):
 
     """see if track passes selections listed at
-    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/
-    Run2IsolationHarmonisation
+    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
     and
-    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/
-    TrackingCPRecsEarly2018"""
+    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018"""
 
     def good_tracks(event):
         return [track['pT'] > 1000 and  # 1 GeV

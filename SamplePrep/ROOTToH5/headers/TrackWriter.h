@@ -40,11 +40,8 @@ class TrackWriter
         TrackWriter(TrackWriter&) = delete;
         TrackWriter operator=(TrackWriter&) = delete;
 
-        // track selection
-        void filter_tracks_first_stage(const xAOD::TrackParticleContainer& tracks);
-
         // function that's actually called to write the event
-        void write(const xAOD::TrackParticleContainer& tracks);
+        void write(std::vector<const xAOD::TrackParticle*>* tracks);
 
     private:
         // the functions that fill the output need to be defined when the

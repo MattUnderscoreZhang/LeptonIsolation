@@ -12,7 +12,8 @@ TrackWriter::TrackWriter(H5::Group& output_group):
 
     m_trkseltool = new InDet::InDetTrackSelectionTool("trackSel");
     m_trkseltool->setProperty("CutLevel", "Loose");
-    m_trkseltool->setProperty("minPt", 500.);
+    //m_trkseltool->setProperty("minPt", 500.);
+    m_trkseltool->setProperty("minPt", 1000.);
     m_trkseltool->setProperty("maxZ0SinTheta", 3.);
     m_trkseltool->initialize();
 

@@ -9,16 +9,17 @@ atlas_project( WorkDir 1.0 USE AnalysisBase ${AnalysisBase_VERSION} )
 # set the name of the package:
 atlas_subdir( LeptonTrackROOTToH5 )
 
-# packages that this package depends on
-atlas_depends_on_subdirs(
-  PRIVATE
-  Control/xAODRootAccess
-  Event/xAOD/xAODTrack
-  Event/xAOD/xAODTruth
-  Event/xAOD/xAODEgamma
-  Event/xAOD/xAODMuon
-  PhysicsAnalysis/AnalysisCommon/HDF5Utils
-)
+## packages that this package depends on
+#atlas_depends_on_subdirs(
+  #PRIVATE
+  ##Control/xAODRootAccess
+  ##Event/xAOD/xAODTrack
+  ##Event/xAOD/xAODTruth
+  ##Event/xAOD/xAODEgamma
+  ##Event/xAOD/xAODMuon
+  ##PhysicsAnalysis/AnalysisCommon/HDF5Utils
+  ##InnerDetector/InDetRecTools/InDetTrackSelectionTool
+#)
 
 # external(s) used by the package:
 find_package(ROOT REQUIRED COMPONENTS RIO Hist Tree Net Core)
@@ -40,6 +41,7 @@ set(_common
   HDF5Utils
   MuonSelectorToolsLib
   ElectronPhotonSelectorToolsLib
+  InDetTrackSelectionToolLib
 )
 
 # build the test executable:

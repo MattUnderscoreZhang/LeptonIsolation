@@ -1,15 +1,6 @@
 // this class's header
 #include "../headers/TrackWriter.h"
-
-// EDM things
-#include "xAODTracking/TrackParticleContainer.h"
-
-// HDF5 things
-#include "HDF5Utils/HdfTuple.h"
-#include "H5Cpp.h"
-
-// ATLAS things
-#include "xAODTracking/TrackParticle.h"
+#include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
 //// PFlow
 //#include "PFlowUtils/RetrievePFOTool.h"
@@ -18,6 +9,12 @@ TrackWriter::TrackWriter(H5::Group& output_group):
     m_track_idx(1),
     m_writer(nullptr)
 {
+
+    m_trkseltool = new InDet::InDetTrackSelectionTool("trackSel");
+    m_trkseltool->setProperty("CutLevel", "Loose");
+    m_trkseltool->setProperty("minPt", 500.);
+    m_trkseltool->setProperty("maxZ0SinTheta", 3.);
+    m_trkseltool->initialize();
 
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
@@ -165,12 +162,22 @@ TrackWriter::~TrackWriter() {
     delete m_writer;
 }
 
-void TrackWriter::write(const xAOD::TrackParticleContainer& tracks) {
+void TrackWriter::filter_tracks_first_stage(const xAOD::TrackParticleContainer& tracks) {
+    // using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
+    // https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
+    // and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
 
     m_current_tracks.clear();
     for (const xAOD::TrackParticle *track : tracks) {
+        if (!m_trkseltool->accept(*track)) continue;
         m_current_tracks.push_back(track);
     }
+}
+
+void TrackWriter::write(const xAOD::TrackParticleContainer& tracks) {
+
+    // track selection
+    filter_tracks_first_stage(tracks);
 
     // Sort tracks by descending pT
     std::sort(m_current_tracks.begin(), m_current_tracks.end(),

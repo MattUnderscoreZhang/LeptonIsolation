@@ -72,7 +72,6 @@ def prepare_h5_data(h5_file):
     non_zero_leptons = [lepton.shape[0] > 0 for lepton in leptons]
     leptons = leptons[non_zero_leptons]
     tracks = tracks[non_zero_leptons]
-    tracks = filter_tracks(tracks)
 
     print("Grouping leptons and tracks")
     unnormed_leptons = []
@@ -116,26 +115,6 @@ def filter_leptons(lepton_events):
                              for event in lepton_events])
 
     return good_leptons
-
-
-def filter_tracks(track_events):
-
-    """see if track passes selections listed at
-    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
-    and
-    https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018"""
-
-    def good_tracks(event):
-        return [track['pT'] > 1000 and  # 1 GeV
-                abs(track['eta']) < 2.5 and
-                (track['nSCTHits'] + track['nPixHits'] >= 7) and (track['nIBLHits'] > 0) and
-                (track['nPixHoles'] + track['nSCTHoles'] <= 2) and (track['nPixHoles'] <= 1)
-                for track in event]
-
-    good_tracks = np.array([event[np.where(good_tracks(event))]
-                            for event in track_events])
-
-    return good_tracks
 
 
 def remove_lepton_associated_tracks(tracks):

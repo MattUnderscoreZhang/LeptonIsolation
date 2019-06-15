@@ -16,8 +16,15 @@ namespace xAOD {
     typedef TrackParticle_v1 TrackParticle;
 }
 
-// EDM includes
+// HDF5 things
+#include "HDF5Utils/HdfTuple.h"
+#include "H5Cpp.h"
+
+// ATLAS things
 #include "xAODTracking/TrackParticleContainer.h"
+#include "xAODTracking/TrackParticle.h"
+#include "xAODEgamma/EgammaxAODHelpers.h"
+#include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
 class TrackWriter
 {
@@ -33,6 +40,9 @@ class TrackWriter
         TrackWriter(TrackWriter&) = delete;
         TrackWriter operator=(TrackWriter&) = delete;
 
+        // track selection
+        void filter_tracks_first_stage(const xAOD::TrackParticleContainer& tracks);
+
         // function that's actually called to write the event
         void write(const xAOD::TrackParticleContainer& tracks);
 
@@ -43,7 +53,10 @@ class TrackWriter
         std::vector<const xAOD::TrackParticle*> m_current_tracks;
         std::vector<size_t> m_track_idx;
 
-        // The writer itself
+        // track selector
+        InDet::InDetTrackSelectionTool *m_trkseltool;
+
+        // the writer itself
         H5Utils::WriterXd* m_writer;
 };
 

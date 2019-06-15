@@ -48,20 +48,18 @@ class ObjectWriters
         void write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::VertexContainer& primary_vertices);
 
     private:
-        // the functions that fill the output need to be defined when the
-        // class is initialized. They will fill from this electron pointer, which
-        // must be updated each time we write.
+        // vectors relating to the current event
         std::vector<const xAOD::Electron*> m_current_electrons;
-        std::vector<size_t> m_electron_idx;
         std::vector<const xAOD::Muon*> m_current_muons;
-        std::vector<size_t> m_muon_idx;
         std::vector<const xAOD::TrackParticle*> m_current_tracks;
-        std::vector<size_t> m_track_idx;
         std::vector<float> m_primary_vertices_z0;
 
-        // The writers themselves
+        // for writing
+        std::vector<size_t> m_electron_idx;
         H5Utils::WriterXd* m_electron_writer;
+        std::vector<size_t> m_muon_idx;
         H5Utils::WriterXd* m_muon_writer;
+        std::vector<size_t> m_track_idx;
         H5Utils::WriterXd* m_track_writer;
 };
 

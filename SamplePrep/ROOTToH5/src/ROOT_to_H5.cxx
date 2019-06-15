@@ -1,8 +1,6 @@
 // local tools
 #include "../headers/ObjectFilters.h"
-#include "../headers/TrackWriter.h"
-#include "../headers/ElectronWriter.h"
-#include "../headers/MuonWriter.h"
+#include "../headers/ObjectWriters.h"
 
 // AnalysisBase tool include(s):
 #include "xAODRootAccess/Init.h"
@@ -51,9 +49,7 @@ int main (int argc, char *argv[])
     ObjectFilters object_filters;
 
     // object writers
-    TrackWriter track_writer(output);
-    ElectronWriter electron_writer(output);
-    MuonWriter muon_writer(output);
+    ObjectWriters object_writers(output);
 
     // Loop over the specified files:
     for (std::string file_name: opts.files) {
@@ -99,9 +95,7 @@ int main (int argc, char *argv[])
             std::vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(*electrons);
 
             // Write event
-            track_writer.write(filtered_tracks);
-            electron_writer.write(filtered_electrons, *primary_vertices);
-            muon_writer.write(filtered_muons, *primary_vertices);
+            object_writers.write(filtered_electrons, filtered_muons, filtered_tracks, *primary_vertices);
 
         } // end event loop
     } // end file loop

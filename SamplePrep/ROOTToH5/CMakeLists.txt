@@ -29,6 +29,7 @@ find_package(lwtnn)
 # common requirements
 set(_common
   src/ObjectFilters.cxx
+  src/ObjectWriters.cxx
   src/TrackWriter.cxx
   src/ElectronWriter.cxx
   src/MuonWriter.cxx

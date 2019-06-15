@@ -34,14 +34,11 @@ class MuonWriter
         MuonWriter(MuonWriter&) = delete;
         MuonWriter operator=(MuonWriter&) = delete;
 
-        // muon selection
-        void filter_muons_first_stage(const xAOD::MuonContainer& muons);
-
         // extract primary vertex z0 values
         void extract_vertex_z0(const xAOD::VertexContainer& primary_vertices);
 
         // function that's actually called to write the event
-        void write(const xAOD::MuonContainer& muons, const xAOD::VertexContainer& primary_vertices);
+        void write(std::vector<const xAOD::Muon*> muons, const xAOD::VertexContainer& primary_vertices);
 
     private:
         // the functions that fill the output need to be defined when the
@@ -50,9 +47,6 @@ class MuonWriter
         std::vector<const xAOD::Muon*> m_current_muons;
         std::vector<size_t> m_muon_idx;
         std::vector<float> m_primary_vertices_z0;
-
-        // selector tool
-        CP::MuonSelectionTool* m_muonSelectionTool;
 
         // The writer itself
         H5Utils::WriterXd* m_writer;

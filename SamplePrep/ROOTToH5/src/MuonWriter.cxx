@@ -5,7 +5,6 @@
 #include "xAODMuon/MuonContainer.h"
 #include "xAODMuon/Muon.h"
 #include "xAODTruth/xAODTruthHelpers.h"
-#include "MuonSelectorTools/MuonSelectionTool.h"
 #include "xAODTracking/TrackParticlexAODHelpers.h"
 
 // HDF5 things
@@ -16,10 +15,6 @@ MuonWriter::MuonWriter(H5::Group& output_group):
     m_muon_idx(1),
     m_writer(nullptr)
 {
-
-    // muon selection
-    m_muonSelectionTool = new CP::MuonSelectionTool("MuonObject_MuonSelectionTool");
-    m_muonSelectionTool->initialize();
 
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
@@ -163,20 +158,6 @@ MuonWriter::~MuonWriter() {
     delete m_writer;
 }
 
-void MuonWriter::filter_muons_first_stage(const xAOD::MuonContainer& muons) {
-    m_current_muons.clear();
-    for (const xAOD::Muon *muon : muons) {
-        // check that muon won't segfault
-        if (muon == NULL) continue;
-        if (muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle) == NULL) continue;
-        // check that muon passes selections
-        xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*muon);
-        if (muonQuality < xAOD::Muon::Medium) continue;
-        // store muons
-        m_current_muons.push_back(muon);
-    }
-}
-
 void MuonWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
     m_primary_vertices_z0.clear();
     for (const xAOD::Vertex *vertex : primary_vertices) {
@@ -184,10 +165,9 @@ void MuonWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices
     }
 }
 
-void MuonWriter::write(const xAOD::MuonContainer& muons, const xAOD::VertexContainer& primary_vertices) {
+void MuonWriter::write(std::vector<const xAOD::Muon*> muons, const xAOD::VertexContainer& primary_vertices) {
 
-    // muon selection
-    filter_muons_first_stage(muons);
+    m_current_muons = muons;
 
     // extract primary vertex z0 values
     extract_vertex_z0(primary_vertices);

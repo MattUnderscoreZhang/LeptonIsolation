@@ -14,7 +14,7 @@ TrackFilter::~TrackFilter() {
     delete m_trkseltool;
 }
 
-std::vector<const xAOD::TrackParticle*>* TrackFilter::filter_tracks(const xAOD::TrackParticleContainer& tracks) {
+std::vector<const xAOD::TrackParticle*> TrackFilter::filter_tracks(const xAOD::TrackParticleContainer& tracks) {
     // using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
     // https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
     // and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
@@ -26,5 +26,5 @@ std::vector<const xAOD::TrackParticle*>* TrackFilter::filter_tracks(const xAOD::
         m_current_tracks.push_back(track);
     }
 
-    return &m_current_tracks;
+    return m_current_tracks;
 }

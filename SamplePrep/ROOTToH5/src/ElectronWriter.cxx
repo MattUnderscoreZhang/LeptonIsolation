@@ -157,16 +157,6 @@ ElectronWriter::~ElectronWriter() {
     delete m_writer;
 }
 
-void ElectronWriter::filter_electrons_first_stage(const xAOD::ElectronContainer& electrons) {
-    m_current_electrons.clear();
-    for (const xAOD::Electron *electron : electrons) {
-        if(cacc_lhmedium.isAvailable(*electron) ){
-            if (!cacc_lhmedium(*electron)) continue;
-            m_current_electrons.push_back(electron);
-        }
-    }
-}
-
 void ElectronWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
     m_primary_vertices_z0.clear();
     for (const xAOD::Vertex *vertex : primary_vertices) {
@@ -174,10 +164,9 @@ void ElectronWriter::extract_vertex_z0(const xAOD::VertexContainer& primary_vert
     }
 }
 
-void ElectronWriter::write(const xAOD::ElectronContainer& electrons, const xAOD::VertexContainer& primary_vertices) {
+void ElectronWriter::write(std::vector<const xAOD::Electron*> electrons, const xAOD::VertexContainer& primary_vertices) {
 
-    // electron selection
-    filter_electrons_first_stage(electrons);
+    m_current_electrons = electrons;
 
     // extract primary vertex z0 values
     extract_vertex_z0(primary_vertices);

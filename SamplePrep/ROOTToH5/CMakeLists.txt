@@ -29,6 +29,8 @@ find_package(lwtnn)
 # common requirements
 set(_common
   src/TrackFilter.cxx
+  src/ElectronFilter.cxx
+  src/MuonFilter.cxx
   src/TrackWriter.cxx
   src/ElectronWriter.cxx
   src/MuonWriter.cxx

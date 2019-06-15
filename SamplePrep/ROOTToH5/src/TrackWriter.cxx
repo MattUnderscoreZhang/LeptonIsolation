@@ -9,13 +9,6 @@ TrackWriter::TrackWriter(H5::Group& output_group):
     m_writer(nullptr)
 {
 
-    m_trkseltool = new InDet::InDetTrackSelectionTool("trackSel");
-    m_trkseltool->setProperty("CutLevel", "Loose");
-    //m_trkseltool->setProperty("minPt", 500.);
-    m_trkseltool->setProperty("minPt", 1000.);
-    m_trkseltool->setProperty("maxZ0SinTheta", 3.);
-    m_trkseltool->initialize();
-
     // define the variable filling functions. Each function takes no
     // arguments, but includes a pointer to the class instance, and by
     // extension to the current event.
@@ -162,7 +155,9 @@ TrackWriter::~TrackWriter() {
     delete m_writer;
 }
 
-void TrackWriter::write(std::vector<const xAOD::TrackParticle*>* tracks) {
+void TrackWriter::write(std::vector<const xAOD::TrackParticle*> tracks) {
+
+    m_current_tracks = tracks;
 
     // Sort tracks by descending pT
     std::sort(m_current_tracks.begin(), m_current_tracks.end(),

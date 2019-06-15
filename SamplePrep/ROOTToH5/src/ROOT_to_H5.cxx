@@ -1,7 +1,5 @@
 // local tools
-#include "../headers/TrackFilter.h"
-#include "../headers/ElectronFilter.h"
-#include "../headers/MuonFilter.h"
+#include "../headers/ObjectFilters.h"
 #include "../headers/TrackWriter.h"
 #include "../headers/ElectronWriter.h"
 #include "../headers/MuonWriter.h"
@@ -50,9 +48,7 @@ int main (int argc, char *argv[])
     H5::H5File output("output.h5", H5F_ACC_TRUNC);
 
     // object filters
-    TrackFilter track_filter;
-    ElectronFilter electron_filter;
-    MuonFilter muon_filter;
+    ObjectFilters object_filters;
 
     // object writers
     TrackWriter track_writer(output);
@@ -98,9 +94,9 @@ int main (int argc, char *argv[])
             RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
 
             // Filter objects
-            std::vector<const xAOD::TrackParticle*> filtered_tracks = track_filter.filter_tracks(*tracks);
-            std::vector<const xAOD::Muon*> filtered_muons = muon_filter.filter_muons(*muons);
-            std::vector<const xAOD::Electron*> filtered_electrons = electron_filter.filter_electrons(*electrons);
+            std::vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(*tracks);
+            std::vector<const xAOD::Muon*> filtered_muons = object_filters.filter_muons(*muons);
+            std::vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(*electrons);
 
             // Write event
             track_writer.write(filtered_tracks);

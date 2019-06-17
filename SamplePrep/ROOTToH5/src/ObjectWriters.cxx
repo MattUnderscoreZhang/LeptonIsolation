@@ -1,17 +1,5 @@
 #include "../headers/ObjectWriters.h"
 
-// EDM things
-#include "xAODMuon/MuonContainer.h"
-#include "xAODMuon/Muon.h"
-#include "xAODEgamma/ElectronContainer.h"
-#include "xAODEgamma/Electron.h"
-#include "xAODTruth/xAODTruthHelpers.h"
-#include "xAODTracking/TrackParticlexAODHelpers.h"
-
-// HDF5 things
-#include "HDF5Utils/HdfTuple.h"
-#include "H5Cpp.h"
-
 ObjectWriters::ObjectWriters(H5::Group& output_group):
     m_electron_idx(1),
     m_electron_writer(nullptr),
@@ -78,7 +66,7 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
         [this]() {
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0() - this->m_primary_vertices_z0.at(idx));
+            return (float)(this->m_current_electrons.at(idx)->trackParticle()->z0() - this->m_current_primary_vertex->z());
         }
     );
     fillers->add<float>("ref_ptcone20",
@@ -136,20 +124,6 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             return ptvarcone40;
         }
     );
-    //fillers->add<float>("calc_ptcone20",
-        //[this]() {
-            //size_t idx = this->m_electron_idx.at(0);
-            //if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            //auto this_elec = this->m_current_electrons.at(idx);
-            //std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_elec, true);
-            //float ptcone = 0.0;
-            //for (auto trk : this->m_current_tracks) {
-                //if (!trk) continue;
-                //if (trk->p4().DeltaR(this_elec->p4()) < 0.20) ptcone += trk->pt();
-            //}
-            //return ptcone;
-        //}
-    //);
     fillers->add<int>("truth_type",
         [this]() -> int {
             size_t idx = this->m_electron_idx.at(0);
@@ -230,7 +204,7 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return (float)NAN;
-            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0() - this->m_primary_vertices_z0.at(idx));
+            return (float)(this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)->z0() - this->m_current_primary_vertex->z());
         }
     );
     fillers->add<float>("ref_ptcone20",
@@ -285,6 +259,111 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             float ptvarcone40 = 0.0;
             this->m_current_muons.at(idx)->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
             return ptvarcone40;
+        }
+    );
+    fillers->add<float>("calc_ptcone20",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < 0.20)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptcone30",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < 0.30)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptcone40",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < 0.40)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone20",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            float var_R = std::min(10e3/this_muon->pt(), 0.20);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone30",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            float var_R = std::min(10e3/this_muon->pt(), 0.30);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone40",
+        [this]() {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            auto this_muon = this->m_current_muons.at(idx);
+            float var_R = std::min(10e3/this_muon->pt(), 0.40);
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = this_muon->trackParticle(type);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                if (trk == own_track) continue;
+                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    calc_ptcone += trk->pt();
+            }
+            return calc_ptcone;
         }
     );
     fillers->add<int>("truth_type",
@@ -462,21 +541,20 @@ ObjectWriters::~ObjectWriters() {
     delete m_track_writer;
 }
 
-void ObjectWriters::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
-    m_primary_vertices_z0.clear();
+std::vector<float> ObjectWriters::extract_vertex_z0(const xAOD::VertexContainer& primary_vertices) {
+    std::vector<float> primary_vertices_z0;
     for (const xAOD::Vertex *vertex : primary_vertices) {
-        m_primary_vertices_z0.push_back(vertex->z());
+        primary_vertices_z0.push_back(vertex->z());
     }
+    return primary_vertices_z0;
 }
 
-void ObjectWriters::write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::VertexContainer& primary_vertices) {
+void ObjectWriters::write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex) {
 
     m_current_electrons = electrons;
     m_current_muons = muons;
     m_current_tracks = tracks;
-
-    // extract primary vertex z0 values
-    extract_vertex_z0(primary_vertices);
+    m_current_primary_vertex = primary_vertex;
 
     // sort objects by descending pT
     auto sort_objects = [](const auto* t1, const auto* t2) {

@@ -20,12 +20,21 @@ namespace xAOD {
     typedef TrackParticle_v1 TrackParticle;
 }
 
+// HDF5 things
+#include "HDF5Utils/HdfTuple.h"
+#include "H5Cpp.h"
+
 // EDM includes
 #include "xAODEgamma/ElectronContainer.h"
+#include "xAODEgamma/Electron.h"
 #include "xAODMuon/MuonContainer.h"
+#include "xAODMuon/Muon.h"
 #include "xAODTracking/TrackParticleContainer.h"
 #include "xAODTracking/TrackParticle.h"
 #include "xAODEgamma/EgammaxAODHelpers.h"
+#include "xAODTruth/xAODTruthHelpers.h"
+#include "xAODTracking/TrackParticlexAODHelpers.h"
+#include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
 class ObjectWriters
 {
@@ -42,17 +51,20 @@ class ObjectWriters
         ObjectWriters operator=(ObjectWriters&) = delete;
 
         // extract primary vertex z0 values
-        void extract_vertex_z0(const xAOD::VertexContainer& primary_vertices);
+        std::vector<float> extract_vertex_z0(const xAOD::VertexContainer& primary_vertices);
 
         // function that's actually called to write the event
-        void write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::VertexContainer& primary_vertices);
+        void write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex);
 
     private:
         // vectors relating to the current event
         std::vector<const xAOD::Electron*> m_current_electrons;
         std::vector<const xAOD::Muon*> m_current_muons;
         std::vector<const xAOD::TrackParticle*> m_current_tracks;
-        std::vector<float> m_primary_vertices_z0;
+        const xAOD::Vertex* m_current_primary_vertex;
+
+        // track selector
+        InDet::InDetTrackSelectionTool *m_trkseltool;
 
         // for writing
         std::vector<size_t> m_electron_idx;

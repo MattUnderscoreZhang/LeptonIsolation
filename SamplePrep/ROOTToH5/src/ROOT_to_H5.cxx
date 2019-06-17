@@ -30,6 +30,35 @@ struct Options
 // simple options parser
 Options get_options(int argc, char *argv[]);
 
+/////////////////////////////////
+// command line options parser //
+/////////////////////////////////
+void usage(std::string name) {
+    std::cout << "usage: " << name << " [-h] [--nn-file NN_FILE] <AOD>..."
+        << std::endl;
+}
+
+Options get_options(int argc, char *argv[]) {
+    Options opts;
+    for (int argn = 1; argn < argc; argn++) {
+        std::string arg(argv[argn]);
+        if (arg == "--nn-file") {
+            argn++;
+            opts.nn_file = argv[argn];
+        } else if (arg == "-h") {
+            usage(argv[0]);
+            exit(1);
+        } else {
+            opts.files.push_back(arg);
+        }
+    }
+    if (opts.files.size() == 0) {
+        usage(argv[0]);
+        exit(1);
+    }
+    return opts;
+}
+
 //////////////////
 // main routine //
 //////////////////
@@ -42,13 +71,11 @@ int main (int argc, char *argv[])
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
 
-    // set up output file
-    H5::H5File output("output.h5", H5F_ACC_TRUNC);
-
     // object filters
     ObjectFilters object_filters;
 
     // object writers
+    H5::H5File output("output.h5", H5F_ACC_TRUNC);
     ObjectWriters object_writers(output);
 
     // Loop over the specified files:
@@ -90,44 +117,15 @@ int main (int argc, char *argv[])
             RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
 
             // Filter objects
-            std::vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(*tracks);
-            std::vector<const xAOD::Muon*> filtered_muons = object_filters.filter_muons(*muons);
-            std::vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(*electrons);
+            std::vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertices->at(0));
+            std::vector<const xAOD::Muon*> filtered_muons = object_filters.filter_muons(muons);
+            std::vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(electrons);
 
             // Write event
-            object_writers.write(filtered_electrons, filtered_muons, filtered_tracks, *primary_vertices);
+            object_writers.write(filtered_electrons, filtered_muons, filtered_tracks, primary_vertices->at(0));
 
         } // end event loop
     } // end file loop
 
     return 0;
-}
-
-/////////////////////////////////
-// command line options parser //
-/////////////////////////////////
-void usage(std::string name) {
-    std::cout << "usage: " << name << " [-h] [--nn-file NN_FILE] <AOD>..."
-        << std::endl;
-}
-
-Options get_options(int argc, char *argv[]) {
-    Options opts;
-    for (int argn = 1; argn < argc; argn++) {
-        std::string arg(argv[argn]);
-        if (arg == "--nn-file") {
-            argn++;
-            opts.nn_file = argv[argn];
-        } else if (arg == "-h") {
-            usage(argv[0]);
-            exit(1);
-        } else {
-            opts.files.push_back(arg);
-        }
-    }
-    if (opts.files.size() == 0) {
-        usage(argv[0]);
-        exit(1);
-    }
-    return opts;
 }

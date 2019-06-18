@@ -1,39 +1,101 @@
-"""This file aims to try pytorch rnn module implementation as a
-new neural network architecture"""
+# -*- coding: utf-8 -*-
+"""This module uses pytorch to implement a recurrent neural network capable of
+classifying prompt leptons from heavy flavor ones
+
+Attributes:
+    *
+
+Todo:
+    * test the new pack_padded_sequence implementation on gpu
+
+"""
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 import numpy as np
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
-def hotfix_pack_padded_sequence(
-    sorted_tracks, lengths, batch_first=False, enforce_sorted=True
-):
-    lengths = torch.as_tensor(lengths, dtype=torch.int64)
-    lengths = lengths.cpu()
+def Tensor_length(track):
+    """Finds the length of the non zero tensor
+
+    Args:
+        track (torch.tensor): tensor containing the events padded with zeroes at the end
+
+    Returns:
+        Length (int) of the tensor were it not zero-padded
+
+    """
+    return int(torch.nonzero(track).shape[0] / track.shape[1])
+
+
+def hot_fixed_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
+    r"""Packs a Tensor containing padded sequences of variable length.
+
+    :attr:`input` can be of size ``T x B x *`` where `T` is the length of the
+    longest sequence (equal to ``lengths[0]``), ``B`` is the batch size, and
+    ``*`` is any number of dimensions (including 0). If ``batch_first`` is
+    ``True``, ``B x T x *`` :attr:`input` is expected.
+
+    For unsorted sequences, use `enforce_sorted = False`. If :attr:`enforce_sorted` is
+    ``True``, the sequences should be sorted by length in a decreasing order, i.e.
+    ``input[:,0]`` should be the longest sequence, and ``input[:,B-1]`` the shortest
+    one. `enforce_sorted = True` is only necessary for ONNX export.
+
+    Note:
+        This function accepts any input that has at least two dimensions. You
+        can apply it to pack the labels, and use the output of the RNN with
+        them to compute the loss directly. A Tensor can be retrieved from
+        a :class:`PackedSequence` object by accessing its ``.data`` attribute.
+
+    Arguments:
+        input (Tensor): padded batch of variable length sequences.
+        lengths (Tensor): list of sequences lengths of each batch element.
+        batch_first (bool, optional): if ``True``, the input is expected in ``B x T x *``
+            format.
+        enforce_sorted (bool, optional): if ``True``, the input is expected to
+            contain sequences sorted by length in a decreasing order. If
+            ``False``, this condition is not checked. Default: ``True``.
+
+    Returns:
+        a :class:`PackedSequence` object
+    """
+    if torch._C._get_tracing_state() and not isinstance(lengths, torch.Tensor):
+        warnings.warn('pack_padded_sequence has been called with a Python list of '
+                      'sequence lengths. The tracer cannot track the data flow of Python '
+                      'values, and it will treat them as constants, likely rendering '
+                      'the trace incorrect for any other combination of lengths.',
+                      category=torch.jit.TracerWarning, stacklevel=2)
+    lengths = torch.as_tensor(lengths, dtype=torch.int64, device = "cpu")
+    #lengths = lengths.cpu()
     if enforce_sorted:
         sorted_indices = None
     else:
         lengths, sorted_indices = torch.sort(lengths, descending=True)
-        sorted_indices = sorted_indices.to(sorted_tracks.device)
+        sorted_indices = sorted_indices.to(input.device)
         batch_dim = 0 if batch_first else 1
-        sorted_tracks = sorted_tracks.index_select(batch_dim, sorted_indices)
+        input = input.index_select(batch_dim, sorted_indices)
 
-    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
-        sorted_tracks, lengths, batch_first
-    )
-    return PackedSequence(data, batch_sizes)
-
-
-def Tensor_length(track):
-    """Finds the length of the non zero tensor"""
-    return int(torch.nonzero(track).shape[0] / track.shape[1])
+    data, batch_sizes = \
+        torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+    return PackedSequence(data, batch_sizes, sorted_indices)
 
 
 class Model(nn.Module):
-    """RNN module implementing pytorch rnn"""
+    """Model class implementing rnn inheriting structure from pytorch nn module
+
+    Attributes:
+        options (dict) : configuration for the nn
+
+    Methods:
+        forward: steps through the neural net once
+        accuracy: compares predicted values to true values
+        do_train: takes in data and passes the batches to forward to train
+        do_eval: runs the neural net on the data after setting it up for evaluation
+        get_model: returns the model and its optimizer
+
+    """
 
     def __init__(self, options):
         super().__init__()
@@ -52,8 +114,8 @@ class Model(nn.Module):
                 self.n_layers * self.n_directions, self.batch_size, self.hidden_size
             ).to(self.device)
         )
+        self.cellstate = False  # set to true only if lstm
 
-        self.cellstate = False
         if options["RNN_type"] == "RNN":
             self.rnn = nn.RNN(
                 input_size=self.input_size,
@@ -83,9 +145,22 @@ class Model(nn.Module):
         self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq, sorted_leptons):
+    def forward(self, padded_seq):
+        """Takes a padded sequence and passes it through:
+            * the rnn cell
+            * a fully connected layer to get it to the right output size
+            * a softmax to get a probability
+
+        Args:
+            padded_seq (paddedSequence): a collection for lepton track information
+
+        Returns:
+           the probability of particle beng prompt or heavy flavor
+
+        """
         self.rnn.flatten_parameters()
         if self.cellstate:
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
@@ -96,11 +171,38 @@ class Model(nn.Module):
         return out
 
     def accuracy(self, predicted, truth):
+        """Compares the predicted values to the true values
+
+        Args:
+            predicted (torch.tensor): predictions from the neural net
+
+        Returns:
+            normalized number of accurate predictions
+
+        """
         return torch.from_numpy(
             np.array((predicted == truth.float()).sum().float() / len(truth))
         )
 
     def do_train(self, batches, do_training=True):
+        """runs the neural net on batches of data passed into it
+
+        Args:
+            batches (torch.dataset object): Shuffled samples of data for evaluation by the model
+                                            contains:
+                                                * track_info
+                                                * lepton_info
+                                                * truth
+            do_training (bool, True by default): flags whether the model is to be run in
+                                                training or evaluation mode
+
+        Returns: total loss, total accuracy, raw results, and all truths
+
+        Notes:
+            indices have been removed
+            I don't know how the new pack-pad-sequeces works yet
+
+        """
         if do_training:
             self.rnn.train()
         else:
@@ -112,8 +214,8 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-
             track_info, lepton_info, truth = batch
+
             # moving tensors to adequate device
             track_info = track_info.to(self.device)
             lepton_info = lepton_info.to(self.device)
@@ -122,18 +224,12 @@ class Model(nn.Module):
             # setting up for packing padded sequence
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
-            )
+            ).cpu()
+            padded_seq =hot_fixed_pack_padded_sequence(
+                track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
 
-            sorted_n, indices = torch.sort(n_tracks, descending=True)
-            # reodering information according to sorted indices
-            sorted_tracks = track_info[indices].to(self.device)
-            sorted_leptons = lepton_info[indices].to(self.device)
-            padded_seq = hotfix_pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
-            )
-            output = self.forward(padded_seq, sorted_leptons).to(self.device)
-            indices = indices.to(self.device)
-            loss = self.loss_function(output[:, 0], truth[indices].float())
+            output = self.forward(padded_seq).to(self.device)
+            loss = self.loss_function(output[:, 0], truth.float())
 
             if do_training is True:
                 loss.backward()
@@ -142,18 +238,22 @@ class Model(nn.Module):
             predicted = torch.round(output)[:, 0]
             accuracy = float(
                 self.accuracy(
-                    predicted.data.cpu().detach(), truth.data.cpu().detach()[indices]
+                    predicted.data.cpu().detach(), truth.data.cpu().detach()
                 )
             )
             total_acc += accuracy
             raw_results += output[:, 0].cpu().detach().tolist()
-            all_truth += truth[indices].cpu().detach().tolist()
+            all_truth += truth.cpu().detach().tolist()
             if do_training is True:
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", accuracy, i)
-                self.history_logger.add_scalar("Loss/Train Loss", float(loss), i)
+                self.history_logger.add_scalar(
+                    "Accuracy/Train Accuracy", accuracy, i)
+                self.history_logger.add_scalar(
+                    "Loss/Train Loss", float(loss), i)
             else:
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", accuracy, i)
-                self.history_logger.add_scalar("Loss/Test Loss", float(loss), i)
+                self.history_logger.add_scalar(
+                    "Accuracy/Test Accuracy", accuracy, i)
+                self.history_logger.add_scalar(
+                    "Loss/Test Loss", float(loss), i)
             for name, param in self.named_parameters():
                 self.history_logger.add_histogram(
                     name, param.clone().cpu().data.numpy(), i
@@ -165,7 +265,29 @@ class Model(nn.Module):
         return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, batches, do_training=False):
+        """Convienience function for running do_train in evaluation mode
+
+        Args:
+            batches (torch.dataset object): Shuffled samples of data for evaluation by the model
+                                            contains:
+                                                * track_info
+                                                * lepton_info
+                                                * truth
+            do_training (bool, False by default): flags whether the model is to be run in
+                                                training or evaluation mode
+
+        Returns: total loss, total accuracy, raw results, and all truths
+
+        """
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
+        """ getter function to help easy storage of the model
+
+        Args:
+            None
+
+        Returns: the model and its optimizer
+
+        """
         return self, self.optimizer

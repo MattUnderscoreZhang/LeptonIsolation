@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+"""Driver function for running the neural network
+
+Attributes:
+    *--disable-cuda : runs the code only on cpu even if gpu is available
+    *--continue-training : loads in a previous model to continue training
+
+Todo:
+    *
+"""
+
 from Trainer import trainer
 import argparse
 import torch
@@ -21,7 +32,7 @@ else:
 
 
 if __name__ == "__main__":
-    """python isolator.py"""
+
     options = {}
     options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["output_folder"] = "./Outputs/"

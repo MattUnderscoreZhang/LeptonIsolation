@@ -73,27 +73,9 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
         [this]() {
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            float ptcone20 = 0.0;
-            this->m_current_electrons.at(idx)->isolation(ptcone20,xAOD::Iso::ptcone20);
-            return ptcone20;
-        }
-    );
-    fillers->add<float>("ref_ptcone30",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            float ptcone30 = 0.0;
-            this->m_current_electrons.at(idx)->isolation(ptcone30,xAOD::Iso::ptcone30);
-            return ptcone30;
-        }
-    );
-    fillers->add<float>("ref_ptcone40",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            float ptcone40 = 0.0;
-            this->m_current_electrons.at(idx)->isolation(ptcone40,xAOD::Iso::ptcone40);
-            return ptcone40;
+            float ptcone20_TightTTVA_pt1000  = 0.0;
+            this->m_current_electrons.at(idx)->isolation(ptcone20_TightTTVA_pt1000,xAOD::Iso::ptcone20_TightTTVA_pt1000);
+            return ptcone20_TightTTVA_pt1000 ;
         }
     );
     fillers->add<float>("ref_ptvarcone20",
@@ -110,7 +92,7 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return (float)NAN;
             float ptvarcone30 = 0.0;
-            this->m_current_electrons.at(idx)->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
+            this->m_current_electrons.at(idx)->isolation(ptvarcone30,xAOD::Iso::ptvarcone30_TightTTVA_pt1000);
             return ptvarcone30;
         }
     );
@@ -119,9 +101,93 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             size_t idx = this->m_electron_idx.at(0);
             if (this->m_current_electrons.size() <= idx) return (float)NAN;
             float ptvarcone40 = 0.0;
-            //this->m_current_electrons.at(idx)->isolationValue(ptvarcone40,xAOD::Iso::ptvarcone40);
             this->m_current_electrons.at(idx)->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
             return ptvarcone40;
+        }
+    );
+    fillers->add<float>("calc_ptcone20",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            auto this_electron = this->m_current_electrons.at(idx);
+            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                bool matches_own_track = false;
+                for (auto own_track : own_tracks)
+                    if (trk == own_track) matches_own_track = true;
+                if (matches_own_track) continue;
+                if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
+                if (trk->p4().DeltaR(this_electron->p4()) < 0.20) {
+                    calc_ptcone += trk->pt();
+                }
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone20",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            auto this_electron = this->m_current_electrons.at(idx);
+            float var_R = std::min(10e3/this_electron->pt(), 0.20);
+            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                bool matches_own_track = false;
+                for (auto own_track : own_tracks)
+                    if (trk == own_track) matches_own_track = true;
+                if (matches_own_track) continue;
+                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    calc_ptcone += trk->pt();
+                }
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone30",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            auto this_electron = this->m_current_electrons.at(idx);
+            float var_R = std::min(10e3/this_electron->pt(), 0.30);
+            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                bool matches_own_track = false;
+                for (auto own_track : own_tracks)
+                    if (trk == own_track) matches_own_track = true;
+                if (matches_own_track) continue;
+                if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
+                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    calc_ptcone += trk->pt();
+                }
+            }
+            return calc_ptcone;
+        }
+    );
+    fillers->add<float>("calc_ptvarcone40",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            auto this_electron = this->m_current_electrons.at(idx);
+            float var_R = std::min(10e3/this_electron->pt(), 0.40);
+            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            float calc_ptcone = 0.0;
+            for (auto trk : this->m_current_tracks) {
+                if (!trk) continue;
+                bool matches_own_track = false;
+                for (auto own_track : own_tracks)
+                    if (trk == own_track) matches_own_track = true;
+                if (matches_own_track) continue;
+                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    calc_ptcone += trk->pt();
+                }
+            }
+            return calc_ptcone;
         }
     );
     fillers->add<int>("truth_type",

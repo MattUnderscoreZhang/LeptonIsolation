@@ -105,91 +105,109 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             return ptvarcone40;
         }
     );
-    fillers->add<float>("calc_ptcone20",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            auto this_electron = this->m_current_electrons.at(idx);
-            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                bool matches_own_track = false;
-                for (auto own_track : own_tracks)
-                    if (trk == own_track) matches_own_track = true;
-                if (matches_own_track) continue;
-                if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
-                if (trk->p4().DeltaR(this_electron->p4()) < 0.20) {
-                    calc_ptcone += trk->pt();
-                }
-            }
-            return calc_ptcone;
-        }
-    );
-    fillers->add<float>("calc_ptvarcone20",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            auto this_electron = this->m_current_electrons.at(idx);
-            float var_R = std::min(10e3/this_electron->pt(), 0.20);
-            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                bool matches_own_track = false;
-                for (auto own_track : own_tracks)
-                    if (trk == own_track) matches_own_track = true;
-                if (matches_own_track) continue;
-                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
-                    calc_ptcone += trk->pt();
-                }
-            }
-            return calc_ptcone;
-        }
-    );
-    fillers->add<float>("calc_ptvarcone30",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            auto this_electron = this->m_current_electrons.at(idx);
-            float var_R = std::min(10e3/this_electron->pt(), 0.30);
-            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                bool matches_own_track = false;
-                for (auto own_track : own_tracks)
-                    if (trk == own_track) matches_own_track = true;
-                if (matches_own_track) continue;
-                if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
-                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
-                    calc_ptcone += trk->pt();
-                }
-            }
-            return calc_ptcone;
-        }
-    );
-    fillers->add<float>("calc_ptvarcone40",
-        [this]() {
-            size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (float)NAN;
-            auto this_electron = this->m_current_electrons.at(idx);
-            float var_R = std::min(10e3/this_electron->pt(), 0.40);
-            std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                bool matches_own_track = false;
-                for (auto own_track : own_tracks)
-                    if (trk == own_track) matches_own_track = true;
-                if (matches_own_track) continue;
-                if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
-                    calc_ptcone += trk->pt();
-                }
-            }
-            return calc_ptcone;
-        }
-    );
+    //fillers->add<float>("calc_ptcone20",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            //auto this_electron = this->m_current_electrons.at(idx);
+            //std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //bool matches_own_track = false;
+                //for (auto own_track : own_tracks)
+                    //if (trk == own_track) matches_own_track = true;
+                //if (matches_own_track) continue;
+                //if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
+                //if (trk->p4().DeltaR(this_electron->p4()) < 0.20) {
+                    //calc_ptcone += trk->pt();
+                //}
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone20",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            //auto this_electron = this->m_current_electrons.at(idx);
+            //float var_R = std::min(10e3/this_electron->pt(), 0.20);
+            //std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //bool matches_own_track = false;
+                //for (auto own_track : own_tracks)
+                    //if (trk == own_track) matches_own_track = true;
+                //if (matches_own_track) continue;
+                //if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    //calc_ptcone += trk->pt();
+                //}
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone30",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            //auto this_electron = this->m_current_electrons.at(idx);
+            //float var_R = std::min(10e3/this_electron->pt(), 0.30);
+            //std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //bool matches_own_track = false;
+                //for (auto own_track : own_tracks)
+                    //if (trk == own_track) matches_own_track = true;
+                //if (matches_own_track) continue;
+                //if (trk->vertex() && trk->vertex()!=m_current_primary_vertex) continue;
+                //if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    //calc_ptcone += trk->pt();
+                //}
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone40",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            //auto this_electron = this->m_current_electrons.at(idx);
+            //float var_R = std::min(10e3/this_electron->pt(), 0.40);
+            //std::set<const xAOD::TrackParticle*> own_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)this_electron, true);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //bool matches_own_track = false;
+                //for (auto own_track : own_tracks)
+                    //if (trk == own_track) matches_own_track = true;
+                //if (matches_own_track) continue;
+                //if (trk->p4().DeltaR(this_electron->p4()) < var_R) {
+                    //calc_ptcone += trk->pt();
+                //}
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("ref_etcone20",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (int)NAN;
+            //float etcone = 0.0;
+            //this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone20);
+            //return etcone;
+        //}
+    //);
+    //fillers->add<float>("ref_etcone40",
+        //[this]() {
+            //size_t idx = this->m_electron_idx.at(0);
+            //if (this->m_current_electrons.size() <= idx) return (int)NAN;
+            //float etcone = 0.0;
+            //this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone40);
+            //return etcone;
+        //}
+    //);
     fillers->add<int>("truth_type",
         [this]() -> int {
             size_t idx = this->m_electron_idx.at(0);
@@ -327,111 +345,176 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             return ptvarcone40;
         }
     );
-    fillers->add<float>("calc_ptcone20",
+    //fillers->add<float>("calc_ptcone20",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < 0.20)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptcone30",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < 0.30)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptcone40",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < 0.40)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone20",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //float var_R = std::min(10e3/this_muon->pt(), 0.20);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone30",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //float var_R = std::min(10e3/this_muon->pt(), 0.30);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    //fillers->add<float>("calc_ptvarcone40",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //auto this_muon = this->m_current_muons.at(idx);
+            //float var_R = std::min(10e3/this_muon->pt(), 0.40);
+            //xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            //auto own_track = this_muon->trackParticle(type);
+            //float calc_ptcone = 0.0;
+            //for (auto trk : this->m_current_tracks) {
+                //if (!trk) continue;
+                //if (trk == own_track) continue;
+                //if (trk->p4().DeltaR(this_muon->p4()) < var_R)
+                    //calc_ptcone += trk->pt();
+            //}
+            //return calc_ptcone;
+        //}
+    //);
+    fillers->add<float>("ref_etcone20",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < 0.20)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
+            float etcone = 0.0;
+            this->m_current_muons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone20);
+            return etcone;
         }
     );
-    fillers->add<float>("calc_ptcone30",
+    fillers->add<float>("ref_etcone30",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < 0.30)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
+            float etcone = 0.0;
+            this->m_current_muons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone30);
+            return etcone;
         }
     );
-    fillers->add<float>("calc_ptcone40",
+    fillers->add<float>("ref_etcone40",
         [this]() {
             size_t idx = this->m_muon_idx.at(0);
             if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < 0.40)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
+            float etcone = 0.0;
+            this->m_current_muons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone40);
+            return etcone;
         }
     );
-    fillers->add<float>("calc_ptvarcone20",
-        [this]() {
-            size_t idx = this->m_muon_idx.at(0);
-            if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            float var_R = std::min(10e3/this_muon->pt(), 0.20);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
-        }
-    );
-    fillers->add<float>("calc_ptvarcone30",
-        [this]() {
-            size_t idx = this->m_muon_idx.at(0);
-            if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            float var_R = std::min(10e3/this_muon->pt(), 0.30);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
-        }
-    );
-    fillers->add<float>("calc_ptvarcone40",
-        [this]() {
-            size_t idx = this->m_muon_idx.at(0);
-            if (this->m_current_muons.size() <= idx) return (float)NAN;
-            auto this_muon = this->m_current_muons.at(idx);
-            float var_R = std::min(10e3/this_muon->pt(), 0.40);
-            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-            auto own_track = this_muon->trackParticle(type);
-            float calc_ptcone = 0.0;
-            for (auto trk : this->m_current_tracks) {
-                if (!trk) continue;
-                if (trk == own_track) continue;
-                if (trk->p4().DeltaR(this_muon->p4()) < var_R)
-                    calc_ptcone += trk->pt();
-            }
-            return calc_ptcone;
-        }
-    );
+    //fastjet::AreaDefinition area_def(fastjet::voronoi_area,fastjet::VoronoiAreaSpec(0.9));
+    //fastjet::JetDefinition jet_def(fastjet::kt_algorithm,0.5);
+    //gmbec = new fastjet::JetMedianBackgroundEstimator(fastjet::SelectorAbsRapMax(1.5),jet_def,area_def);
+    //gmbef = new fastjet::JetMedianBackgroundEstimator(fastjet::SelectorAbsRapRange(1.5,3),jet_def,area_def);
+    //fillers->add<float>("calc_etcone20",
+        //[this]() {
+            //size_t idx = this->m_muon_idx.at(0);
+            //if (this->m_current_muons.size() <= idx) return (float)NAN;
+            //float etcone = 0;
+            //this->m_current_muons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone20);
+            //float calc_etcone = 0;
+            //auto this_muon = this->m_current_muons.at(idx);
+            ////Execute (per event):
+                ////CaloClusterChangeSignalStateList stateHelperList;
+                ////for(const auto& clus : *clusters) {
+                ////stateHelperList.add(clus,xAOD::CaloCluster::State(0));
+                ////}
+            ////std::vector<fastjet::PseudoJet> input_clus;
+            //for (const auto& cluster : *m_current_calo_clusters) {
+                //if (!cluster) continue;
+                //if (cluster->e()<0) continue;
+                //float dR = cluster->p4().DeltaR(this_muon->p4());
+                //if (dR < 0.20 && dR > 0.05) {
+                    //float eta = cluster->eta();
+                    //float theta = std::atan(std::exp(-eta)) * 2;
+                    //std::cout << "Cluster: " << cluster->e() << " | " << cluster->e() * std::sin(theta) << std::endl;
+                    //calc_etcone += cluster->e();
+                //}
+                ////input_clus.push_back(clus->p4());
+            //}
+            ////gmbec->set_particles(input_clus);
+            ////rhoclusc = gmbec->rho();
+            ////gmbef->set_particles(input_clus);
+            ////rhoclusf = gmbef->rho();
+            //std::cout << etcone << " | " << calc_etcone << "\n" << std::endl;
+            //return calc_etcone;
+        //}
+    //);
     fillers->add<int>("truth_type",
         [this]() -> int {
             size_t idx = this->m_muon_idx.at(0);
@@ -615,12 +698,13 @@ std::vector<float> ObjectWriters::extract_vertex_z0(const xAOD::VertexContainer&
     return primary_vertices_z0;
 }
 
-void ObjectWriters::write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex) {
+void ObjectWriters::write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex, const xAOD::CaloClusterContainer* calo_clusters) {
 
     m_current_electrons = electrons;
     m_current_muons = muons;
     m_current_tracks = tracks;
     m_current_primary_vertex = primary_vertex;
+    m_current_calo_clusters = calo_clusters;
 
     // sort objects by descending pT
     auto sort_objects = [](const auto* t1, const auto* t2) {

@@ -36,6 +36,13 @@ namespace xAOD {
 #include "xAODTracking/TrackParticlexAODHelpers.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
+// etcone
+#include <fastjet/tools/JetMedianBackgroundEstimator.hh>
+#include "fastjet/ClusterSequence.hh"
+#include "fastjet/ClusterSequenceArea.hh"
+#include <fastjet/AreaDefinition.hh>
+#include <fastjet/Selector.hh>
+
 class ObjectWriters
 {
     public:
@@ -54,7 +61,7 @@ class ObjectWriters
         std::vector<float> extract_vertex_z0(const xAOD::VertexContainer& primary_vertices);
 
         // function that's actually called to write the event
-        void write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex);
+        void write(std::vector<const xAOD::Electron*> electrons, std::vector<const xAOD::Muon*> muons, std::vector<const xAOD::TrackParticle*> tracks, const xAOD::Vertex* primary_vertex, const xAOD::CaloClusterContainer* calo_clusters);
 
     private:
         // vectors relating to the current event
@@ -62,6 +69,7 @@ class ObjectWriters
         std::vector<const xAOD::Muon*> m_current_muons;
         std::vector<const xAOD::TrackParticle*> m_current_tracks;
         const xAOD::Vertex* m_current_primary_vertex;
+        const xAOD::CaloClusterContainer* m_current_calo_clusters;
 
         // track selector
         InDet::InDetTrackSelectionTool *m_trkseltool;
@@ -73,6 +81,12 @@ class ObjectWriters
         H5Utils::WriterXd* m_muon_writer;
         std::vector<size_t> m_track_idx;
         H5Utils::WriterXd* m_track_writer;
+
+        // etcone
+        fastjet::JetMedianBackgroundEstimator* gmbec;
+        fastjet::JetMedianBackgroundEstimator* gmbef;
+        fastjet::JetMedianBackgroundEstimator* gmbec_pf;
+        fastjet::JetMedianBackgroundEstimator* gmbef_pf;
 };
 
 #endif

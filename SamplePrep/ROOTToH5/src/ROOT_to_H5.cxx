@@ -115,6 +115,8 @@ int main (int argc, char *argv[])
             RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
             const xAOD::MuonContainer *muons = 0;
             RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
+            const xAOD::CaloClusterContainer *calo_clusters;
+            RETURN_CHECK(ALG, event.retrieve(calo_clusters, "CaloCalTopoClusters"));
 
             // Filter objects
             std::vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertices->at(0));
@@ -122,7 +124,7 @@ int main (int argc, char *argv[])
             std::vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(electrons);
 
             // Write event
-            object_writers.write(filtered_electrons, filtered_muons, filtered_tracks, primary_vertices->at(0));
+            object_writers.write(filtered_electrons, filtered_muons, filtered_tracks, primary_vertices->at(0), calo_clusters);
 
         } // end event loop
     } // end file loop

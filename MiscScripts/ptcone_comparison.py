@@ -36,3 +36,14 @@ for (index, feature) in features:
     plt.title("Muon " + feature)
     plt.legend()
     plt.savefig(feature + ".png")
+
+features = [(12, "etcone20"), (13, "etcone40")]
+for (index, feature) in features:
+    values = np.array([i[index] for j in data['muons'] for i in j if not np.isnan(i[index])])
+    truth_type = np.array([i[17] for j in data['muons'] for i in j if not np.isnan(i[index])])
+    plt.clf()
+    plt.hist(values[truth_type==3], histtype='step', bins=np.arange(-20000, 100000, 2000), label="non-iso")
+    plt.hist(values[truth_type==2], histtype='step', bins=np.arange(-20000, 100000, 2000), label="isolated")
+    plt.title("Muon " + feature)
+    plt.legend()
+    plt.savefig(feature + ".png")

@@ -190,24 +190,24 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             //return calc_ptcone;
         //}
     //);
-    //fillers->add<float>("ref_etcone20",
-        //[this]() {
-            //size_t idx = this->m_electron_idx.at(0);
-            //if (this->m_current_electrons.size() <= idx) return (int)NAN;
-            //float etcone = 0.0;
-            //this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone20);
-            //return etcone;
-        //}
-    //);
-    //fillers->add<float>("ref_etcone40",
-        //[this]() {
-            //size_t idx = this->m_electron_idx.at(0);
-            //if (this->m_current_electrons.size() <= idx) return (int)NAN;
-            //float etcone = 0.0;
-            //this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone40);
-            //return etcone;
-        //}
-    //);
+    fillers->add<float>("ref_etcone20",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            float etcone = 0.0;
+            this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone20);
+            return etcone;
+        }
+    );
+    fillers->add<float>("ref_etcone40",
+        [this]() {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            float etcone = 0.0;
+            this->m_current_electrons.at(idx)->isolation(etcone,xAOD::Iso::topoetcone40);
+            return etcone;
+        }
+    );
     fillers->add<int>("truth_type",
         [this]() -> int {
             size_t idx = this->m_electron_idx.at(0);

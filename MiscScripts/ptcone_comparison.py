@@ -44,6 +44,6 @@ for (index, feature) in features:
     plt.clf()
     plt.hist(values[truth_type==3], histtype='step', bins=np.arange(-20000, 100000, 2000), label="non-iso")
     plt.hist(values[truth_type==2], histtype='step', bins=np.arange(-20000, 100000, 2000), label="isolated")
-    plt.title("Muon " + feature)
+    plt.title("Electron " + feature)
     plt.legend()
     plt.savefig("electron_" + feature + ".eps")

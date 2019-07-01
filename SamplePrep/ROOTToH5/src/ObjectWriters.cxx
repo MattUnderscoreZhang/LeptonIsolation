@@ -208,12 +208,13 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             return etcone;
         }
     );
-    fillers->add<int>("truth_type",
-        [this]() -> int {
+    fillers->add<float>("ref_eflowcone20",
+        [this]() {
             size_t idx = this->m_electron_idx.at(0);
-            if (this->m_current_electrons.size() <= idx) return (int)NAN;
-            return (int)(xAOD::TruthHelpers::getParticleTruthType(*(this->m_current_electrons.at(idx))));
-            // 2 = real prompt, 3 = HF
+            if (this->m_current_electrons.size() <= idx) return (float)NAN;
+            float eflowcone = 0.0;
+            this->m_current_electrons.at(idx)->isolation(eflowcone,xAOD::Iso::neflowisol20);
+            return eflowcone;
         }
     );
     fillers->add<float>("PLT",
@@ -224,6 +225,14 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             const xAOD::IParticle *particle_pointer = NULL;
             particle_pointer = this->m_current_electrons.at(idx);
             return accessPromptVar(*particle_pointer);
+        }
+    );
+    fillers->add<int>("truth_type",
+        [this]() -> int {
+            size_t idx = this->m_electron_idx.at(0);
+            if (this->m_current_electrons.size() <= idx) return (int)NAN;
+            return (int)(xAOD::TruthHelpers::getParticleTruthType(*(this->m_current_electrons.at(idx))));
+            // 2 = real prompt, 3 = HF
         }
     );
 
@@ -515,13 +524,13 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             //return calc_etcone;
         //}
     //);
-    fillers->add<int>("truth_type",
-        [this]() -> int {
+    fillers->add<float>("ref_eflowcone20",
+        [this]() {
             size_t idx = this->m_muon_idx.at(0);
-            if (this->m_current_muons.size() <= idx) return (int)NAN;
-            const xAOD::TrackParticle* track = this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
-            return (int)(xAOD::TruthHelpers::getParticleTruthType(*track));
-            // 2 = real prompt, 3 = HF
+            if (this->m_current_muons.size() <= idx) return (float)NAN;
+            float eflowcone = 0.0;
+            this->m_current_muons.at(idx)->isolation(eflowcone,xAOD::Iso::neflowisol20);
+            return eflowcone;
         }
     );
     fillers->add<float>("PLT",
@@ -532,6 +541,15 @@ ObjectWriters::ObjectWriters(H5::Group& output_group):
             const xAOD::IParticle *particle_pointer = NULL;
             particle_pointer = this->m_current_muons.at(idx);
             return accessPromptVar(*particle_pointer);
+        }
+    );
+    fillers->add<int>("truth_type",
+        [this]() -> int {
+            size_t idx = this->m_muon_idx.at(0);
+            if (this->m_current_muons.size() <= idx) return (int)NAN;
+            const xAOD::TrackParticle* track = this->m_current_muons.at(idx)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
+            return (int)(xAOD::TruthHelpers::getParticleTruthType(*track));
+            // 2 = real prompt, 3 = HF
         }
     );
 

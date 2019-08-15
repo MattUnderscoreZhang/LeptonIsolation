@@ -7,7 +7,7 @@ find_package( AnalysisBase 21.2 REQUIRED )
 atlas_project( WorkDir 1.0 USE AnalysisBase ${AnalysisBase_VERSION} )
 
 # set the name of the package:
-atlas_subdir( LeptonTrackROOTToH5 )
+atlas_subdir( RNNSampleMaker )
 
 ## packages that this package depends on
 #atlas_depends_on_subdirs(
@@ -47,7 +47,7 @@ set(_common
 )
 
 # build the test executable:
-atlas_add_executable( ROOT_to_H5 src/ROOT_to_H5.cxx ${_common} )
+atlas_add_executable( SampleMaker src/SampleMaker.cxx ${_common} )
 
 # Set up grid magic. Atlas uses CPack to package up the local files
 # and submit them to the grid. If you're not looking to run on the

@@ -16,6 +16,7 @@ asetup AnalysisBase,21.2.29
 cd SampleMaker
 mkdir build/
 cd build/
+rm -rf x86*
 cmake ..
 make
 # temporary fix for library linking issue

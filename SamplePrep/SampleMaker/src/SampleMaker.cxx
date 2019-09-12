@@ -81,6 +81,7 @@ int main (int argc, char *argv[]) {
     float PLT; outputTree->Branch("PLT", &PLT, "PLT/F");
     int truth_type; outputTree->Branch("truth_type", &truth_type, "truth_type/I");
 
+    vector<float>* trk_lep_dR = new vector<float>; outputTree->Branch("trk_lep_dR", "vector<float>", &trk_lep_dR);
     vector<float>* trk_pT = new vector<float>; outputTree->Branch("trk_pT", "vector<float>", &trk_pT);
     vector<float>* trk_eta = new vector<float>; outputTree->Branch("trk_eta", "vector<float>", &trk_eta);
     vector<float>* trk_phi = new vector<float>; outputTree->Branch("trk_phi", "vector<float>", &trk_phi);
@@ -142,6 +143,31 @@ int main (int argc, char *argv[]) {
             lep_z0 = track_particle->z0();
             lep_dz0 = track_particle->z0() - primary_vertex->z();
             PLT = accessPromptVar(*lepton);
+
+            trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
+            trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
+            nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
+            nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
+            for (auto track : filtered_tracks) {
+                float dR = track->p4().DeltaR(lepton->p4());
+                if (dR > 0.5) continue; 
+                trk_lep_dR->push_back(dR);
+                trk_pT->push_back(track->pt());
+                trk_eta->push_back(track->eta());
+                trk_phi->push_back(track->phi());
+                trk_d0->push_back(track->d0());
+                trk_z0->push_back(track->z0());
+                trk_charge->push_back(track->charge());
+                chiSquared->push_back(track->chiSquared());
+                uint8_t placeholder;
+                track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfPixelHoles); nPixHoles->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); nPixOutliers->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfSCTHits); nSCTHits->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
+                track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
+            }
         };
 
         auto process_electron_cones = [&] (const xAOD::Electron* electron) {
@@ -155,6 +181,7 @@ int main (int argc, char *argv[]) {
             topoetcone30 = numeric_limits<float>::quiet_NaN();
             electron->isolation(topoetcone40,xAOD::Iso::topoetcone40);
             electron->isolation(eflowcone20,xAOD::Iso::neflowisol20);
+            // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
         };
 
         auto process_muon_cones = [&] (const xAOD::Muon* muon) {
@@ -193,27 +220,6 @@ int main (int argc, char *argv[]) {
 
             outputTree->Fill();
         }
-
-        //trk_pT->clear();
-        //for (auto track : filtered_tracks) {
-            //trk_pT->push_back(track->pt());
-            ////trk_eta->push_back(track->eta());
-            ////trk_phi->push_back(track->phi());
-            ////trk_d0->push_back(track->d0());
-            ////trk_z0->push_back(track->z0());
-            ////trk_charge->push_back(track->charge());
-            ////chiSquared->push_back(track->chiSquared());
-            ////uint8_t placeholder;
-            ////track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfPixelHoles); nPixHoles->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); nPixOutliers->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfSCTHits); nSCTHits->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
-            ////track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder); // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
-
-            //outputTree->Fill();
-        //}
     }
 
     outputTree->Write();

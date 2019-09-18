@@ -10,7 +10,6 @@
 #include "xAODTracking/TrackParticleContainer.h"
 #include "xAODTracking/TrackParticle.h"
 #include "xAODEgamma/EgammaxAODHelpers.h"
-#include "xAODTruth/xAODTruthHelpers.h"
 #include "xAODTracking/TrackParticlexAODHelpers.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
@@ -128,8 +127,8 @@ int main (int argc, char *argv[]) {
 
         // Filter objects
         vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
-        vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_electrons(electrons);
-        vector<const xAOD::Muon*> filtered_muons = object_filters.filter_muons(muons);
+        vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons(electrons);
+        vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons(muons);
 
         // Write event
         SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
@@ -197,27 +196,21 @@ int main (int argc, char *argv[]) {
             muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
         };
 
-        for (auto electron : filtered_electrons) {
-            truth_type = xAOD::TruthHelpers::getParticleTruthType(*electron); // 2 = real prompt, 3 = HF
-            if (truth_type != 2 && truth_type != 3) continue;
-
+        for (auto electron_info : filtered_electrons) {
+            const xAOD::Electron* electron = electron_info.first;
+            truth_type = electron_info.second;
             pdgID = 11;
-            auto track_particle = electron->trackParticle();
-            process_lepton(electron, track_particle);
+            process_lepton(electron, electron->trackParticle());
             process_electron_cones(electron);
-
             outputTree->Fill();
         }
 
-        for (auto muon : filtered_muons) {
-            truth_type = xAOD::TruthHelpers::getParticleTruthType(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle))); // 2 = real prompt, 3 = HF
-            if (truth_type != 2 && truth_type != 3) continue;
-
+        for (auto muon_info : filtered_muons) {
+            const xAOD::Muon* muon = muon_info.first;
+            truth_type = muon_info.second;
             pdgID = 13;
-            auto track_particle = muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
-            process_lepton(muon, track_particle);
+            process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle));
             process_muon_cones(muon);
-
             outputTree->Fill();
         }
     }

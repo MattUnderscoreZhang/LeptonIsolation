@@ -7,6 +7,7 @@
 #include "xAODTracking/TrackParticleContainer.h"
 #include "xAODTracking/TrackParticle.h"
 #include "xAODEgamma/EgammaxAODHelpers.h"
+#include "xAODTruth/xAODTruthHelpers.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
 namespace xAOD {
@@ -17,6 +18,8 @@ namespace xAOD {
     class TrackParticle_v1;
     typedef TrackParticle_v1 TrackParticle;
 }
+
+using namespace std;
 
 static SG::AuxElement::ConstAccessor<char> cacc_lhmedium("DFCommonElectronsLHMedium");
 
@@ -41,23 +44,27 @@ class ObjectFilters {
             delete m_trkseltool;
         }
 
-        std::vector<const xAOD::Electron*> filter_electrons(const xAOD::ElectronContainer* electrons) {
+        vector<pair<const xAOD::Electron*, int>> filter_electrons(const xAOD::ElectronContainer* electrons) {
 
-            std::vector<const xAOD::Electron*> m_current_electrons;
+            vector<pair<const xAOD::Electron*, int>> m_current_electrons;
 
             for (const xAOD::Electron *electron : *electrons) {
-                if(cacc_lhmedium.isAvailable(*electron) ){
-                    if (!cacc_lhmedium(*electron)) continue;
-                    m_current_electrons.push_back(electron);
-                }
+                // check that electron passes selections
+                if (!cacc_lhmedium.isAvailable(*electron)) continue;
+                if (!cacc_lhmedium(*electron)) continue;
+                // truth type: 2 = real prompt, 3 = HF
+                int truth_type = xAOD::TruthHelpers::getParticleTruthType(*electron);
+                if (truth_type != 2 && truth_type != 3) continue;
+                // store electron
+                m_current_electrons.push_back(make_pair(electron, truth_type));
             }
 
             return m_current_electrons;
         }
 
-        std::vector<const xAOD::Muon*> filter_muons(const xAOD::MuonContainer* muons) {
+        vector<pair<const xAOD::Muon*, int>> filter_muons(const xAOD::MuonContainer* muons) {
 
-            std::vector<const xAOD::Muon*> m_current_muons;
+            vector<pair<const xAOD::Muon*, int>> m_current_muons;
 
             for (const xAOD::Muon *muon : *muons) {
                 // check that muon won't segfault
@@ -66,19 +73,22 @@ class ObjectFilters {
                 // check that muon passes selections
                 xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*muon);
                 if (muonQuality < xAOD::Muon::Medium) continue;
-                // store muons
-                m_current_muons.push_back(muon);
+                int truth_type = xAOD::TruthHelpers::getParticleTruthType(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle))); // 2 = real prompt, 3 = HF
+                // truth type: 2 = real prompt, 3 = HF
+                if (truth_type != 2 && truth_type != 3) continue;
+                // store muon
+                m_current_muons.push_back(make_pair(muon, truth_type));
             }
 
             return m_current_muons;
         }
 
-        std::vector<const xAOD::TrackParticle*> filter_tracks(const xAOD::TrackParticleContainer* tracks, const xAOD::Vertex* primary_vertex) {
+        vector<const xAOD::TrackParticle*> filter_tracks(const xAOD::TrackParticleContainer* tracks, const xAOD::Vertex* primary_vertex) {
             // using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
             // https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
             // and https://twiki.cern.ch/twiki/bin/view/AtlasProtected/TrackingCPRecsEarly2018
 
-            std::vector<const xAOD::TrackParticle*> m_current_tracks;
+            vector<const xAOD::TrackParticle*> m_current_tracks;
 
             for (const xAOD::TrackParticle *track : *tracks) {
                 if (!m_trkseltool->accept(*track, primary_vertex)) continue;

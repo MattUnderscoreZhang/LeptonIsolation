@@ -62,6 +62,7 @@ int main (int argc, char *argv[]) {
     int pdgID; outputTree->Branch("pdgID", &pdgID, "pdgID/I");
     float lep_pT; outputTree->Branch("lep_pT", &lep_pT, "lep_pT/F");
     float lep_eta; outputTree->Branch("lep_eta", &lep_eta, "lep_eta/F");
+    float lep_theta; outputTree->Branch("lep_theta", &lep_theta, "lep_theta/F");
     float lep_phi; outputTree->Branch("lep_phi", &lep_phi, "lep_phi/F");
     float lep_d0; outputTree->Branch("lep_d0", &lep_d0, "lep_d0/F");
     float lep_d0_over_sigd0; outputTree->Branch("lep_d0_over_sigd0", &lep_d0_over_sigd0, "lep_d0_over_sigd0/F");
@@ -99,6 +100,8 @@ int main (int argc, char *argv[]) {
     int entries = event.getEntries();
     entries = 1000;
     cout << "got " << entries << " entries" << endl;
+    int n_filtered_electrons[] = {0, 0};
+    int n_filtered_muons[] = {0, 0};
 
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
@@ -133,9 +136,12 @@ int main (int argc, char *argv[]) {
         // Write event
         SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
 
-        auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle) {
+        auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, int truth_type) {
+
+            // retrieve all relevant lepton variables
             lep_pT = lepton->pt();
             lep_eta = lepton->eta();
+            lep_theta = 2 * atan(exp(-lep_eta));
             lep_phi = lepton->phi();
             lep_d0 = track_particle->d0();
             lep_d0_over_sigd0 = xAOD::TrackingHelpers::d0significance(track_particle);
@@ -143,6 +149,19 @@ int main (int argc, char *argv[]) {
             lep_dz0 = track_particle->z0() - primary_vertex->z();
             PLT = accessPromptVar(*lepton);
 
+            // check if lepton passes cuts
+            bool dz0_cut = abs(lep_dz0 * sin(lep_theta)) < 0.5;
+            bool d0_over_sigd0_cut;
+            if (truth_type == 2 or truth_type == 3) d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 5;
+            else if (truth_type == 6 or truth_type == 7) d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 3;
+            else {
+                cout << "Unrecognized lepton truth type" << endl;
+                exit(0);
+            }
+            bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
+            if (!passes_cuts) return false;
+
+            // store tracks in dR cone of 0.5
             trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
             trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
             nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
@@ -167,6 +186,9 @@ int main (int argc, char *argv[]) {
                 track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
                 track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
             }
+            if (trk_pT->size() < 1) return false;
+
+            return true;
         };
 
         auto process_electron_cones = [&] (const xAOD::Electron* electron) {
@@ -196,24 +218,33 @@ int main (int argc, char *argv[]) {
             muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
         };
 
+        n_filtered_electrons[0] += filtered_electrons.size();
+        n_filtered_muons[0] += filtered_muons.size();
+
         for (auto electron_info : filtered_electrons) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
-            process_lepton(electron, electron->trackParticle());
+            if (!process_lepton(electron, electron->trackParticle(), truth_type)) continue;
             process_electron_cones(electron);
             outputTree->Fill();
+            n_filtered_electrons[1] += 1;
         }
 
         for (auto muon_info : filtered_muons) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
-            process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle));
+            if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), truth_type)) continue;
             process_muon_cones(muon);
             outputTree->Fill();
+            n_filtered_muons[1] += 1;
         }
     }
+
+    // print # leptons passing each step
+    cout << n_filtered_electrons[0] << " " << n_filtered_electrons[1] << endl;
+    cout << n_filtered_muons[0] << " " << n_filtered_muons[1] << endl;
 
     outputTree->Write();
     outputFile.Close();

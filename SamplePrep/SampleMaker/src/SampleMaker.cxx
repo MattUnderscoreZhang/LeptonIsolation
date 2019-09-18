@@ -136,7 +136,35 @@ int main (int argc, char *argv[]) {
         // Write event
         SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
 
-        auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, int truth_type) {
+        auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, bool is_electron) {
+
+            // retrieve ptcone and etcone variables
+            auto process_electron_cones = [&] (const xAOD::Electron* electron) {
+                electron->isolation(ptcone20,xAOD::Iso::ptcone20_TightTTVA_pt1000);
+                ptcone30 = numeric_limits<float>::quiet_NaN();
+                ptcone40 = numeric_limits<float>::quiet_NaN();
+                electron->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
+                electron->isolation(ptvarcone30,xAOD::Iso::ptvarcone30_TightTTVA_pt1000);
+                electron->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
+                electron->isolation(topoetcone20,xAOD::Iso::topoetcone20);
+                topoetcone30 = numeric_limits<float>::quiet_NaN();
+                electron->isolation(topoetcone40,xAOD::Iso::topoetcone40);
+                electron->isolation(eflowcone20,xAOD::Iso::neflowisol20);
+                // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
+            };
+
+            auto process_muon_cones = [&] (const xAOD::Muon* muon) {
+                muon->isolation(ptcone20,xAOD::Iso::ptcone20);
+                muon->isolation(ptcone30,xAOD::Iso::ptcone30);
+                muon->isolation(ptcone40,xAOD::Iso::ptcone40);
+                muon->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
+                muon->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
+                muon->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
+                muon->isolation(topoetcone20,xAOD::Iso::topoetcone20);
+                muon->isolation(topoetcone30,xAOD::Iso::topoetcone30);
+                muon->isolation(topoetcone40,xAOD::Iso::topoetcone40);
+                muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
+            };
 
             // retrieve all relevant lepton variables
             lep_pT = lepton->pt();
@@ -148,16 +176,12 @@ int main (int argc, char *argv[]) {
             lep_z0 = track_particle->z0();
             lep_dz0 = track_particle->z0() - primary_vertex->z();
             PLT = accessPromptVar(*lepton);
+            if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
+            else process_muon_cones((const xAOD::Muon*)lepton);
 
             // check if lepton passes cuts
             bool dz0_cut = abs(lep_dz0 * sin(lep_theta)) < 0.5;
-            bool d0_over_sigd0_cut;
-            if (truth_type == 2 or truth_type == 3) d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 5;
-            else if (truth_type == 6 or truth_type == 7) d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 3;
-            else {
-                cout << "Unrecognized lepton truth type" << endl;
-                exit(0);
-            }
+            bool d0_over_sigd0_cut = (is_electron and (abs(lep_d0_over_sigd0) < 5)) or (!is_electron and (d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 3));
             bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
             if (!passes_cuts) return false;
 
@@ -190,33 +214,6 @@ int main (int argc, char *argv[]) {
             return true;
         };
 
-        auto process_electron_cones = [&] (const xAOD::Electron* electron) {
-            electron->isolation(ptcone20,xAOD::Iso::ptcone20_TightTTVA_pt1000);
-            ptcone30 = numeric_limits<float>::quiet_NaN();
-            ptcone40 = numeric_limits<float>::quiet_NaN();
-            electron->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
-            electron->isolation(ptvarcone30,xAOD::Iso::ptvarcone30_TightTTVA_pt1000);
-            electron->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
-            electron->isolation(topoetcone20,xAOD::Iso::topoetcone20);
-            topoetcone30 = numeric_limits<float>::quiet_NaN();
-            electron->isolation(topoetcone40,xAOD::Iso::topoetcone40);
-            electron->isolation(eflowcone20,xAOD::Iso::neflowisol20);
-            // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
-        };
-
-        auto process_muon_cones = [&] (const xAOD::Muon* muon) {
-            muon->isolation(ptcone20,xAOD::Iso::ptcone20);
-            muon->isolation(ptcone30,xAOD::Iso::ptcone30);
-            muon->isolation(ptcone40,xAOD::Iso::ptcone40);
-            muon->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
-            muon->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
-            muon->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
-            muon->isolation(topoetcone20,xAOD::Iso::topoetcone20);
-            muon->isolation(topoetcone30,xAOD::Iso::topoetcone30);
-            muon->isolation(topoetcone40,xAOD::Iso::topoetcone40);
-            muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
-        };
-
         n_filtered_electrons[0] += filtered_electrons.size();
         n_filtered_muons[0] += filtered_muons.size();
 
@@ -224,11 +221,10 @@ int main (int argc, char *argv[]) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
-            if (!process_lepton(electron, electron->trackParticle(), truth_type)) continue;
+            if (!process_lepton(electron, electron->trackParticle(), true)) continue;
             n_filtered_electrons[1] += 1;
             if (trk_pT->size() < 1) continue;
             n_filtered_electrons[2] += 1;
-            process_electron_cones(electron);
             outputTree->Fill();
         }
 
@@ -236,11 +232,10 @@ int main (int argc, char *argv[]) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
-            if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), truth_type)) continue;
+            if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
             n_filtered_muons[1] += 1;
             if (trk_pT->size() < 1) continue;
             n_filtered_muons[2] += 1;
-            process_muon_cones(muon);
             outputTree->Fill();
         }
     }

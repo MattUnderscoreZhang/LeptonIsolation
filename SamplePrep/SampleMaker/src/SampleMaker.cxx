@@ -101,11 +101,13 @@ int main (int argc, char *argv[]) {
     vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("nSCTHoles", "vector<int>", &nSCTHoles);
     vector<int>* nTRTHits = new vector<int>; outputTree->Branch("nTRTHits", "vector<int>", &nTRTHits);
 
+    int cutflow_electrons[] = {0, 0, 0, 0};
+    int cutflow_muons[] = {0, 0, 0, 0};
+    int count_types[] = {0, 0};
+
     int entries = event.getEntries();
     entries = 1000;
     cout << "Retrieved " << entries << " events" << endl;
-    int cutflow_electrons[] = {0, 0, 0};
-    int cutflow_muons[] = {0, 0, 0};
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
@@ -255,9 +257,13 @@ int main (int argc, char *argv[]) {
             truth_type = electron_info.second;
             pdgID = 11;
             if (!process_lepton(electron, electron->trackParticle(), true)) continue;
-            cutflow_electrons[1] += 1;
+            cutflow_electrons[1]++;
             if (trk_pT->size() < 1) continue;
-            cutflow_electrons[2] += 1;
+            cutflow_electrons[2]++;
+            int is_isolated = (truth_type == 2);
+            if (count_types[is_isolated] > count_types[1-is_isolated]) continue;
+            count_types[is_isolated]++;
+            cutflow_electrons[3]++;
             outputTree->Fill();
         }
 
@@ -266,16 +272,21 @@ int main (int argc, char *argv[]) {
             truth_type = muon_info.second;
             pdgID = 13;
             if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
-            cutflow_muons[1] += 1;
+            cutflow_muons[1]++;
             if (trk_pT->size() < 1) continue;
-            cutflow_muons[2] += 1;
+            cutflow_muons[2]++;
+            int is_isolated = (truth_type == 3);
+            if (count_types[is_isolated] > count_types[1-is_isolated]) continue;
+            count_types[is_isolated]++;
+            cutflow_muons[3]++;
             outputTree->Fill();
         }
     }
 
     // Print # leptons passing each step
-    cout << cutflow_electrons[0] << " " << cutflow_electrons[1] << " " << cutflow_electrons[2] << endl;
-    cout << cutflow_muons[0] << " " << cutflow_muons[1] << " " << cutflow_muons[2] << endl;
+    cout << cutflow_electrons[0] << " " << cutflow_electrons[1] << " " << cutflow_electrons[2] << " " << cutflow_electrons[3] << endl;
+    cout << cutflow_muons[0] << " " << cutflow_muons[1] << " " << cutflow_muons[2] << " " << cutflow_muons[3] << endl;
+    cout << count_types[0] << " " << count_types[1] << endl;
 
     outputTree->Write();
     outputFile.Close();

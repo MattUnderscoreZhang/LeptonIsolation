@@ -100,8 +100,8 @@ int main (int argc, char *argv[]) {
     int entries = event.getEntries();
     entries = 1000;
     cout << "got " << entries << " entries" << endl;
-    int n_filtered_electrons[] = {0, 0};
-    int n_filtered_muons[] = {0, 0};
+    int n_filtered_electrons[] = {0, 0, 0};
+    int n_filtered_muons[] = {0, 0, 0};
 
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
@@ -186,7 +186,6 @@ int main (int argc, char *argv[]) {
                 track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
                 track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
             }
-            if (trk_pT->size() < 1) return false;
 
             return true;
         };
@@ -226,9 +225,11 @@ int main (int argc, char *argv[]) {
             truth_type = electron_info.second;
             pdgID = 11;
             if (!process_lepton(electron, electron->trackParticle(), truth_type)) continue;
+            n_filtered_electrons[1] += 1;
+            if (trk_pT->size() < 1) continue;
+            n_filtered_electrons[2] += 1;
             process_electron_cones(electron);
             outputTree->Fill();
-            n_filtered_electrons[1] += 1;
         }
 
         for (auto muon_info : filtered_muons) {
@@ -236,15 +237,17 @@ int main (int argc, char *argv[]) {
             truth_type = muon_info.second;
             pdgID = 13;
             if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), truth_type)) continue;
+            n_filtered_muons[1] += 1;
+            if (trk_pT->size() < 1) continue;
+            n_filtered_muons[2] += 1;
             process_muon_cones(muon);
             outputTree->Fill();
-            n_filtered_muons[1] += 1;
         }
     }
 
     // print # leptons passing each step
-    cout << n_filtered_electrons[0] << " " << n_filtered_electrons[1] << endl;
-    cout << n_filtered_muons[0] << " " << n_filtered_muons[1] << endl;
+    cout << n_filtered_electrons[0] << " " << n_filtered_electrons[1] << " " << n_filtered_electrons[2] << endl;
+    cout << n_filtered_muons[0] << " " << n_filtered_muons[1] << " " << n_filtered_muons[2] << endl;
 
     outputTree->Write();
     outputFile.Close();

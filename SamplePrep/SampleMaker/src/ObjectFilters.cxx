@@ -73,8 +73,8 @@ class ObjectFilters {
                 // check that muon passes selections
                 xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*muon);
                 if (muonQuality < xAOD::Muon::Medium) continue;
-                int truth_type = xAOD::TruthHelpers::getParticleTruthType(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle))); // 2 = real prompt, 3 = HF
                 // truth type: 6 = real prompt, 7 = HF
+                int truth_type = xAOD::TruthHelpers::getParticleTruthType(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)));
                 if (truth_type != 6 && truth_type != 7) continue;
                 // store muon
                 m_current_muons.push_back(make_pair(muon, truth_type));

@@ -87,6 +87,10 @@ int main (int argc, char *argv[]) {
     vector<float>* trk_phi = new vector<float>; outputTree->Branch("trk_phi", "vector<float>", &trk_phi);
     vector<float>* trk_d0 = new vector<float>; outputTree->Branch("trk_d0", "vector<float>", &trk_d0);
     vector<float>* trk_z0 = new vector<float>; outputTree->Branch("trk_z0", "vector<float>", &trk_z0);
+    vector<float>* trk_lep_dEta = new vector<float>; outputTree->Branch("trk_lep_dEta", "vector<float>", &trk_lep_dEta);
+    vector<float>* trk_lep_dPhi = new vector<float>; outputTree->Branch("trk_lep_dPhi", "vector<float>", &trk_lep_dPhi);
+    vector<float>* trk_lep_dD0 = new vector<float>; outputTree->Branch("trk_lep_dD0", "vector<float>", &trk_lep_dD0);
+    vector<float>* trk_lep_dZ0 = new vector<float>; outputTree->Branch("trk_lep_dZ0", "vector<float>", &trk_lep_dZ0);
     vector<int>* trk_charge = new vector<int>; outputTree->Branch("trk_charge", "vector<int>", &trk_charge);
     vector<float>* chiSquared = new vector<float>; outputTree->Branch("chiSquared", "vector<float>", &chiSquared);
     vector<int>* nIBLHits = new vector<int>; outputTree->Branch("nIBLHits", "vector<int>", &nIBLHits);
@@ -99,16 +103,15 @@ int main (int argc, char *argv[]) {
 
     int entries = event.getEntries();
     entries = 1000;
-    cout << "got " << entries << " entries" << endl;
-    int n_filtered_electrons[] = {0, 0, 0};
-    int n_filtered_muons[] = {0, 0, 0};
-
+    cout << "Retrieved " << entries << " events" << endl;
+    int cutflow_electrons[] = {0, 0, 0};
+    int cutflow_muons[] = {0, 0, 0};
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
         // Print some status
         if ( ! (entry_n % 500)) {
-            cout << "Processing " << entry_n << "/" << entries << "\n";
+            cout << "Processing event " << entry_n << "/" << entries << "\n";
         }
 
         // Load the event
@@ -185,14 +188,38 @@ int main (int argc, char *argv[]) {
             bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
             if (!passes_cuts) return false;
 
+            // get tracks associated to lepton
+            auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
+                set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
+                return electron_tracks;
+            };
+
+            auto get_muon_own_tracks = [&] (const xAOD::Muon* muon) {
+                xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+                auto own_track = muon->trackParticle(type);
+                set<const xAOD::TrackParticle*> muon_tracks {own_track};
+                return muon_tracks;
+            };
+
             // store tracks in dR cone of 0.5
             trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
             trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
+            trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
             nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
             nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
+            set<const xAOD::TrackParticle*> own_tracks;
+            if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
+            else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
+
             for (auto track : filtered_tracks) {
+                if (!track->vertex() or track->vertex()!=primary_vertex) continue;
+                bool matches_own_track = false;
+                for (auto own_track : own_tracks)
+                    if (track == own_track) matches_own_track = true;
+                if (matches_own_track) continue;
                 float dR = track->p4().DeltaR(lepton->p4());
                 if (dR > 0.5) continue; 
+
                 trk_lep_dR->push_back(dR);
                 trk_pT->push_back(track->pt());
                 trk_eta->push_back(track->eta());
@@ -201,6 +228,12 @@ int main (int argc, char *argv[]) {
                 trk_z0->push_back(track->z0());
                 trk_charge->push_back(track->charge());
                 chiSquared->push_back(track->chiSquared());
+
+                trk_lep_dEta->push_back(track->eta() - lep_eta);
+                trk_lep_dPhi->push_back(track->phi() - lep_phi);
+                trk_lep_dD0->push_back(track->d0() - lep_d0);
+                trk_lep_dZ0->push_back(track->z0() - lep_z0);
+
                 uint8_t placeholder;
                 track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
                 track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
@@ -214,17 +247,17 @@ int main (int argc, char *argv[]) {
             return true;
         };
 
-        n_filtered_electrons[0] += filtered_electrons.size();
-        n_filtered_muons[0] += filtered_muons.size();
+        cutflow_electrons[0] += filtered_electrons.size();
+        cutflow_muons[0] += filtered_muons.size();
 
         for (auto electron_info : filtered_electrons) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
             if (!process_lepton(electron, electron->trackParticle(), true)) continue;
-            n_filtered_electrons[1] += 1;
+            cutflow_electrons[1] += 1;
             if (trk_pT->size() < 1) continue;
-            n_filtered_electrons[2] += 1;
+            cutflow_electrons[2] += 1;
             outputTree->Fill();
         }
 
@@ -233,16 +266,16 @@ int main (int argc, char *argv[]) {
             truth_type = muon_info.second;
             pdgID = 13;
             if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
-            n_filtered_muons[1] += 1;
+            cutflow_muons[1] += 1;
             if (trk_pT->size() < 1) continue;
-            n_filtered_muons[2] += 1;
+            cutflow_muons[2] += 1;
             outputTree->Fill();
         }
     }
 
-    // print # leptons passing each step
-    cout << n_filtered_electrons[0] << " " << n_filtered_electrons[1] << " " << n_filtered_electrons[2] << endl;
-    cout << n_filtered_muons[0] << " " << n_filtered_muons[1] << " " << n_filtered_muons[2] << endl;
+    // Print # leptons passing each step
+    cout << cutflow_electrons[0] << " " << cutflow_electrons[1] << " " << cutflow_electrons[2] << endl;
+    cout << cutflow_muons[0] << " " << cutflow_muons[1] << " " << cutflow_muons[2] << endl;
 
     outputTree->Write();
     outputFile.Close();

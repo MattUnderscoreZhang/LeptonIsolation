@@ -68,34 +68,8 @@ int main (int argc, char *argv[]) {
     float lep_d0_over_sigd0; outputTree->Branch("lep_d0_over_sigd0", &lep_d0_over_sigd0, "lep_d0_over_sigd0/F");
     float lep_z0; outputTree->Branch("lep_z0", &lep_z0, "lep_z0/F");
     float lep_dz0; outputTree->Branch("lep_dz0", &lep_dz0, "lep_dz0/F");
-    float ptcone20; outputTree->Branch("ptcone20", &ptcone20, "ptcone20/F");
-    float ptcone30; outputTree->Branch("ptcone30", &ptcone30, "ptcone30/F");
-    float ptcone40; outputTree->Branch("ptcone40", &ptcone40, "ptcone40/F");
-    float ptvarcone20; outputTree->Branch("ptvarcone20", &ptvarcone20, "ptvarcone20/F");
-    float ptvarcone30; outputTree->Branch("ptvarcone30", &ptvarcone30, "ptvarcone30/F");
-    float ptvarcone40; outputTree->Branch("ptvarcone40", &ptvarcone40, "ptvarcone40/F");
-    float topoetcone20; outputTree->Branch("topoetcone20", &topoetcone20, "topoetcone20/F");
-    float topoetcone30; outputTree->Branch("topoetcone30", &topoetcone30, "topoetcone30/F");
-    float topoetcone40; outputTree->Branch("topoetcone40", &topoetcone40, "topoetcone40/F");
-    float eflowcone20; outputTree->Branch("eflowcone20", &eflowcone20, "eflowcone20/F");
-    float PLT; outputTree->Branch("PLT", &PLT, "PLT/F");
     int truth_type; outputTree->Branch("truth_type", &truth_type, "truth_type/I");
-
-    vector<float>* trk_lep_dR = new vector<float>; outputTree->Branch("trk_lep_dR", "vector<float>", &trk_lep_dR);
-    vector<float>* trk_pT = new vector<float>; outputTree->Branch("trk_pT", "vector<float>", &trk_pT);
-    vector<float>* trk_eta = new vector<float>; outputTree->Branch("trk_eta", "vector<float>", &trk_eta);
-    vector<float>* trk_phi = new vector<float>; outputTree->Branch("trk_phi", "vector<float>", &trk_phi);
-    vector<float>* trk_d0 = new vector<float>; outputTree->Branch("trk_d0", "vector<float>", &trk_d0);
-    vector<float>* trk_z0 = new vector<float>; outputTree->Branch("trk_z0", "vector<float>", &trk_z0);
-    vector<int>* trk_charge = new vector<int>; outputTree->Branch("trk_charge", "vector<int>", &trk_charge);
-    vector<float>* chiSquared = new vector<float>; outputTree->Branch("chiSquared", "vector<float>", &chiSquared);
-    vector<int>* nIBLHits = new vector<int>; outputTree->Branch("nIBLHits", "vector<int>", &nIBLHits);
-    vector<int>* nPixHits = new vector<int>; outputTree->Branch("nPixHits", "vector<int>", &nPixHits);
-    vector<int>* nPixHoles = new vector<int>; outputTree->Branch("nPixHoles", "vector<int>", &nPixHoles);
-    vector<int>* nPixOutliers = new vector<int>; outputTree->Branch("nPixOutliers", "vector<int>", &nPixOutliers);
-    vector<int>* nSCTHits = new vector<int>; outputTree->Branch("nSCTHits", "vector<int>", &nSCTHits);
-    vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("nSCTHoles", "vector<int>", &nSCTHoles);
-    vector<int>* nTRTHits = new vector<int>; outputTree->Branch("nTRTHits", "vector<int>", &nTRTHits);
+    int isolation; outputTree->Branch("isolation", &isolation, "isolation/I");  //added for tag and probe
 
     int entries = event.getEntries();
     entries = 1000;

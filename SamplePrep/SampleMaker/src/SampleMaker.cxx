@@ -101,6 +101,128 @@ int main (int argc, char *argv[]) {
     vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("nSCTHoles", "vector<int>", &nSCTHoles);
     vector<int>* nTRTHits = new vector<int>; outputTree->Branch("nTRTHits", "vector<int>", &nTRTHits);
 
+    // Event objects
+    const xAOD::TrackParticleContainer *tracks;
+    const xAOD::VertexContainer *primary_vertices;
+    const xAOD::Vertex *primary_vertex;
+    const xAOD::ElectronContainer *electrons;
+    const xAOD::MuonContainer *muons;
+    const xAOD::CaloClusterContainer *calo_clusters;
+    vector<const xAOD::TrackParticle*> filtered_tracks;
+    vector<pair<const xAOD::Electron*, int>> filtered_electrons;
+    vector<pair<const xAOD::Muon*, int>> filtered_muons;
+
+    // Fill branches for one lepton
+    SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
+
+    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, bool is_electron) {
+
+        // retrieve ptcone and etcone variables
+        auto process_electron_cones = [&] (const xAOD::Electron* electron) {
+            electron->isolation(ptcone20,xAOD::Iso::ptcone20_TightTTVA_pt1000);
+            ptcone30 = numeric_limits<float>::quiet_NaN();
+            ptcone40 = numeric_limits<float>::quiet_NaN();
+            electron->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
+            electron->isolation(ptvarcone30,xAOD::Iso::ptvarcone30_TightTTVA_pt1000);
+            electron->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
+            electron->isolation(topoetcone20,xAOD::Iso::topoetcone20);
+            topoetcone30 = numeric_limits<float>::quiet_NaN();
+            electron->isolation(topoetcone40,xAOD::Iso::topoetcone40);
+            electron->isolation(eflowcone20,xAOD::Iso::neflowisol20);
+            // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
+        };
+
+        auto process_muon_cones = [&] (const xAOD::Muon* muon) {
+            muon->isolation(ptcone20,xAOD::Iso::ptcone20);
+            muon->isolation(ptcone30,xAOD::Iso::ptcone30);
+            muon->isolation(ptcone40,xAOD::Iso::ptcone40);
+            muon->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
+            muon->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
+            muon->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
+            muon->isolation(topoetcone20,xAOD::Iso::topoetcone20);
+            muon->isolation(topoetcone30,xAOD::Iso::topoetcone30);
+            muon->isolation(topoetcone40,xAOD::Iso::topoetcone40);
+            muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
+        };
+
+        // retrieve all relevant lepton variables
+        lep_pT = lepton->pt();
+        lep_eta = lepton->eta();
+        lep_theta = 2 * atan(exp(-lep_eta));
+        lep_phi = lepton->phi();
+        lep_d0 = track_particle->d0();
+        lep_d0_over_sigd0 = xAOD::TrackingHelpers::d0significance(track_particle);
+        lep_z0 = track_particle->z0();
+        lep_dz0 = track_particle->z0() - primary_vertex->z();
+        PLT = accessPromptVar(*lepton);
+        if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
+        else process_muon_cones((const xAOD::Muon*)lepton);
+
+        // check if lepton passes cuts
+        bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
+        bool d0_over_sigd0_cut = (is_electron and (fabs(lep_d0_over_sigd0) < 5)) or (!is_electron and (d0_over_sigd0_cut = fabs(lep_d0_over_sigd0) < 3));
+        bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
+        if (!passes_cuts) return false;
+
+        // get tracks associated to lepton
+        auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
+            set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
+            return electron_tracks;
+        };
+
+        auto get_muon_own_tracks = [&] (const xAOD::Muon* muon) {
+            xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
+            auto own_track = muon->trackParticle(type);
+            set<const xAOD::TrackParticle*> muon_tracks {own_track};
+            return muon_tracks;
+        };
+
+        // store tracks in dR cone of 0.5
+        trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
+        trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
+        trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
+        nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
+        nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
+        set<const xAOD::TrackParticle*> own_tracks;
+        if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
+        else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
+
+        for (auto track : filtered_tracks) {
+            if (!track->vertex() or track->vertex()!=primary_vertex) continue;
+            bool matches_own_track = false;
+            for (auto own_track : own_tracks)
+                if (track == own_track) matches_own_track = true;
+            if (matches_own_track) continue;
+            float dR = track->p4().DeltaR(lepton->p4());
+            if (dR > 0.5) continue; 
+
+            trk_lep_dR->push_back(dR);
+            trk_pT->push_back(track->pt());
+            trk_eta->push_back(track->eta());
+            trk_phi->push_back(track->phi());
+            trk_d0->push_back(track->d0());
+            trk_z0->push_back(track->z0());
+            trk_charge->push_back(track->charge());
+            chiSquared->push_back(track->chiSquared());
+
+            trk_lep_dEta->push_back(track->eta() - lep_eta);
+            trk_lep_dPhi->push_back(track->phi() - lep_phi);
+            trk_lep_dD0->push_back(track->d0() - lep_d0);
+            trk_lep_dZ0->push_back(track->z0() - lep_z0);
+
+            uint8_t placeholder;
+            track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHoles); nPixHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); nPixOutliers->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHits); nSCTHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
+        }
+
+        return true;
+    };
+
     // Cutflow table [electron/muon/HF/isolated][truth_type/medium/impact_params]
     int cutflow_table[4][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
@@ -142,139 +264,24 @@ int main (int argc, char *argv[]) {
         bool ok = event.getEntry(entry_n) >= 0;
         if (!ok) throw logic_error("getEntry failed");
 
-        // Get tracks and leptons
-        const xAOD::TrackParticleContainer *tracks;
+        // Get event objects
         RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
-        const xAOD::VertexContainer *primary_vertices;
         RETURN_CHECK(ALG, event.retrieve(primary_vertices, "PrimaryVertices"));
-        const xAOD::Vertex *primary_vertex = primary_vertices->at(0);
-        const xAOD::ElectronContainer *electrons;
+        primary_vertex = primary_vertices->at(0);
         RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
-        const xAOD::MuonContainer *muons;
         RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
-        const xAOD::CaloClusterContainer *calo_clusters;
         RETURN_CHECK(ALG, event.retrieve(calo_clusters, "CaloCalTopoClusters"));
 
         // Filter objects
-        vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
-        vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
-        vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons_truth_type(muons);
+        filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
+        filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
+        filtered_muons = object_filters.filter_muons_truth_type(muons);
         update_cutflow(filtered_electrons, filtered_muons, 0);
         filtered_electrons = object_filters.filter_electrons_medium(filtered_electrons);
         filtered_muons = object_filters.filter_muons_medium(filtered_muons);
         update_cutflow(filtered_electrons, filtered_muons, 1);
 
         // Write event
-        SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
-
-        auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, bool is_electron) {
-
-            // retrieve ptcone and etcone variables
-            auto process_electron_cones = [&] (const xAOD::Electron* electron) {
-                electron->isolation(ptcone20,xAOD::Iso::ptcone20_TightTTVA_pt1000);
-                ptcone30 = numeric_limits<float>::quiet_NaN();
-                ptcone40 = numeric_limits<float>::quiet_NaN();
-                electron->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
-                electron->isolation(ptvarcone30,xAOD::Iso::ptvarcone30_TightTTVA_pt1000);
-                electron->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
-                electron->isolation(topoetcone20,xAOD::Iso::topoetcone20);
-                topoetcone30 = numeric_limits<float>::quiet_NaN();
-                electron->isolation(topoetcone40,xAOD::Iso::topoetcone40);
-                electron->isolation(eflowcone20,xAOD::Iso::neflowisol20);
-                // topocluster stuff - using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
-            };
-
-            auto process_muon_cones = [&] (const xAOD::Muon* muon) {
-                muon->isolation(ptcone20,xAOD::Iso::ptcone20);
-                muon->isolation(ptcone30,xAOD::Iso::ptcone30);
-                muon->isolation(ptcone40,xAOD::Iso::ptcone40);
-                muon->isolation(ptvarcone20,xAOD::Iso::ptvarcone20);
-                muon->isolation(ptvarcone30,xAOD::Iso::ptvarcone30);
-                muon->isolation(ptvarcone40,xAOD::Iso::ptvarcone40);
-                muon->isolation(topoetcone20,xAOD::Iso::topoetcone20);
-                muon->isolation(topoetcone30,xAOD::Iso::topoetcone30);
-                muon->isolation(topoetcone40,xAOD::Iso::topoetcone40);
-                muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
-            };
-
-            // retrieve all relevant lepton variables
-            lep_pT = lepton->pt();
-            lep_eta = lepton->eta();
-            lep_theta = 2 * atan(exp(-lep_eta));
-            lep_phi = lepton->phi();
-            lep_d0 = track_particle->d0();
-            lep_d0_over_sigd0 = xAOD::TrackingHelpers::d0significance(track_particle);
-            lep_z0 = track_particle->z0();
-            lep_dz0 = track_particle->z0() - primary_vertex->z();
-            PLT = accessPromptVar(*lepton);
-            if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
-            else process_muon_cones((const xAOD::Muon*)lepton);
-
-            // check if lepton passes cuts
-            bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
-            bool d0_over_sigd0_cut = (is_electron and (fabs(lep_d0_over_sigd0) < 5)) or (!is_electron and (d0_over_sigd0_cut = fabs(lep_d0_over_sigd0) < 3));
-            bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
-            if (!passes_cuts) return false;
-
-            // get tracks associated to lepton
-            auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
-                set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
-                return electron_tracks;
-            };
-
-            auto get_muon_own_tracks = [&] (const xAOD::Muon* muon) {
-                xAOD::Muon::TrackParticleType type = xAOD::Muon::TrackParticleType::InnerDetectorTrackParticle;
-                auto own_track = muon->trackParticle(type);
-                set<const xAOD::TrackParticle*> muon_tracks {own_track};
-                return muon_tracks;
-            };
-
-            // store tracks in dR cone of 0.5
-            trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
-            trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
-            trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
-            nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
-            nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
-            set<const xAOD::TrackParticle*> own_tracks;
-            if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
-            else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
-
-            for (auto track : filtered_tracks) {
-                if (!track->vertex() or track->vertex()!=primary_vertex) continue;
-                bool matches_own_track = false;
-                for (auto own_track : own_tracks)
-                    if (track == own_track) matches_own_track = true;
-                if (matches_own_track) continue;
-                float dR = track->p4().DeltaR(lepton->p4());
-                if (dR > 0.5) continue; 
-
-                trk_lep_dR->push_back(dR);
-                trk_pT->push_back(track->pt());
-                trk_eta->push_back(track->eta());
-                trk_phi->push_back(track->phi());
-                trk_d0->push_back(track->d0());
-                trk_z0->push_back(track->z0());
-                trk_charge->push_back(track->charge());
-                chiSquared->push_back(track->chiSquared());
-
-                trk_lep_dEta->push_back(track->eta() - lep_eta);
-                trk_lep_dPhi->push_back(track->phi() - lep_phi);
-                trk_lep_dD0->push_back(track->d0() - lep_d0);
-                trk_lep_dZ0->push_back(track->z0() - lep_z0);
-
-                uint8_t placeholder;
-                track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfPixelHoles); nPixHoles->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); nPixOutliers->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfSCTHits); nSCTHits->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
-                track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
-            }
-
-            return true;
-        };
-
         vector<pair<const xAOD::Electron*, int>> new_filtered_electrons;
         vector<pair<const xAOD::Muon*, int>> new_filtered_muons;
         for (auto electron_info : filtered_electrons) {

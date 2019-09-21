@@ -101,12 +101,34 @@ int main (int argc, char *argv[]) {
     vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("nSCTHoles", "vector<int>", &nSCTHoles);
     vector<int>* nTRTHits = new vector<int>; outputTree->Branch("nTRTHits", "vector<int>", &nTRTHits);
 
-    int cutflow_electrons[] = {0, 0, 0, 0};
-    int cutflow_muons[] = {0, 0, 0, 0};
-    int count_types[] = {0, 0};
+    // Cutflow table [electron/muon/HF/isolated][truth_type/medium/impact_params]
+    int cutflow_table[4][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 
+    auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
+        cutflow_table[0][stage] += electrons.size();
+        cutflow_table[1][stage] += muons.size();
+        for (auto electron_info : electrons) {
+            truth_type = electron_info.second;
+            int is_isolated = (truth_type == 2);
+            cutflow_table[2+is_isolated][stage]++;
+        }
+        for (auto muon_info : muons) {
+            truth_type = muon_info.second;
+            int is_isolated = (truth_type == 3);
+            cutflow_table[2+is_isolated][stage]++;
+        }
+    };
+
+    auto print_cutflow = [&] () {
+        cout << "Printing cutflow table:" << endl;
+        for (int i=0; i<4; i++) {
+            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << endl;
+        }
+    };
+
+    // Loop over entries
     int entries = event.getEntries();
-    entries = 1000;
+    entries = 10000;
     cout << "Retrieved " << entries << " events" << endl;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
@@ -135,8 +157,12 @@ int main (int argc, char *argv[]) {
 
         // Filter objects
         vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
-        vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons(electrons);
-        vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons(muons);
+        vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
+        vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons_truth_type(muons);
+        update_cutflow(filtered_electrons, filtered_muons, 0);
+        filtered_electrons = object_filters.filter_electrons_medium(filtered_electrons);
+        filtered_muons = object_filters.filter_muons_medium(filtered_muons);
+        update_cutflow(filtered_electrons, filtered_muons, 1);
 
         // Write event
         SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
@@ -249,44 +275,29 @@ int main (int argc, char *argv[]) {
             return true;
         };
 
-        cutflow_electrons[0] += filtered_electrons.size();
-        cutflow_muons[0] += filtered_muons.size();
-
+        vector<pair<const xAOD::Electron*, int>> new_filtered_electrons;
+        vector<pair<const xAOD::Muon*, int>> new_filtered_muons;
         for (auto electron_info : filtered_electrons) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
             if (!process_lepton(electron, electron->trackParticle(), true)) continue;
-            cutflow_electrons[1]++;
-            if (trk_pT->size() < 1) continue;
-            cutflow_electrons[2]++;
-            int is_isolated = (truth_type == 2);
-            if (count_types[is_isolated] > count_types[1-is_isolated]) continue;
-            count_types[is_isolated]++;
-            cutflow_electrons[3]++;
+            new_filtered_electrons.push_back(electron_info);
             outputTree->Fill();
         }
-
         for (auto muon_info : filtered_muons) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
             if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
-            cutflow_muons[1]++;
-            if (trk_pT->size() < 1) continue;
-            cutflow_muons[2]++;
-            int is_isolated = (truth_type == 3);
-            if (count_types[is_isolated] > count_types[1-is_isolated]) continue;
-            count_types[is_isolated]++;
-            cutflow_muons[3]++;
+            new_filtered_muons.push_back(muon_info);
             outputTree->Fill();
         }
+        update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
     }
 
     // Print # leptons passing each step
-    cout << cutflow_electrons[0] << " " << cutflow_electrons[1] << " " << cutflow_electrons[2] << " " << cutflow_electrons[3] << endl;
-    cout << cutflow_muons[0] << " " << cutflow_muons[1] << " " << cutflow_muons[2] << " " << cutflow_muons[3] << endl;
-    cout << count_types[0] << " " << count_types[1] << endl;
+    print_cutflow();
 
     outputTree->Write();
     outputFile.Close();

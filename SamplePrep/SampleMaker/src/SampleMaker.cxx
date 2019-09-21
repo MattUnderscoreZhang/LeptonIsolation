@@ -185,8 +185,8 @@ int main (int argc, char *argv[]) {
             else process_muon_cones((const xAOD::Muon*)lepton);
 
             // check if lepton passes cuts
-            bool dz0_cut = abs(lep_dz0 * sin(lep_theta)) < 0.5;
-            bool d0_over_sigd0_cut = (is_electron and (abs(lep_d0_over_sigd0) < 5)) or (!is_electron and (d0_over_sigd0_cut = abs(lep_d0_over_sigd0) < 3));
+            bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
+            bool d0_over_sigd0_cut = (is_electron and (fabs(lep_d0_over_sigd0) < 5)) or (!is_electron and (d0_over_sigd0_cut = fabs(lep_d0_over_sigd0) < 3));
             bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
             if (!passes_cuts) return false;
 

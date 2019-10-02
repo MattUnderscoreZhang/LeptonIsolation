@@ -79,9 +79,6 @@ class ObjectFilters {
             return m_current_electrons;
         } // added for tag and probe
 
-
-
-             
         vector<pair<const xAOD::Muon*, int>> filter_muons_truth_type(const xAOD::MuonContainer* muons) {
             vector<pair<const xAOD::Muon*, int>> m_current_muons;
             for (const xAOD::Muon *muon : *muons) {

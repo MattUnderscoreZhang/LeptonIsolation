@@ -250,8 +250,8 @@ int main (int argc, char *argv[]) {
 
     // Loop over entries
     int entries = event.getEntries();
-    entries = 10000;
     cout << "Retrieved " << entries << " events" << endl;
+    //entries = 10000;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 

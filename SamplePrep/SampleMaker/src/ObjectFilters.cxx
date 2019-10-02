@@ -43,6 +43,19 @@ class ObjectFilters {
             delete m_muonSelectionTool;
             delete m_trkseltool;
         }
+ 
+
+        vector<pair<const xAOD::Electron*, int>> filter_electrons_baseline(vector<pair<const xAOD::Electron*, int>> electrons) {
+            // for use in tag and probe
+            vector<pair<const xAOD::Electron*, int>> m_current_electrons;
+            for (pair<const xAOD::Electron*, int> electron : electrons) {
+                // check that electron passes selections
+                if (!cacc_lhloos.isAvailable(*(electron.first))) continue;
+                if (!cacc_lhloos(*(electron.first))) continue;
+                m_current_electrons.push_back(electron);
+            }
+            return m_current_electrons;
+        }
 
         vector<pair<const xAOD::Electron*, int>> filter_electrons_truth_type(const xAOD::ElectronContainer* electrons) {
             vector<pair<const xAOD::Electron*, int>> m_current_electrons;
@@ -67,17 +80,19 @@ class ObjectFilters {
             return m_current_electrons;
         }
 
- 
-        vector<pair<const xAOD::Electron*, int>> filter_electrons_baseline(vector<pair<const xAOD::Electron*, int>> electrons) {
-            vector<pair<const xAOD::Electron*, int>> m_current_electrons;
-            for (pair<const xAOD::Electron*, int> electron : electrons) {
-                // check that electron passes selections
-                if (!cacc_lhloos.isAvailable(*(electron.first))) continue;
-                if (!cacc_lhloos(*(electron.first))) continue;
-                m_current_electrons.push_back(electron);
+        
+        vector<pair<const xAOD::Muon*, int>> filter_muons_baseline(vector<pair<const xAOD::Muon*, int>> muons) {
+            // for use in tag and probe
+            vector<pair<const xAOD::Muon*, int>> m_current_muons;
+            for (pair<const xAOD::Muon*, int> muon : muons) {
+                // check that muon passes selections
+                xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*(muon.first));
+                if (muonQuality < xAOD::Muon::Loose) continue;
+                // store muon
+                m_current_muons.push_back(muon);
             }
-            return m_current_electrons;
-        } // added for tag and probe
+            return m_current_muons;
+        }
 
         vector<pair<const xAOD::Muon*, int>> filter_muons_truth_type(const xAOD::MuonContainer* muons) {
             vector<pair<const xAOD::Muon*, int>> m_current_muons;
@@ -105,18 +120,6 @@ class ObjectFilters {
             }
             return m_current_muons;
         }
-        
-        vector<pair<const xAOD::Muon*, int>> filter_muons_baseline(vector<pair<const xAOD::Muon*, int>> muons) {
-            vector<pair<const xAOD::Muon*, int>> m_current_muons;
-            for (pair<const xAOD::Muon*, int> muon : muons) {
-                // check that muon passes selections
-                xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*(muon.first));
-                if (muonQuality < xAOD::Muon::Loose) continue;
-                // store muon
-                m_current_muons.push_back(muon);
-            }
-            return m_current_muons;
-        }// added for tag and probe
 
 
         vector<const xAOD::TrackParticle*> filter_tracks(const xAOD::TrackParticleContainer* tracks, const xAOD::Vertex* primary_vertex) {

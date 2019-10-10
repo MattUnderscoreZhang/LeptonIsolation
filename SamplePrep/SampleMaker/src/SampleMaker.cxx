@@ -223,20 +223,19 @@ int main (int argc, char *argv[]) {
         return true;
     };
 
-    // Cutflow table [electron/muon/HF/isolated][truth_type/medium/impact_params]
-    int cutflow_table[4][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
+    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
 
     auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
-        cutflow_table[0][stage] += electrons.size();
-        cutflow_table[1][stage] += muons.size();
+        //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
         for (auto electron_info : electrons) {
             truth_type = electron_info.second;
             int is_isolated = (truth_type == 2);
-            cutflow_table[2+is_isolated][stage]++;
+            cutflow_table[is_isolated][stage]++;
         }
         for (auto muon_info : muons) {
             truth_type = muon_info.second;
-            int is_isolated = (truth_type == 3);
+            int is_isolated = (truth_type == 6);
             cutflow_table[2+is_isolated][stage]++;
         }
     };
@@ -244,7 +243,7 @@ int main (int argc, char *argv[]) {
     auto print_cutflow = [&] () {
         cout << "Printing cutflow table:" << endl;
         for (int i=0; i<4; i++) {
-            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << endl;
+            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
         }
     };
 
@@ -301,6 +300,29 @@ int main (int argc, char *argv[]) {
             outputTree->Fill();
         }
         update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
+
+        // Additional cutflow step - what passes isolation cut?
+        vector<pair<const xAOD::Electron*, int>> isolated_filtered_electrons;
+        vector<pair<const xAOD::Muon*, int>> isolated_filtered_muons;
+        float temp_ptvarcone40;
+        float temp_lep_pT;
+        for (auto electron_info : new_filtered_electrons) {
+            const xAOD::Electron* electron = electron_info.first;
+            electron->isolation(temp_ptvarcone40,xAOD::Iso::ptvarcone40);
+            temp_lep_pT = electron->pt();
+            //cout << temp_ptvarcone40 << " " << temp_lep_pT << " " << temp_ptvarcone40/temp_lep_pT << endl;
+            if (temp_ptvarcone40/temp_lep_pT < 0.1)
+                isolated_filtered_electrons.push_back(electron_info);
+        }
+        for (auto muon_info : new_filtered_muons) {
+            const xAOD::Muon* muon = muon_info.first;
+            muon->isolation(temp_ptvarcone40,xAOD::Iso::ptvarcone40);
+            temp_lep_pT = muon->pt();
+            //cout << temp_ptvarcone40 << " " << temp_lep_pT << " " << temp_ptvarcone40/temp_lep_pT << endl;
+            if (temp_ptvarcone40/temp_lep_pT < 0.1)
+                isolated_filtered_muons.push_back(muon_info);
+        }
+        update_cutflow(isolated_filtered_electrons, isolated_filtered_muons, 3);
     }
 
     // Print # leptons passing each step

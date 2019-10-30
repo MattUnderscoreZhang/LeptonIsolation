@@ -3,6 +3,7 @@
 #include "xAODEgamma/Electron.h"
 #include "xAODMuon/MuonContainer.h"
 #include "xAODMuon/Muon.h"
+#include "ElectronPhotonSelectorTools/AsgElectronLikelihoodTool.h"
 #include "MuonSelectorTools/MuonSelectionTool.h"
 #include "xAODTracking/TrackParticleContainer.h"
 #include "xAODTracking/TrackParticle.h"
@@ -29,6 +30,14 @@ class ObjectFilters {
 
         ObjectFilters() {
 
+            //m_electronLHMediumSelectionTool = new AsgElectronLikelihoodTool("ElectronLHMediumSelectionTool");
+            //m_electronLHMediumSelectionTool->setProperty("WorkingPoint", "MediumLHElectron");
+            //m_electronLHMediumSelectionTool->initialize();
+
+            //m_electronLHLooseSelectionTool = new AsgElectronLikelihoodTool("ElectronLHLooseSelectionTool");
+            //m_electronLHLooseSelectionTool->setProperty("WorkingPoint", "LooseLHElectron");
+            //m_electronLHLooseSelectionTool->initialize();
+
             m_muonSelectionTool = new CP::MuonSelectionTool("MuonObject_MuonSelectionTool");
             m_muonSelectionTool->initialize();
 
@@ -40,6 +49,8 @@ class ObjectFilters {
         }
 
         ~ObjectFilters() {
+            //delete m_electronLHMediumSelectionTool;
+            //delete m_electronLHLooseSelectionTool;
             delete m_muonSelectionTool;
             delete m_trkseltool;
         }
@@ -50,6 +61,7 @@ class ObjectFilters {
             vector<pair<const xAOD::Electron*, int>> m_current_electrons;
             for (pair<const xAOD::Electron*, int> electron : electrons) {
                 // check that electron passes selections
+                //if (!m_electronLHLooseSelectionTool->accept((electron.first))) continue;
                 if (!cacc_lhloos.isAvailable(*(electron.first))) continue;
                 if (!cacc_lhloos(*(electron.first))) continue;
                 m_current_electrons.push_back(electron);
@@ -73,6 +85,7 @@ class ObjectFilters {
             vector<pair<const xAOD::Electron*, int>> m_current_electrons;
             for (pair<const xAOD::Electron*, int> electron : electrons) {
                 // check that electron passes selections
+                //if (!m_electronLHMediumSelectionTool->accept((electron.first))) continue;
                 if (!cacc_lhmedium.isAvailable(*(electron.first))) continue;
                 if (!cacc_lhmedium(*(electron.first))) continue;
                 m_current_electrons.push_back(electron);
@@ -137,6 +150,8 @@ class ObjectFilters {
     private:
 
         CP::MuonSelectionTool* m_muonSelectionTool;
+        //AsgElectronLikelihoodTool* m_electronLHMediumSelectionTool ;
+        //AsgElectronLikelihoodTool* m_electronLHLooseSelectionTool ;
         InDet::InDetTrackSelectionTool *m_trkseltool;
 
 };

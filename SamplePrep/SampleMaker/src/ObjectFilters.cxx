@@ -127,7 +127,7 @@ class ObjectFilters {
             for (pair<const xAOD::Muon*, int> muon : muons) {
                 // check that muon passes selections
                 xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*(muon.first));
-                if (muonQuality < xAOD::Muon::Medium) continue;
+                if (muonQuality > xAOD::Muon::Tight) continue;
                 // store muon
                 m_current_muons.push_back(muon);
             }

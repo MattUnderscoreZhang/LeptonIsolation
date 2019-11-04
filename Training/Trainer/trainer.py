@@ -125,24 +125,14 @@ class RNN_Trainer:
 		train_acc = 0
 		for epoch_n in range(self.options["n_epochs"]):
 			training_batches, testing_batches = self.make_batches()
-			train_loss, train_acc, _, train_truth = self.model.do_train(
-				training_batches
-			)
-			test_loss, test_acc, _, test_truth = self.model.do_eval(
-				testing_batches)
-			self.history_logger.add_scalar(
-				"Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n
-			)
-			self.history_logger.add_scalar(
-				"Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
-			self.history_logger.add_scalar(
-				"Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
-			self.history_logger.add_scalar(
-				"Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
+			train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
+			test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
+			self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
+			self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
+			self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
+			self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
 			for name, param in self.model.named_parameters():
-				self.history_logger.add_histogram(
-					name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n
-				)
+				self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
 
 			if Print:
 				print(

@@ -63,109 +63,109 @@ class RNN_Trainer:
 
         print("Model parameters:\n{}".format(self.model.parameters))
 
-        def make_batches(self):
-            """makes batches from the training and testing datasets according to
-            hyperparameters specified in options
+    def make_batches(self):
+        """makes batches from the training and testing datasets according to
+        hyperparameters specified in options
 
-            Args:
-                None
-            Returns:
-                training_loader, testing_loader
-            """
-            training_loader = DataLoader(
-                self.train_set,
-                batch_size=self.options["batch_size"],
-                collate_fn=collate,
-                shuffle=True,
-                drop_last=True,
-            )
-            testing_loader = DataLoader(
-                self.test_set,
-                batch_size=self.options["batch_size"],
-                collate_fn=collate,
-                shuffle=True,
-                drop_last=True,
-            )
-            return training_loader, testing_loader
+        Args:
+            None
+        Returns:
+            training_loader, testing_loader
+        """
+        training_loader = DataLoader(
+            self.train_set,
+            batch_size=self.options["batch_size"],
+            collate_fn=collate,
+            shuffle=True,
+            drop_last=True,
+        )
+        testing_loader = DataLoader(
+            self.test_set,
+            batch_size=self.options["batch_size"],
+            collate_fn=collate,
+            shuffle=True,
+            drop_last=True,
+        )
+        return training_loader, testing_loader
 
-        def train(self, Print=True):
-            """trains the model and logs its characteristics for tensorboard
+    def train(self, Print=True):
+        """trains the model and logs its characteristics for tensorboard
 
-            Args:
-                Print (bool, True by default): Specifies whether to print training characteristics on each step
-            Returns:
-                train_loss
-            """
-            train_loss = 0
-            train_acc = 0
-            for epoch_n in range(self.options["n_epochs"]):
-                training_batches, testing_batches = self.make_batches()
-                train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
-                test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
-                for name, param in self.model.named_parameters():
-                    self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
+        Args:
+            Print (bool, True by default): Specifies whether to print training characteristics on each step
+        Returns:
+            train_loss
+        """
+        train_loss = 0
+        train_acc = 0
+        for epoch_n in range(self.options["n_epochs"]):
+            training_batches, testing_batches = self.make_batches()
+            train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
+            test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
+            self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
+            self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
+            self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
+            self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
+            for name, param in self.model.named_parameters():
+                self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
 
-                if Print:
-                    print(
-                        "Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
-                        "Test Loss: %0.4f, Test Acc: %0.4f"
-                        % (self.epoch0 + epoch_n, train_loss, train_acc, test_loss, test_acc)
-                    )
-                if (self.epoch0 + epoch_n) % 10 == 0:
-                    torch.save({
-                        'epoch': self.epoch0 + epoch_n,
-                        'model_state_dict': self.model.state_dict(),
-                        'optimizer_state_dict': self.model.optimizer.state_dict(),
-                        'train_loss': train_loss,
-                        'test_loss': test_loss,
-                        'train_accuracy': train_acc,
-                        'test_accuracy': test_acc,
-                    }, self.options["model_path"])
+            if Print:
+                print(
+                    "Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
+                    "Test Loss: %0.4f, Test Acc: %0.4f"
+                    % (self.epoch0 + epoch_n, train_loss, train_acc, test_loss, test_acc)
+                )
+            if (self.epoch0 + epoch_n) % 10 == 0:
+                torch.save({
+                    'epoch': self.epoch0 + epoch_n,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.model.optimizer.state_dict(),
+                    'train_loss': train_loss,
+                    'test_loss': test_loss,
+                    'train_accuracy': train_acc,
+                    'test_accuracy': test_acc,
+                }, self.options["model_path"])
 
-            return train_loss
+        return train_loss
 
-        def test(self, data_filename):
-            """Evaluates the model on testing batches
+    def test(self, data_filename):
+        """Evaluates the model on testing batches
 
-            Args:
-                data_filename (string) : datafile for additional data in the roc plot
-            Returns:
-                None
-            """
-            self.test_set.file.reshuffle()
-            _, testing_batches = self.make_batches()
-            _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
-            ROC_fig = plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
-            self.history_logger.add_figure("ROC", ROC_fig)
+        Args:
+            data_filename (string) : datafile for additional data in the roc plot
+        Returns:
+            None
+        """
+        self.test_set.file.reshuffle()
+        _, testing_batches = self.make_batches()
+        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
+        ROC_fig = plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
+        self.history_logger.add_figure("ROC", ROC_fig)
 
-        def train_and_test(self, data_filename, do_print=True):
-            """prepares, trains and tests the network
+    def train_and_test(self, data_filename, do_print=True):
+        """prepares, trains and tests the network
 
-            Args:
-                data_filename (string) : datafile for additional data in the roc plot
-                do_print (bool, True by default): Specifies whether to print validation characteristics on each step
-            Returns:
-                training loss
-            """
-            self.prepare()
-            loss = self.train(do_print)
-            self.test(data_filename)
-            return loss
+        Args:
+            data_filename (string) : datafile for additional data in the roc plot
+            do_print (bool, True by default): Specifies whether to print validation characteristics on each step
+        Returns:
+            training loss
+        """
+        self.prepare()
+        loss = self.train(do_print)
+        self.test(data_filename)
+        return loss
 
-        def save_model(self, save_path):
-            """saves the model and closes the tensorboard summary writer
+    def save_model(self, save_path):
+        """saves the model and closes the tensorboard summary writer
 
-            Args:
-                save_path (string) : path where the model and its data is to be saved
-            Returns:
-                None
-            """
-            self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
-            self.history_logger.close()
+        Args:
+            save_path (string) : path where the model and its data is to be saved
+        Returns:
+            None
+        """
+        self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
+        self.history_logger.close()
 
 
 def train(options):

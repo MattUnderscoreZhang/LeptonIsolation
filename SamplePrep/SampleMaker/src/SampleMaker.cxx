@@ -92,14 +92,14 @@ int main (int argc, char *argv[]) {
     vector<float>* trk_lep_dD0 = new vector<float>; outputTree->Branch("trk_lep_dD0", "vector<float>", &trk_lep_dD0);
     vector<float>* trk_lep_dZ0 = new vector<float>; outputTree->Branch("trk_lep_dZ0", "vector<float>", &trk_lep_dZ0);
     vector<int>* trk_charge = new vector<int>; outputTree->Branch("trk_charge", "vector<int>", &trk_charge);
-    vector<float>* chiSquared = new vector<float>; outputTree->Branch("chiSquared", "vector<float>", &chiSquared);
-    vector<int>* nIBLHits = new vector<int>; outputTree->Branch("nIBLHits", "vector<int>", &nIBLHits);
-    vector<int>* nPixHits = new vector<int>; outputTree->Branch("nPixHits", "vector<int>", &nPixHits);
-    vector<int>* nPixHoles = new vector<int>; outputTree->Branch("nPixHoles", "vector<int>", &nPixHoles);
-    vector<int>* nPixOutliers = new vector<int>; outputTree->Branch("nPixOutliers", "vector<int>", &nPixOutliers);
-    vector<int>* nSCTHits = new vector<int>; outputTree->Branch("nSCTHits", "vector<int>", &nSCTHits);
-    vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("nSCTHoles", "vector<int>", &nSCTHoles);
-    vector<int>* nTRTHits = new vector<int>; outputTree->Branch("nTRTHits", "vector<int>", &nTRTHits);
+    vector<float>* trk_chi2 = new vector<float>; outputTree->Branch("trk_chi2", "vector<float>", &trk_chi2);
+    vector<int>* nIBLHits = new vector<int>; outputTree->Branch("trk_nIBLHits", "vector<int>", &nIBLHits);
+    vector<int>* nPixHits = new vector<int>; outputTree->Branch("trk_nPixHits", "vector<int>", &nPixHits);
+    vector<int>* nPixHoles = new vector<int>; outputTree->Branch("trk_nPixHoles", "vector<int>", &nPixHoles);
+    vector<int>* nPixOutliers = new vector<int>; outputTree->Branch("trk_nPixOutliers", "vector<int>", &nPixOutliers);
+    vector<int>* nSCTHits = new vector<int>; outputTree->Branch("trk_nSCTHits", "vector<int>", &nSCTHits);
+    vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("trk_nSCTHoles", "vector<int>", &nSCTHoles);
+    vector<int>* nTRTHits = new vector<int>; outputTree->Branch("trk_nTRTHits", "vector<int>", &nTRTHits);
 
     // Event objects
     const xAOD::TrackParticleContainer *tracks;
@@ -179,7 +179,7 @@ int main (int argc, char *argv[]) {
 
         // store tracks in dR cone of 0.5
         trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
-        trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); chiSquared->clear();
+        trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); trk_chi2->clear();
         trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
         nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
         nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
@@ -203,7 +203,7 @@ int main (int argc, char *argv[]) {
             trk_d0->push_back(track->d0());
             trk_z0->push_back(track->z0());
             trk_charge->push_back(track->charge());
-            chiSquared->push_back(track->chiSquared());
+            trk_chi2->push_back(track->chiSquared());
 
             trk_lep_dEta->push_back(track->eta() - lep_eta);
             trk_lep_dPhi->push_back(track->phi() - lep_phi);

@@ -224,9 +224,10 @@ class Model(nn.Module):
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             ).cpu()
-            import pdb; pdb.set_trace()
-            padded_seq = hot_fixed_pack_padded_sequence(
-                track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
+            ## padding sequences - turned off for now, due to 0-track leptons
+            # padded_seq = hot_fixed_pack_padded_sequence(
+                # track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
+            padded_seq = track_info
 
             output = self.forward(padded_seq).to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())

@@ -20,7 +20,6 @@ class ROOT_Dataset(Dataset):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
         self.data_tree = getattr(self.data_file, options["tree_name"])
-        # import pdb; pdb.set_trace()
         self.event_order = readable_event_indices
         self.shuffle_indices()
         self.options = options
@@ -39,31 +38,30 @@ class ROOT_Dataset(Dataset):
         for trk_feature in self.options["trk_features"]:
             transposed_tracks.append(list(getattr(self.data_tree, trk_feature)))
         lepton = np.array(lepton)
-        tracks = np.array(transposed_tracks)
+        tracks = np.transpose(transposed_tracks)
 
         truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
         lepton = torch.from_numpy(lepton).float()
         tracks = torch.from_numpy(np.array(tracks)).float()
-        return truth, lepton, tracks
+        return tracks, lepton, truth
 
     def __len__(self):
         return len(self.event_order)
 
 
 def collate(batch):
-    """Finds the length of the non zero tensor.
+    """Zero-pads batches.
 
     Args:
-        track (torch.tensor): tensor containing the events padded with zeroes at the end
+        batch (list): each element of the batch is a three-Tensor tuple consisting of (tracks, lepton, truth)
     Returns:
-        Length (int) of the tensor were it not zero-padded
+        [tracks_batch, lepton_batch, truth_batch]: tracks_batch is a 3D Tensor, lepton_batch is 2D, and truth_batch is 1D
     """
 
-    """pads the data with 0's"""
-    length = torch.tensor([len(item[0]) for item in batch])
+    length = torch.tensor([len(event[0]) for event in batch])
     max_size = int(length.max())
-    data = [torch.nn.ZeroPad2d((0, 0, 0, max_size - len(item[0])))
-            (item[0]) for item in batch]
-    target = torch.stack([item[-1] for item in batch])
-    not_rnn_data = torch.stack([item[1] for item in batch])
-    return [torch.stack(data), not_rnn_data, target]
+    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_size - len(event[0])))(event[0]) for event in batch]  # pads the data with 0's
+    tracks_batch = torch.stack(tracks_batch)
+    truth_batch = torch.stack([event[-1] for event in batch])
+    lepton_batch = torch.stack([event[1] for event in batch])
+    return [tracks_batch, lepton_batch, truth_batch]

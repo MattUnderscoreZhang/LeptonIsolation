@@ -1,199 +1,199 @@
-import pickle as pkl
+import random
 import pathlib
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from ROOT import TFile
 from .Architectures.RNN import Model
-from .DataStructures.LeptonTrackDataset import Torchdata, collate
+from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 
 
-class RNN_Trainer:
+class RNN_Agent:
     """Model class implementing rnn inheriting structure from pytorch nn module
 
     Attributes:
-        options (dict) : configuration for the nn
-        leptons_with_tracks : data to be passed into the nn
-        output_folder : path to where the finished network data should be saved
+        options (dict): configuration for the nn
 
     Methods:
-        prepare : prepares the datasets for the model and sets up the model
-        make_batches : makes batches for training and testing datasets
-        train : trains and saves the model
-        test : tests the model and produces a ROC plot
-        train_and_test : convienience function for preparing training and testing the model
-        save_model : logs all the details of the training and saves it for future reference
+        load_data: prepares the datasets for the model and sets up the model
+        get_data_batches: get batched training and testing data from the data loaders
+        train_and_test: convienience function for preparing training and testing the model
+        save_agent: logs all the details of the training and saves it for future reference
     """
 
-    def __init__(self, options, leptons_with_tracks, output_folder):
-        self.options = options
-        self.n_events = len(leptons_with_tracks)
-        self.n_training_events = int(self.options["training_split"] * self.n_events)
-        self.leptons_with_tracks = leptons_with_tracks
-        self.options["n_track_features"] = len(self.leptons_with_tracks[0][1][0])
-        self.history_logger = SummaryWriter()
-        self.test_truth = []
-        self.test_raw_results = []
-        self.epoch0 = 0
-        self.continue_training = options["continue_training"]
-
-    def prepare(self):
-        """prepares the data for nn use and initializes the neural network
+    def __init__(self, options):
+        """Sets up a new agent, or loads a saved agent if training is being resumed.
 
         Args:
-            None
+            options (dict): configuration options
         Returns:
             None
         """
-        # split train and test
-        np.random.shuffle(self.leptons_with_tracks)
-        self.training_events = self.leptons_with_tracks[: self.n_training_events]
-        self.test_events = self.leptons_with_tracks[self.n_training_events:]
-        # prepare the generators
-        self.train_set = Torchdata(self.training_events)
-        self.test_set = Torchdata(self.test_events)
-        # set up model
+        self.options = options
         self.model = Model(self.options)
-        if self.continue_training is True:
-            checkpoint = torch.load(self.options["model_path"])
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.epoch0 = checkpoint['epoch']
+        self.train_loader, self.test_loader = self.load_data(self.options["input_data"])
+        self.history_logger = SummaryWriter()
 
+        # load previous state if training is resuming
+        self.epoch0 = 0
+        if self.options["continue_training"] is True:
+            saved_agent = torch.load(self.options["model_path"])
+            self.model.load_state_dict(saved_agent['model_state_dict'])
+            self.model.optimizer.load_state_dict(saved_agent['optimizer_state_dict'])
+            self.epoch0 = saved_agent['epoch']
         print("Model parameters:\n{}".format(self.model.parameters))
 
-    def make_batches(self):
-        """makes batches from the training and testing datasets according to
-        hyperparameters specified in options
+    def load_data(self, data_filename):
+        """Reads the input data and sets up training and test data loaders.
 
         Args:
-            None
+            data_filename: ROOT ntuple containing the relevant data
         Returns:
-            training_loader, testing_loader
+            train_loader, test_loader
         """
-        training_loader = DataLoader(
-            self.train_set,
+        # split test and train
+        data_file = TFile(data_filename)
+        data_tree = getattr(data_file, self.options["tree_name"])
+        n_events = data_tree.GetEntries()
+        n_training_events = int(self.options["training_split"] * n_events)
+        data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
+
+        event_indices = list(range(n_events))
+        random.shuffle(event_indices)
+        train_event_indices = event_indices[:n_training_events]
+        test_event_indices = event_indices[n_training_events:]
+
+        train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
+        test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
+
+        # prepare the data loaders
+        train_loader = DataLoader(
+            train_set,
             batch_size=self.options["batch_size"],
             collate_fn=collate,
             shuffle=True,
             drop_last=True,
         )
-        testing_loader = DataLoader(
-            self.test_set,
+        test_loader = DataLoader(
+            test_set,
             batch_size=self.options["batch_size"],
             collate_fn=collate,
             shuffle=True,
             drop_last=True,
         )
-        return training_loader, testing_loader
 
-    def train(self, Print=True):
-        """trains the model and logs its characteristics for tensorboard
+        return train_loader, test_loader
 
-        Args:
-            Print (bool, True by default): Specifies whether to print training characteristics on each step
-        Returns:
-            train_loss
-        """
-        train_loss = 0
-        train_acc = 0
-        for epoch_n in range(self.options["n_epochs"]):
-            training_batches, testing_batches = self.make_batches()
-            train_loss, train_acc, _, train_truth = self.model.do_train(training_batches)
-            test_loss, test_acc, _, test_truth = self.model.do_eval(testing_batches)
-            self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
-            self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
-            self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
-            self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
-            for name, param in self.model.named_parameters():
-                self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
-
-            if Print:
-                print(
-                    "Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
-                    "Test Loss: %0.4f, Test Acc: %0.4f"
-                    % (self.epoch0 + epoch_n, train_loss, train_acc, test_loss, test_acc)
-                )
-            if (self.epoch0 + epoch_n) % 10 == 0:
-                torch.save({
-                    'epoch': self.epoch0 + epoch_n,
-                    'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.model.optimizer.state_dict(),
-                    'train_loss': train_loss,
-                    'test_loss': test_loss,
-                    'train_accuracy': train_acc,
-                    'test_accuracy': test_acc,
-                }, self.options["model_path"])
-
-        return train_loss
-
-    def test(self, data_filename):
-        """Evaluates the model on testing batches
+    def train_and_test(self, do_print=True):
+        """Trains and tests the model.
 
         Args:
-            data_filename (string) : datafile for additional data in the roc plot
-        Returns:
-            None
-        """
-        self.test_set.file.reshuffle()
-        _, testing_batches = self.make_batches()
-        _, _, self.test_raw_results, self.test_truth = self.model.do_eval(testing_batches)
-        ROC_fig = plot_ROC.plot_ROC(data_filename, self.test_raw_results, self.test_truth)
-        self.history_logger.add_figure("ROC", ROC_fig)
-
-    def train_and_test(self, data_filename, do_print=True):
-        """prepares, trains and tests the network
-
-        Args:
-            data_filename (string) : datafile for additional data in the roc plot
             do_print (bool, True by default): Specifies whether to print validation characteristics on each step
         Returns:
             training loss
         """
-        self.prepare()
-        loss = self.train(do_print)
-        self.test(data_filename)
+        def _train(Print=True):
+            """trains the model and logs its characteristics for tensorboard
+
+            Args:
+                Print (bool, True by default): Specifies whether to print training characteristics on each step
+            Returns:
+                train_loss
+            """
+            train_loss = 0
+            train_acc = 0
+            for epoch_n in range(self.options["n_epochs"]):
+                train_loss, train_acc, _, train_truth = self.model.do_train(self.train_loader)
+                test_loss, test_acc, _, test_truth = self.model.do_eval(self.test_loader)
+                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
+                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
+                self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
+                self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
+                for name, param in self.model.named_parameters():
+                    self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
+
+                if Print:
+                    print(
+                        "Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
+                        "Test Loss: %0.4f, Test Acc: %0.4f"
+                        % (self.epoch0 + epoch_n, train_loss, train_acc, test_loss, test_acc)
+                    )
+                if (self.epoch0 + epoch_n) % 10 == 0:
+                    torch.save({
+                        'epoch': self.epoch0 + epoch_n,
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.model.optimizer.state_dict(),
+                        'train_loss': train_loss,
+                        'test_loss': test_loss,
+                        'train_accuracy': train_acc,
+                        'test_accuracy': test_acc,
+                    }, self.options["model_path"])
+
+            return train_loss
+
+        def _test():
+            """Evaluates the model on testing batches
+
+            Args:
+                None
+            Returns:
+                None
+            """
+            self.test_set.file.reshuffle()
+            _, testing_batches = self.get_data_batches()
+            _, _, test_raw_results, test_truth = self.model.do_eval(testing_batches)
+            ROC_fig = plot_ROC.plot_ROC(self.options["input_data"], test_raw_results, test_truth)
+            self.history_logger.add_figure("ROC", ROC_fig)
+
+        loss = _train(do_print)
+        _test()
         return loss
 
-    def save_model(self, save_path):
-        """saves the model and closes the tensorboard summary writer
+    def save_agent(self):
+        """saves the model and closes the TensorBoard SummaryWriter.
 
         Args:
-            save_path (string) : path where the model and its data is to be saved
+            None
         Returns:
             None
         """
+        if not pathlib.Path(self.options["output_folder"]).exists():
+            pathlib.Path(self.options["output_folder"]).mkdir(parents=True)
         self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
 
 
+def set_data_parsing_options(options):
+    """Describes the contents of the ROOT data and how it should be parsed.
+
+    Args:
+        options (dict): global configuration options
+    Returns:
+        options (dict): modified with ROOT config options
+    """
+    truth_features = ["pdgID", "ptcone20", "ptcone30", "ptcone40", "ptvarcone20", "ptvarcone30", "ptvarcone40", "topoetcone20", "topoetcone30", "topoetcone40", "eflowcone20", "PLT", "truth_type"]
+    lep_features = ["lep_pT", "lep_eta", "lep_theta", "lep_phi", "lep_d0", "lep_d0_over_sigd0", "lep_z0", "lep_dz0"]
+    trk_features = ["trk_lep_dR", "trk_pT", "trk_eta", "trk_phi", "trk_d0", "trk_z0", "trk_lep_dEta", "trk_lep_dPhi", "trk_lep_dD0", "trk_lep_dZ0", "trk_charge", "trk_chi2", "trk_nIBLHits", "trk_nPixHits", "trk_nPixHoles", "trk_nPixOutliers", "trk_nSCTHits", "trk_nSCTHoles", "trk_nTRTHits"]
+
+    options["truth_features"] = truth_features
+    options["lep_features"] = lep_features
+    options["trk_features"] = trk_features
+    options["lepton_size"] = len(lep_features)
+    options["track_size"] = len(trk_features)
+
+    return options
+
+
 def train(options):
-    """Driver function to load data, train model and save results
+    """Driver function to load data, train model and save results.
 
     Args:
         options (dict) : configuration for the nn
     Returns:
          None
     """
-    # load data
-    data_filename = options["input_data"]
-    leptons_with_tracks = pkl.load(open(data_filename, "rb"), encoding="latin1")
-    options["lepton_size"] = len(leptons_with_tracks["lepton_labels"])
-    options["track_size"] = len(leptons_with_tracks["track_labels"])
-    lwt = list(
-        zip(leptons_with_tracks["normed_leptons"],
-            leptons_with_tracks["normed_tracks"])
-    )
-
-    # prepare outputs
-    output_folder = options["output_folder"]
-    if not pathlib.Path(output_folder).exists():
-        pathlib.Path(output_folder).mkdir(parents=True)
-
-    # perform training
-    RNN_trainer = RNN_Trainer(options, lwt, output_folder)
-    RNN_trainer.train_and_test(data_filename)
-
-    # save results
-    RNN_trainer.save_model(output_folder)
+    options = set_data_parsing_options(options)
+    agent = RNN_Agent(options)
+    agent.train_and_test()
+    agent.save_agent()

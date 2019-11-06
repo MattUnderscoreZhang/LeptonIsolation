@@ -1,14 +1,3 @@
-# -*- coding: utf-8 -*-
-"""This module implements iterators for storing the datasets that are to be passed into the RNN
-
-Attributes:
-    *
-
-Todo:
-    *
-
-"""
-
 import torch
 import numpy as np
 import random

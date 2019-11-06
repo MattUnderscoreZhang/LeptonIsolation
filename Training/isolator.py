@@ -34,7 +34,9 @@ else:
 if __name__ == "__main__":
 
     options = {}
-    options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
+    # options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
+    options["input_data"] = "/public/data/RNN/data.root"
+    options["tree_name"] = "BaselineTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training

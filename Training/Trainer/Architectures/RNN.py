@@ -27,7 +27,7 @@ def Tensor_length(track):
         Length (int) of the tensor were it not zero-padded
 
     """
-    return int(torch.nonzero(track).shape[0] / track.shape[1])
+    return len(set([i[0] for i in torch.nonzero(track).numpy()]))
 
 
 def hot_fixed_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):
@@ -77,8 +77,7 @@ def hot_fixed_pack_padded_sequence(input, lengths, batch_first=False, enforce_so
         batch_dim = 0 if batch_first else 1
         input = input.index_select(batch_dim, sorted_indices)
 
-    data, batch_sizes = \
-        torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+    data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
     return PackedSequence(data, batch_sizes, sorted_indices)
 
 
@@ -225,7 +224,8 @@ class Model(nn.Module):
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             ).cpu()
-            padded_seq =hot_fixed_pack_padded_sequence(
+            import pdb; pdb.set_trace()
+            padded_seq = hot_fixed_pack_padded_sequence(
                 track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
 
             output = self.forward(padded_seq).to(self.device)

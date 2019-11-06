@@ -20,7 +20,8 @@ for IN_DS in ${INPUT_DATASETS[*]}
 do
     DSID=$(sed -r 's/[^\.]*\.([0-9]{6,8})\..*/\1/' <<< ${IN_DS})
     OUT_DS=user.${GRID_NAME}.RNN.${DSID}.${JOB_TAG}
-    prun --exec "./build/x*/bin/SampleMaker %IN" --bexec "compile.sh"\
+    prun --exec "./build/x*/bin/SampleMaker %IN"\
+        --athenaTag=AnalysisBase,21.2.97\
         --inDS ${IN_DS} --outDS ${OUT_DS}\
         --noEmail > ${OUT_DS}.log 2>&1
 done

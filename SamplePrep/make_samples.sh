@@ -3,6 +3,7 @@
 # set up environment
 cd SampleMaker
 source setup_env.sh
+source compile.sh
 
 # Test command:
 ./x*/bin/SampleMaker /eos/user/m/mazhang/LepIso/ROOT/SUSY2/Zee/DAOD_SUSY2.18586363._000001.pool.root.1
@@ -11,5 +12,4 @@ source setup_env.sh
 
 # run on grid
 cd ..
-lsetup panda
 source submit-to-grid.sh

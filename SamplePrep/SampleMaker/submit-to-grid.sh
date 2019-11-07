@@ -5,6 +5,7 @@
 # --osMatching --athenaTag=22.0.6\
 
 source setup_env.sh
+source build/x86_64-centos7-gcc8-opt/setup.sh
 
 GRID_NAME=${RUCIO_ACCOUNT-${USER}}
 JOB_TAG=$(date +%F-%H-%M)

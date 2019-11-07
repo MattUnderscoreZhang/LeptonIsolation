@@ -1,6 +1,7 @@
 // local tools
 #include "ObjectFilters.cxx"
 #include "TFile.h"
+#include "TChain.h"
 #include "TTree.h"
 #include "TString.h"
 #include "xAODEgamma/ElectronContainer.h"
@@ -18,10 +19,6 @@
 #include "xAODRootAccess/TEvent.h"
 #include "xAODRootAccess/tools/ReturnCheck.h"
 
-// 3rd party includes
-#include "TFile.h"
-#include "H5Cpp.h"
-
 // stl includes
 #include <stdexcept>
 #include <string>
@@ -34,25 +31,34 @@ using namespace std;
 
 int main (int argc, char *argv[]) {
 
-    // parse input
-    const char* ALG = argv[0];
-    string inputFilename = argv[1];
-
-    // object filters
+    // Object filters
     ObjectFilters object_filters;
 
-    // Open the file:
-    unique_ptr<TFile> ifile(TFile::Open(inputFilename.c_str(), "READ"));
-    if ( ! ifile.get() || ifile->IsZombie()) {
-        throw logic_error("Couldn't open file: " + inputFilename);
-        return 1;
-    }
-    cout << "Opened file: " << inputFilename << endl;
+    // Parse input - split input TFile names by ','
+    const char* ALG = argv[0];
+    string inputFilenames = argv[1];
 
-    // Connect the event object to it:
+    std::vector<std::string> fileList;
+    for (size_t i=0,n; i <= inputFilenames.length(); i=n+1)
+    {
+        n = inputFilenames.find_first_of(',',i);
+        if (n == std::string::npos)
+            n = inputFilenames.length();
+        string tmp = inputFilenames.substr(i,n-i);
+        fileList.push_back(tmp);
+    }
+
+    TChain* fChain = new TChain("CollectionTree");
+    for (unsigned int iFile=0; iFile<fileList.size(); ++iFile)
+    {
+        cout << "Opened file: " << fileList[iFile].c_str() << endl;
+        fChain->Add(fileList[iFile].c_str());
+    }
+
+    // Connect the event object to input files
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
-    RETURN_CHECK(ALG, event.readFrom(ifile.get()));
+    RETURN_CHECK(ALG, event.readFrom(fChain));
 
     // Leptons
     TFile outputFile("output.root", "recreate");
@@ -254,14 +260,9 @@ int main (int argc, char *argv[]) {
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
-        // Print some status
-        if ( ! (entry_n % 500)) {
-            cout << "Processing event " << entry_n << "/" << entries << "\n";
-        }
-
-        // Load the event
-        bool ok = event.getEntry(entry_n) >= 0;
-        if (!ok) throw logic_error("getEntry failed");
+        // Get event
+        if (entry_n%500 == 0) cout << "Processing event " << entry_n << "/" << entries << "\n";
+        event.getEntry(entry_n);
 
         // Get event objects
         RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
@@ -331,5 +332,6 @@ int main (int argc, char *argv[]) {
     outputTree->Write();
     outputFile.Close();
 
+    //exit(0);
     return 0;
 }

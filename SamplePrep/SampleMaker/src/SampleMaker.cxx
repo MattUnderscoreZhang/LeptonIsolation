@@ -326,12 +326,11 @@ int main (int argc, char *argv[]) {
         update_cutflow(isolated_filtered_electrons, isolated_filtered_muons, 3);
     }
 
-    // Print # leptons passing each step
-    print_cutflow();
-
+    print_cutflow(); // Print # leptons passing each step
     outputTree->Write();
-    outputFile.Close();
 
-    //exit(0);
+    outputFile.Close();
+    delete fChain;
+
     return 0;
 }

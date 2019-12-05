@@ -141,13 +141,13 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-        self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
+        self.fc = nn.Linear(self.hidden_size + self.lepton_size , self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq):
+    def forward(self, padded_seq, sorted_leptons):
         """Takes a padded sequence and passes it through:
             * the rnn cell
             * a fully connected layer to get it to the right output size
@@ -155,6 +155,7 @@ class Model(nn.Module):
 
         Args:
             padded_seq (paddedSequence): a collection for lepton track information
+            sorted_leptons : lepton features to add after rnn
 
         Returns:
            the probability of particle beng prompt or heavy flavor
@@ -165,7 +166,9 @@ class Model(nn.Module):
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
-        out = self.fc(hidden[-1]).to(self.device)
+
+        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim = 1).to(self.device)
+        out = self.fc(combined_out).to(self.device)
         out = self.softmax(out).to(self.device)
         return out
 
@@ -224,12 +227,19 @@ class Model(nn.Module):
             n_tracks = torch.tensor(
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             ).cpu()
+
+
+            sorted_n, indices = torch.sort(n_tracks, descending=True)
+            # reodering information according to sorted indices
+            # if padding is required, this should be changed to make sorting more efficient
+            sorted_tracks = track_info[indices].to(self.device)
+            sorted_leptons = lepton_info[indices].to(self.device)
             ## padding sequences - turned off for now, due to 0-track leptons
             # padded_seq = hot_fixed_pack_padded_sequence(
                 # track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
-            padded_seq = track_info
+            padded_seq = sorted_tracks
 
-            output = self.forward(padded_seq).to(self.device)
+            output = self.forward(padded_seq, sorted_leptons).to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())
 
             if do_training is True:

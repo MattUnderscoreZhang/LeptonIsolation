@@ -24,6 +24,7 @@ using namespace std;
 
 static SG::AuxElement::ConstAccessor<char> cacc_lhmedium("DFCommonElectronsLHMedium");
 static SG::AuxElement::ConstAccessor<char> cacc_lhloos("DFCommonElectronsLHLoose");
+static SG::AuxElelemt::ConstAccessor<char> cacc_lhtight("DFCommonElectronLHTight");
 class ObjectFilters {
 
     public:
@@ -56,7 +57,7 @@ class ObjectFilters {
         }
  
 
-        vector<pair<const xAOD::Electron*, int>> filter_electrons_baseline(vector<pair<const xAOD::Electron*, int>> electrons) {
+        vector<pair<const xAOD::Electron*, int>> filter_electrons_probe(vector<pair<const xAOD::Electron*, int>> electrons) {
             // for use in tag and probe
             vector<pair<const xAOD::Electron*, int>> m_current_electrons;
             for (pair<const xAOD::Electron*, int> electron : electrons) {
@@ -64,10 +65,25 @@ class ObjectFilters {
                 //if (!m_electronLHLooseSelectionTool->accept((electron.first))) continue;
                 if (!cacc_lhloos.isAvailable(*(electron.first))) continue;
                 if (!cacc_lhloos(*(electron.first))) continue;
+                if (electron.first->pt()< 5000) continue; //value in MeV
                 m_current_electrons.push_back(electron);
             }
             return m_current_electrons;
         }
+
+         vector<pair<const xAOD::Electron*, int>> filter_electrons_tag(vector<pair<const xAOD::Electron*, int>> electrons) {
+            // for use in tag and probe
+            vector<pair<const xAOD::Electron*, int>> m_current_electrons;
+            for (pair<const xAOD::Electron*, int> electron : electrons) {
+                // check that electron passes selections
+                if (!cacc_lhtight.isAvailable(*(electron.first))) continue;
+                if (!cacc_lhtight(*(electron.first))) continue;
+                if ( electron.first->pt()< 10000) continue; //value in MeV
+                m_current_electrons.push_back(electron);
+            }
+            return m_current_electrons;
+        }
+
 
         vector<pair<const xAOD::Electron*, int>> filter_electrons_truth_type(const xAOD::ElectronContainer* electrons) {
             vector<pair<const xAOD::Electron*, int>> m_current_electrons;
@@ -94,13 +110,27 @@ class ObjectFilters {
         }
 
         
-        vector<pair<const xAOD::Muon*, int>> filter_muons_baseline(vector<pair<const xAOD::Muon*, int>> muons) {
+        vector<pair<const xAOD::Muon*, int>> filter_muons_probe(vector<pair<const xAOD::Muon*, int>> muons) {
             // for use in tag and probe
             vector<pair<const xAOD::Muon*, int>> m_current_muons;
             for (pair<const xAOD::Muon*, int> muon : muons) {
                 // check that muon passes selections
                 xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*(muon.first));
                 if (muonQuality < xAOD::Muon::Loose) continue;
+                if (muon.first->pt()<5000) continue; //value in MeV
+                // store muon
+                m_current_muons.push_back(muon);
+            }
+            return m_current_muons;
+        }
+        vector<pair<const xAOD::Muon*, int>> filter_muons_tag(vector<pair<const xAOD::Muon*, int>> muons) {
+            // for use in tag and probe
+            vector<pair<const xAOD::Muon*, int>> m_current_muons;
+            for (pair<const xAOD::Muon*, int> muon : muons) {
+                // check that muon passes selections
+                xAOD::Muon::Quality muonQuality = m_muonSelectionTool->getQuality(*(muon.first));
+                if (muonQuality < xAOD::Muon::Tight) continue;
+                if (muon.first->pt()<10000) continue; //value in MeV
                 // store muon
                 m_current_muons.push_back(muon);
             }

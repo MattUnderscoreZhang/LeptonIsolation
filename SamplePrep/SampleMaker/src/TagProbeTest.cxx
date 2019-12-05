@@ -86,14 +86,62 @@ int main (int argc, char *argv[]) {
         RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
 
         // Filter objects
-        vector<const xAOD::Electron*> filtered_electrons = object_filters.filter_baseline_electrons(electrons);
-        vector<const xAOD::Muon*> filtered_muons = object_filters.filter_baseline_muons(muons);
+        vector<const xAOD::Electron*> probe_filtered_electrons = object_filters.filter_electrons_probe(electrons);
+        vector<const xAOD::Muon*> probe_filtered_muons = object_filters.filter_muons_probe(muons);
+        vector<const xAOD::Electron*> tag_filtered_electrons = object_filters.filter_electrons_tag(electrons);
+        vector<const xAOD::Muon*> tag_filtered_muons = object_filters.filter_muons_tag(muons);
+        
+        //check if there can be tags
+        if (tight_filtered_muons.size() <1 || tight_filtered_electrons.size() < 1)
+            continue;
+         //Event filter
+        if (baseline_filtered_electrons.size() < 2)
+            continue;
+        if (baseline__muons.size() < 2)
+            continue;        //if len(lepton) < 2: continue
+       
+        vector <pair<pair<const xAOD::Electron*,int>>,int> checked_electrons;
+        vector <pair<pair<const xAOD::Muon*, int>>, int> checked_muons;
 
-        //Event filter
-        //if len(electrons) < 2: continue
-        //mll = mll(electron[0], electron[1])
-        // 81 < mll < 101
-        // other selections
+        for (auto electron1 : tag_filtered_electrons){
+            for (auto electron2 : probe_filtered_electrons){
+                if (electron1 == electron2) continue;
+                double mass = (electron1.first->p4() + electron2.first->p4()).M() 
+                if (mass > 81 && mass < 101):
+                {
+                    if (electron1.charge()*electron2.charge()< 0):
+                    {
+                        checked_electrons.push_back(make_pair(electron2, 1));//add to tuple for signal
+                    }
+                    else
+                    {
+                        checked_electrons.push_back(make_pair(electron2, -1)); //add to tuple for background
+                    }
+                }//1 for OSSF, -1 for SSSF 
+            }
+        }//tag and probe for electrons
+
+        for (auto muon1 : filtered_muons){
+            for (auto muon2 : filtered_muons){
+                if (muon1 == muon2) continue;
+                double mass = (muon1.first->p4() + muon2.first->p4()).M()
+                if (mass > 81 && mass < 120):
+                {
+                    if (muon1.charge()*muon2.charge()< 0):
+                    {
+                        checked_muons.push_back(make_pair(muon2,1));//add to tuple for signal
+                    }
+                    else
+                    {
+                        checked_muons.push_back(make_pair(muon2,-1));//add to tuple for background
+                    }
+                }//1 for OSSF, -1 for SSSF 
+            } 
+        }//tag and probe for muons
+        
+        // one of the electrons in the pairs: Pt >10GeV, high confidence-> tag
+        // the other Pt>5GeV, opposite sign -> probe
+        // background is sign flip
         
         
         // Write event

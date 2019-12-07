@@ -263,7 +263,7 @@ int main (int argc, char *argv[]) {
     int entries = event.getEntries();
     cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
-    //entries = 1000;
+    entries = 1000;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
@@ -342,6 +342,7 @@ int main (int argc, char *argv[]) {
     TTree* normalizedTree = new TTree("NormalizedTree", "normalized tree");
     TObjArray* myBranches = (TObjArray*)(unnormedTree->GetListOfBranches())->Clone();
     myBranches->SetOwner(kFALSE);
+    Long64_t treeEntries = unnormedTree->GetEntries();
 
     for (int i=0; i<myBranches->GetEntries(); i++) {
 
@@ -383,25 +384,23 @@ int main (int argc, char *argv[]) {
         auto fillNonVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
             float newFloatVar;
-            normalizedTree->Branch(currentBranchName.c_str(), &newFloatVar, (currentBranchName+"/F").c_str());
-            Long64_t nentries = unnormedTree->GetEntries();
-            for (Long64_t i=0; i<nentries; i++) {
+            TBranch* normalizedBranch = normalizedTree->Branch(currentBranchName.c_str(), &newFloatVar, (currentBranchName+"/F").c_str());
+            for (Long64_t i=0; i<treeEntries; i++) {
                 unnormedTree->GetEntry(i);
                 newFloatVar = (branchVar-branchMean) / branchRMS;
-                normalizedTree->Fill();
+                normalizedBranch->Fill();
             }
         };
         auto fillVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
             vector<float>* newFloatVecVar = new vector<float>;
-            normalizedTree->Branch(currentBranchName.c_str(), "vector<float>", &newFloatVecVar);
-            Long64_t nentries = unnormedTree->GetEntries();
-            for (int i=0; i<nentries; i++) {
+            TBranch* normalizedBranch = normalizedTree->Branch(currentBranchName.c_str(), "vector<float>", &newFloatVecVar);
+            for (int i=0; i<treeEntries; i++) {
                 unnormedTree->GetEntry(i);
                 newFloatVecVar->clear();
                 for (int i=0; i<branchVar->size(); i++)
                     newFloatVecVar->push_back((branchVar->at(i)-branchMean) / branchRMS);
-                normalizedTree->Fill();
+                normalizedBranch->Fill();
             }
         };
         if (varType == "I") fillNonVecBranch(intVar);
@@ -409,6 +408,7 @@ int main (int argc, char *argv[]) {
         else if (varType == "vector<int>") fillVecBranch(intVecVar);
         else if (varType == "vector<float>") fillVecBranch(floatVecVar);
     }
+    normalizedTree->SetEntries(treeEntries);
     normalizedTree->Write();
 
     outputFile.Close();

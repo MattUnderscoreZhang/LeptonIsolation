@@ -173,7 +173,7 @@ int main (int argc, char *argv[]) {
         bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
         if (!passes_cuts) return false;
 
-        // get tracks associated to lepton
+        // store tracks associated to lepton in dR cone of 0.5
         auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
             set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
             return electron_tracks;
@@ -186,7 +186,6 @@ int main (int argc, char *argv[]) {
             return muon_tracks;
         };
 
-        // store tracks in dR cone of 0.5
         trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
         trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); trk_chi2->clear();
         trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
@@ -196,6 +195,7 @@ int main (int argc, char *argv[]) {
         if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
         else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
 
+        bool has_associated_tracks = false;
         for (auto track : filtered_tracks) {
             if (!track->vertex() or track->vertex()!=primary_vertex) continue;
             bool matches_own_track = false;
@@ -204,6 +204,8 @@ int main (int argc, char *argv[]) {
             if (matches_own_track) continue;
             float dR = track->p4().DeltaR(lepton->p4());
             if (dR > 0.5) continue; 
+
+            has_associated_tracks = true;
 
             trk_lep_dR->push_back(dR);
             trk_pT->push_back(track->pt());
@@ -229,7 +231,8 @@ int main (int argc, char *argv[]) {
             track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
         }
 
-        return true;
+        // remove leptons with no associated tracks
+        return has_associated_tracks;
     };
 
     // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]

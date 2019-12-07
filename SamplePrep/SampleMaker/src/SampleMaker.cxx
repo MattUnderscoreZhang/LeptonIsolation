@@ -3,6 +3,7 @@
 #include "TFile.h"
 #include "TChain.h"
 #include "TTree.h"
+#include "TLeaf.h"
 #include "TString.h"
 #include "xAODEgamma/ElectronContainer.h"
 #include "xAODEgamma/Electron.h"
@@ -62,50 +63,52 @@ int main (int argc, char *argv[]) {
 
     // Leptons
     TFile outputFile("output.root", "recreate");
-    TTree* outputTree = new TTree("BaselineTree", "baseline tree");
+    TTree* unnormedTree = new TTree("UnnormedTree", "unnormalized tree");
 
-    int entry_n; outputTree->Branch("event_n", &entry_n, "event_n/I");
-    int pdgID; outputTree->Branch("pdgID", &pdgID, "pdgID/I");
-    float lep_pT; outputTree->Branch("lep_pT", &lep_pT, "lep_pT/F");
-    float lep_eta; outputTree->Branch("lep_eta", &lep_eta, "lep_eta/F");
-    float lep_theta; outputTree->Branch("lep_theta", &lep_theta, "lep_theta/F");
-    float lep_phi; outputTree->Branch("lep_phi", &lep_phi, "lep_phi/F");
-    float lep_d0; outputTree->Branch("lep_d0", &lep_d0, "lep_d0/F");
-    float lep_d0_over_sigd0; outputTree->Branch("lep_d0_over_sigd0", &lep_d0_over_sigd0, "lep_d0_over_sigd0/F");
-    float lep_z0; outputTree->Branch("lep_z0", &lep_z0, "lep_z0/F");
-    float lep_dz0; outputTree->Branch("lep_dz0", &lep_dz0, "lep_dz0/F");
-    float ptcone20; outputTree->Branch("ptcone20", &ptcone20, "ptcone20/F");
-    float ptcone30; outputTree->Branch("ptcone30", &ptcone30, "ptcone30/F");
-    float ptcone40; outputTree->Branch("ptcone40", &ptcone40, "ptcone40/F");
-    float ptvarcone20; outputTree->Branch("ptvarcone20", &ptvarcone20, "ptvarcone20/F");
-    float ptvarcone30; outputTree->Branch("ptvarcone30", &ptvarcone30, "ptvarcone30/F");
-    float ptvarcone40; outputTree->Branch("ptvarcone40", &ptvarcone40, "ptvarcone40/F");
-    float topoetcone20; outputTree->Branch("topoetcone20", &topoetcone20, "topoetcone20/F");
-    float topoetcone30; outputTree->Branch("topoetcone30", &topoetcone30, "topoetcone30/F");
-    float topoetcone40; outputTree->Branch("topoetcone40", &topoetcone40, "topoetcone40/F");
-    float eflowcone20; outputTree->Branch("eflowcone20", &eflowcone20, "eflowcone20/F");
-    float PLT; outputTree->Branch("PLT", &PLT, "PLT/F");
-    int truth_type; outputTree->Branch("truth_type", &truth_type, "truth_type/I");
+    int entry_n; unnormedTree->Branch("event_n", &entry_n, "event_n/I");
+    int pdgID; unnormedTree->Branch("pdgID", &pdgID, "pdgID/I");
+    int truth_type; unnormedTree->Branch("truth_type", &truth_type, "truth_type/I");
 
-    vector<float>* trk_lep_dR = new vector<float>; outputTree->Branch("trk_lep_dR", "vector<float>", &trk_lep_dR);
-    vector<float>* trk_pT = new vector<float>; outputTree->Branch("trk_pT", "vector<float>", &trk_pT);
-    vector<float>* trk_eta = new vector<float>; outputTree->Branch("trk_eta", "vector<float>", &trk_eta);
-    vector<float>* trk_phi = new vector<float>; outputTree->Branch("trk_phi", "vector<float>", &trk_phi);
-    vector<float>* trk_d0 = new vector<float>; outputTree->Branch("trk_d0", "vector<float>", &trk_d0);
-    vector<float>* trk_z0 = new vector<float>; outputTree->Branch("trk_z0", "vector<float>", &trk_z0);
-    vector<float>* trk_lep_dEta = new vector<float>; outputTree->Branch("trk_lep_dEta", "vector<float>", &trk_lep_dEta);
-    vector<float>* trk_lep_dPhi = new vector<float>; outputTree->Branch("trk_lep_dPhi", "vector<float>", &trk_lep_dPhi);
-    vector<float>* trk_lep_dD0 = new vector<float>; outputTree->Branch("trk_lep_dD0", "vector<float>", &trk_lep_dD0);
-    vector<float>* trk_lep_dZ0 = new vector<float>; outputTree->Branch("trk_lep_dZ0", "vector<float>", &trk_lep_dZ0);
-    vector<int>* trk_charge = new vector<int>; outputTree->Branch("trk_charge", "vector<int>", &trk_charge);
-    vector<float>* trk_chi2 = new vector<float>; outputTree->Branch("trk_chi2", "vector<float>", &trk_chi2);
-    vector<int>* nIBLHits = new vector<int>; outputTree->Branch("trk_nIBLHits", "vector<int>", &nIBLHits);
-    vector<int>* nPixHits = new vector<int>; outputTree->Branch("trk_nPixHits", "vector<int>", &nPixHits);
-    vector<int>* nPixHoles = new vector<int>; outputTree->Branch("trk_nPixHoles", "vector<int>", &nPixHoles);
-    vector<int>* nPixOutliers = new vector<int>; outputTree->Branch("trk_nPixOutliers", "vector<int>", &nPixOutliers);
-    vector<int>* nSCTHits = new vector<int>; outputTree->Branch("trk_nSCTHits", "vector<int>", &nSCTHits);
-    vector<int>* nSCTHoles = new vector<int>; outputTree->Branch("trk_nSCTHoles", "vector<int>", &nSCTHoles);
-    vector<int>* nTRTHits = new vector<int>; outputTree->Branch("trk_nTRTHits", "vector<int>", &nTRTHits);
+    float ptcone20; unnormedTree->Branch("ptcone20", &ptcone20, "ptcone20/F");
+    float ptcone30; unnormedTree->Branch("ptcone30", &ptcone30, "ptcone30/F");
+    float ptcone40; unnormedTree->Branch("ptcone40", &ptcone40, "ptcone40/F");
+    float ptvarcone20; unnormedTree->Branch("ptvarcone20", &ptvarcone20, "ptvarcone20/F");
+    float ptvarcone30; unnormedTree->Branch("ptvarcone30", &ptvarcone30, "ptvarcone30/F");
+    float ptvarcone40; unnormedTree->Branch("ptvarcone40", &ptvarcone40, "ptvarcone40/F");
+    float topoetcone20; unnormedTree->Branch("topoetcone20", &topoetcone20, "topoetcone20/F");
+    float topoetcone30; unnormedTree->Branch("topoetcone30", &topoetcone30, "topoetcone30/F");
+    float topoetcone40; unnormedTree->Branch("topoetcone40", &topoetcone40, "topoetcone40/F");
+    float eflowcone20; unnormedTree->Branch("eflowcone20", &eflowcone20, "eflowcone20/F");
+    float PLT; unnormedTree->Branch("PLT", &PLT, "PLT/F");
+
+    float lep_pT; unnormedTree->Branch("lep_pT", &lep_pT, "lep_pT/F");
+    float lep_eta; unnormedTree->Branch("lep_eta", &lep_eta, "lep_eta/F");
+    float lep_theta; unnormedTree->Branch("lep_theta", &lep_theta, "lep_theta/F");
+    float lep_phi; unnormedTree->Branch("lep_phi", &lep_phi, "lep_phi/F");
+    float lep_d0; unnormedTree->Branch("lep_d0", &lep_d0, "lep_d0/F");
+    float lep_d0_over_sigd0; unnormedTree->Branch("lep_d0_over_sigd0", &lep_d0_over_sigd0, "lep_d0_over_sigd0/F");
+    float lep_z0; unnormedTree->Branch("lep_z0", &lep_z0, "lep_z0/F");
+    float lep_dz0; unnormedTree->Branch("lep_dz0", &lep_dz0, "lep_dz0/F");
+
+    vector<float>* trk_lep_dR = new vector<float>; unnormedTree->Branch("trk_lep_dR", "vector<float>", &trk_lep_dR);
+    vector<float>* trk_pT = new vector<float>; unnormedTree->Branch("trk_pT", "vector<float>", &trk_pT);
+    vector<float>* trk_eta = new vector<float>; unnormedTree->Branch("trk_eta", "vector<float>", &trk_eta);
+    vector<float>* trk_phi = new vector<float>; unnormedTree->Branch("trk_phi", "vector<float>", &trk_phi);
+    vector<float>* trk_d0 = new vector<float>; unnormedTree->Branch("trk_d0", "vector<float>", &trk_d0);
+    vector<float>* trk_z0 = new vector<float>; unnormedTree->Branch("trk_z0", "vector<float>", &trk_z0);
+    vector<float>* trk_lep_dEta = new vector<float>; unnormedTree->Branch("trk_lep_dEta", "vector<float>", &trk_lep_dEta);
+    vector<float>* trk_lep_dPhi = new vector<float>; unnormedTree->Branch("trk_lep_dPhi", "vector<float>", &trk_lep_dPhi);
+    vector<float>* trk_lep_dD0 = new vector<float>; unnormedTree->Branch("trk_lep_dD0", "vector<float>", &trk_lep_dD0);
+    vector<float>* trk_lep_dZ0 = new vector<float>; unnormedTree->Branch("trk_lep_dZ0", "vector<float>", &trk_lep_dZ0);
+    vector<float>* trk_chi2 = new vector<float>; unnormedTree->Branch("trk_chi2", "vector<float>", &trk_chi2);
+    vector<int>* trk_charge = new vector<int>; unnormedTree->Branch("trk_charge", "vector<int>", &trk_charge);
+    vector<int>* trk_nIBLHits = new vector<int>; unnormedTree->Branch("trk_nIBLHits", "vector<int>", &trk_nIBLHits);
+    vector<int>* trk_nPixHits = new vector<int>; unnormedTree->Branch("trk_nPixHits", "vector<int>", &trk_nPixHits);
+    vector<int>* trk_nPixHoles = new vector<int>; unnormedTree->Branch("trk_nPixHoles", "vector<int>", &trk_nPixHoles);
+    vector<int>* trk_nPixOutliers = new vector<int>; unnormedTree->Branch("trk_nPixOutliers", "vector<int>", &trk_nPixOutliers);
+    vector<int>* trk_nSCTHits = new vector<int>; unnormedTree->Branch("trk_nSCTHits", "vector<int>", &trk_nSCTHits);
+    vector<int>* trk_nSCTHoles = new vector<int>; unnormedTree->Branch("trk_nSCTHoles", "vector<int>", &trk_nSCTHoles);
+    vector<int>* trk_nTRTHits = new vector<int>; unnormedTree->Branch("trk_nTRTHits", "vector<int>", &trk_nTRTHits);
 
     // Event objects
     const xAOD::TrackParticleContainer *tracks;
@@ -187,8 +190,8 @@ int main (int argc, char *argv[]) {
         trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
         trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); trk_chi2->clear();
         trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
-        nIBLHits->clear(); nPixHits->clear(); nPixHoles->clear(); nPixOutliers->clear();
-        nSCTHits->clear(); nSCTHoles->clear(); nTRTHits->clear();
+        trk_nIBLHits->clear(); trk_nPixHits->clear(); trk_nPixHoles->clear(); trk_nPixOutliers->clear();
+        trk_nSCTHits->clear(); trk_nSCTHoles->clear(); trk_nTRTHits->clear();
         set<const xAOD::TrackParticle*> own_tracks;
         if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
         else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
@@ -217,13 +220,13 @@ int main (int argc, char *argv[]) {
             trk_lep_dZ0->push_back(track->z0() - lep_z0);
 
             uint8_t placeholder;
-            track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); nIBLHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelHits); nPixHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelHoles); nPixHoles->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); nPixOutliers->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfSCTHits); nSCTHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfSCTHoles); nSCTHoles->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfTRTHits); nTRTHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); trk_nIBLHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHits); trk_nPixHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHoles); trk_nPixHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); trk_nPixOutliers->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHits); trk_nSCTHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHoles); trk_nSCTHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
         }
 
         return true;
@@ -255,8 +258,9 @@ int main (int argc, char *argv[]) {
 
     // Loop over entries
     int entries = event.getEntries();
+    cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
-    //entries = 10000;
+    entries = 1000;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
@@ -290,7 +294,7 @@ int main (int argc, char *argv[]) {
             pdgID = 11;
             if (!process_lepton(electron, electron->trackParticle(), true)) continue;
             new_filtered_electrons.push_back(electron_info);
-            outputTree->Fill();
+            unnormedTree->Fill();
         }
         for (auto muon_info : filtered_muons) {
             const xAOD::Muon* muon = muon_info.first;
@@ -298,7 +302,7 @@ int main (int argc, char *argv[]) {
             pdgID = 13;
             if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
             new_filtered_muons.push_back(muon_info);
-            outputTree->Fill();
+            unnormedTree->Fill();
         }
         update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
 
@@ -326,8 +330,81 @@ int main (int argc, char *argv[]) {
         update_cutflow(isolated_filtered_electrons, isolated_filtered_muons, 3);
     }
 
+    cout << "\n" << endl;
     print_cutflow(); // Print # leptons passing each step
-    outputTree->Write();
+    unnormedTree->Write();
+
+    // Create normalized tree
+    cout << "\nCreating normalized tree" << endl;
+    TTree* normalizedTree = new TTree("NormalizedTree", "normalized tree");
+    TObjArray* myBranches = (TObjArray*)(unnormedTree->GetListOfBranches())->Clone();
+    myBranches->SetOwner(kFALSE);
+
+    for (int i=0; i<myBranches->GetEntries(); i++) {
+
+        // Get branch
+        string currentBranchName = myBranches->At(i)->GetName();
+        TBranch* currentBranch = unnormedTree->GetBranch((TString)currentBranchName);
+
+        // Find data type of branch
+        TClass* branchClass; EDataType branchType;
+        currentBranch->GetExpectedType(branchClass, branchType);
+        string varType;
+        if (branchType == -1)
+            varType = currentBranch->GetClassName();
+        else if (branchType == 3)
+            varType = "I";
+        else if (branchType == 5)
+            varType = "F";
+        else {
+            cout << "Unrecognized branch type" << endl;
+            exit(0);
+        }
+
+        // Get branch mean and RMS
+        TH1F* histo = new TH1F("histo", "", 1, -1000000, 100000);
+        unnormedTree->Draw((currentBranchName + ">>histo").c_str());
+        float branchMean = histo->GetMean();
+        float branchRMS = histo->GetRMS();
+        delete histo;
+        if (currentBranchName.rfind("lep_",0)!=0 && currentBranchName.rfind("trk_",0)!=0) {
+            // don't normalize branches that don't start with lep_ or trk_
+            branchMean = 0;
+            branchRMS = 1;
+        }
+
+        // Fill tree with normalized branch
+        unnormedTree->SetBranchStatus(currentBranchName.c_str(), 1);
+        int intVar; float floatVar;
+        vector<int>* intVecVar = new vector<int>; vector<float>* floatVecVar = new vector<float>;
+        auto fillNonVecBranch = [&] (auto branchVar) {
+            unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
+            normalizedTree->Branch(currentBranchName.c_str(), &branchVar, (currentBranchName+"/"+varType).c_str());
+            Long64_t nentries = unnormedTree->GetEntries();
+            for (Long64_t i=0; i<nentries; i++) {
+                unnormedTree->GetEntry(i);
+                branchVar = (branchVar-branchMean) / branchRMS;
+                normalizedTree->Fill();
+            }
+        };
+        auto fillVecBranch = [&] (auto branchVar) {
+            unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
+            normalizedTree->Branch(currentBranchName.c_str(), varType.c_str(), &branchVar);
+            Long64_t nentries = unnormedTree->GetEntries();
+            for (Long64_t i=0; i<nentries; i++) {
+                unnormedTree->GetEntry(i);
+                for (int i=0; i<branchVar->size(); i++) {
+                    branchVar->at(i) = (branchVar->at(i)-branchMean) / branchRMS;
+                }
+                normalizedTree->Fill();
+            }
+        };
+        if (varType == "I") fillNonVecBranch(intVar);
+        else if (varType == "F") fillNonVecBranch(floatVar);
+        else if (varType == "vector<int>") fillVecBranch(intVecVar);
+        else if (varType == "vector<float>") fillVecBranch(floatVecVar);
+    }
+    normalizedTree->Write();
 
     outputFile.Close();
     delete fChain;

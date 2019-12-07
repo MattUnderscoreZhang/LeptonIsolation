@@ -24,7 +24,7 @@ using namespace std;
 
 static SG::AuxElement::ConstAccessor<char> cacc_lhmedium("DFCommonElectronsLHMedium");
 static SG::AuxElement::ConstAccessor<char> cacc_lhloos("DFCommonElectronsLHLoose");
-static SG::AuxElelemt::ConstAccessor<char> cacc_lhtight("DFCommonElectronLHTight");
+static SG::AuxElement::ConstAccessor<char> cacc_lhtight("DFCommonElectronLHTight");
 class ObjectFilters {
 
     public:

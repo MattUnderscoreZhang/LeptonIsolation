@@ -73,8 +73,11 @@ def plot_ROOT_ROC(options, test_raw_results, test_truth):
     data_tree = getattr(data_file, options["tree_name"])
 
     # get truth info for all events
-    truth_type = data_tree.truth_type
-    isolated = [int(i in [2, 6]) for i in truth_type]
+    truth_type = []
+    for i in range(data_tree.GetEntries()):
+        data_tree.GetEntry(i)
+        truth_type.append(data_tree.truth_type)
+    isolated = [int(int(i) in [2, 6]) for i in truth_type]
 
     # get baseline features for all events
     baselines = {}

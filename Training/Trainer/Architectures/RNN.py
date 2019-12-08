@@ -235,9 +235,9 @@ class Model(nn.Module):
             sorted_tracks = track_info[indices].to(self.device)
             sorted_leptons = lepton_info[indices].to(self.device)
             ## padding sequences - turned off for now, due to 0-track leptons
-            # padded_seq = hot_fixed_pack_padded_sequence(
-                # track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
-            padded_seq = sorted_tracks
+            padded_seq = hot_fixed_pack_padded_sequence(
+                track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
+            #padded_seq = sorted_tracks
 
             output = self.forward(padded_seq, sorted_leptons).to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())

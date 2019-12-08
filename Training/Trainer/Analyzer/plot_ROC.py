@@ -1,5 +1,4 @@
 import matplotlib
-
 matplotlib.use("Agg")  # NOQA
 import matplotlib.pyplot as plt
 from sklearn import metrics
@@ -7,12 +6,12 @@ import pickle as pkl
 import numpy as np
 
 
-def plot_ROC(data_filename, test_raw_results, test_truth):
+def plot_ROC(options, test_raw_results, test_truth):
 
-    # pdb.set_trace()
     fig = plt.figure()
     plt.clf()
     # open file
+    data_filename = options["input_data"]
     with open(data_filename, "rb") as data_file:
         leptons_with_tracks = pkl.load(data_file, encoding="latin1")
 
@@ -23,16 +22,7 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
         int(lepton[lepton_keys.index("truth_type")] in [2, 6]) for lepton in leptons
     ]
     baselines = {}
-    baseline_keys = [
-        "ptcone20",
-        "ptcone30",
-        "ptcone40",
-        "ptvarcone20",
-        "ptvarcone30",
-        "ptvarcone40",
-        "PLT",
-    ]
-    for key in baseline_keys:
+    for key in options["baseline_features"]:
         baselines[key] = [lepton[lepton_keys.index(key)] for lepton in leptons]
         max_key = max(baselines[key])
         min_key = min(baselines[key])
@@ -45,11 +35,11 @@ def plot_ROC(data_filename, test_raw_results, test_truth):
     good_leptons = [lepton[lepton_keys.index("ptcone20")] > 0 for lepton in leptons]
     leptons = np.array(leptons)[good_leptons]
     isolated = np.array(isolated)[good_leptons]
-    for key in baseline_keys:
+    for key in options["baselines"]:
         baselines[key] = np.array(baselines[key])[good_leptons]
 
     # make ROC comparison plots
-    for key in baseline_keys:
+    for key in options["baselines"]:
         fpr, tpr, thresholds = metrics.roc_curve(isolated, baselines[key])
         # roc_auc = metrics.auc(fpr, tpr)
         plt.plot(fpr, tpr, lw=2, label=key)

@@ -100,9 +100,9 @@ class Model(nn.Module):
         super().__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
-        self.input_size = options["track_size"]
+        self.n_trk_features = options["n_trk_features"]
         self.hidden_size = options["hidden_neurons"]
-        self.lepton_size = options["lepton_size"]
+        self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
@@ -117,7 +117,7 @@ class Model(nn.Module):
 
         if options["RNN_type"] == "RNN":
             self.rnn = nn.RNN(
-                input_size=self.input_size,
+                input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
@@ -126,7 +126,7 @@ class Model(nn.Module):
         elif options["RNN_type"] == "LSTM":
             self.cellstate = True
             self.rnn = nn.LSTM(
-                input_size=self.input_size,
+                input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
@@ -134,14 +134,14 @@ class Model(nn.Module):
             ).to(self.device)
         else:
             self.rnn = nn.GRU(
-                input_size=self.input_size,
+                input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-        self.fc = nn.Linear(self.hidden_size + self.lepton_size , self.output_size).to(self.device)
+        self.fc = nn.Linear(self.hidden_size + self.n_lep_features , self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(

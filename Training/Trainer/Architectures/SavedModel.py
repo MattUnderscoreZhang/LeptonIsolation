@@ -39,9 +39,7 @@ class SavedModel(nn.Module):
         super().__init__()
         self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
-        self.input_size = options["track_size"]
         self.hidden_size = options["hidden_neurons"]
-        self.lepton_size = options["lepton_size"]
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]

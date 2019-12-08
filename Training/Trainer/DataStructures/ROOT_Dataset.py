@@ -16,12 +16,13 @@ class ROOT_Dataset(Dataset):
         shuffle_indices: shuffles the readable event indices into a random order
     """
 
-    def __init__(self, data_filename, readable_event_indices, options):
+    def __init__(self, data_filename, readable_event_indices, options, shuffle_indices=True):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
         self.data_tree = getattr(self.data_file, options["tree_name"])
         self.event_order = readable_event_indices
-        self.shuffle_indices()
+        if shuffle_indices:
+            self.shuffle_indices()
         self.options = options
 
     def shuffle_indices(self):
@@ -33,6 +34,7 @@ class ROOT_Dataset(Dataset):
         truth = self.data_tree.truth_type
         lepton = []
         transposed_tracks = []
+        # import pdb; pdb.set_trace()
         for lep_feature in self.options["lep_features"]:
             lepton.append(getattr(self.data_tree, lep_feature))
         for trk_feature in self.options["trk_features"]:

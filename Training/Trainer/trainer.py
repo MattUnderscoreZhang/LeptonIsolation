@@ -1,6 +1,7 @@
 import random
 import pathlib
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
@@ -52,22 +53,39 @@ class RNN_Agent:
         Returns:
             train_loader, test_loader
         """
-        # split test and train
+        # load data files
+        print("Loading data")
         data_file = TFile(data_filename)
         data_tree = getattr(data_file, self.options["tree_name"])
         n_events = data_tree.GetEntries()
-        n_training_events = int(self.options["training_split"] * n_events)
         data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
-        event_indices = list(range(n_events))
-        random.shuffle(event_indices)
-        train_event_indices = event_indices[:n_training_events]
-        test_event_indices = event_indices[n_training_events:]
+        # perform class balancing
+        print("Balancing classes")
+        event_indices = np.array(range(n_events))
+        full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
+        truth_values = [bool(truth.numpy()[0]) for _, _, truth in full_dataset]
+        class_0_indices = event_indices[[i for i in truth_values]]
+        class_1_indices = event_indices[[not i for i in truth_values]]
+        n_each_class = min(len(class_0_indices), len(class_1_indices))
+        random.shuffle(class_0_indices)
+        random.shuffle(class_1_indices)
+        balanced_event_indices = class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
+        n_balanced_events = len(balanced_event_indices)
+        del full_dataset
+
+        # split test and train
+        print("Splitting test and training events")
+        random.shuffle(balanced_event_indices)
+        n_training_events = int(self.options["training_split"] * n_balanced_events)
+        train_event_indices = balanced_event_indices[:n_training_events]
+        test_event_indices = balanced_event_indices[n_training_events:]
 
         train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
         test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
         # prepare the data loaders
+        print("Prepping data loaders")
         train_loader = DataLoader(
             train_set,
             batch_size=self.options["batch_size"],
@@ -82,7 +100,6 @@ class RNN_Agent:
             shuffle=True,
             drop_last=True,
         )
-
         return train_loader, test_loader
 
     def train_and_test(self, do_print=True):
@@ -94,7 +111,7 @@ class RNN_Agent:
             training loss
         """
         def _train(Print=True):
-            """trains the model and logs its characteristics for tensorboard
+            """Trains the model and logs its characteristics with tensorboard.
 
             Args:
                 Print (bool, True by default): Specifies whether to print training characteristics on each step

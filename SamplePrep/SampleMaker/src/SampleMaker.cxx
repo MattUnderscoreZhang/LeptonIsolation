@@ -35,19 +35,9 @@ int main (int argc, char *argv[]) {
     // Object filters
     ObjectFilters object_filters;
 
-    // Parse input - split input TFile names by ','
-    const char* ALG = argv[0];
-    string inputFilenames = argv[1];
-
+    // Open data files - all argv after argv[0] are file names
     std::vector<std::string> fileList;
-    for (size_t i=0,n; i <= inputFilenames.length(); i=n+1)
-    {
-        n = inputFilenames.find_first_of(',',i);
-        if (n == std::string::npos)
-            n = inputFilenames.length();
-        string tmp = inputFilenames.substr(i,n-i);
-        fileList.push_back(tmp);
-    }
+    for (int i=1; i < argc; i++) fileList.push_back(argv[i]);
 
     TChain* fChain = new TChain("CollectionTree");
     for (unsigned int iFile=0; iFile<fileList.size(); ++iFile)
@@ -57,6 +47,7 @@ int main (int argc, char *argv[]) {
     }
 
     // Connect the event object to input files
+    const char* ALG = argv[0];
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
     RETURN_CHECK(ALG, event.readFrom(fChain));
@@ -263,7 +254,7 @@ int main (int argc, char *argv[]) {
     int entries = event.getEntries();
     cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
-    entries = 1000;
+    //entries = 1000;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
@@ -379,8 +370,6 @@ int main (int argc, char *argv[]) {
 
         // Fill tree with normalized branch
         unnormedTree->SetBranchStatus(currentBranchName.c_str(), 1);
-        int intVar; float floatVar;
-        vector<int>* intVecVar = new vector<int>; vector<float>* floatVecVar = new vector<float>;
         auto fillNonVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
             float newFloatVar;
@@ -398,11 +387,13 @@ int main (int argc, char *argv[]) {
             for (int i=0; i<treeEntries; i++) {
                 unnormedTree->GetEntry(i);
                 newFloatVecVar->clear();
-                for (int i=0; i<branchVar->size(); i++)
+                for (size_t i=0; i<branchVar->size(); i++)
                     newFloatVecVar->push_back((branchVar->at(i)-branchMean) / branchRMS);
                 normalizedBranch->Fill();
             }
         };
+        int intVar = -1; float floatVar = -1;
+        vector<int>* intVecVar = new vector<int>; vector<float>* floatVecVar = new vector<float>;
         if (varType == "I") fillNonVecBranch(intVar);
         else if (varType == "F") fillNonVecBranch(floatVar);
         else if (varType == "vector<int>") fillVecBranch(intVecVar);

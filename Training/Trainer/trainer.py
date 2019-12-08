@@ -50,8 +50,8 @@ class RNN_Agent:
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
             truth_values = [bool(truth.numpy()[0]) for _, _, truth in full_dataset]
-            class_0_indices = event_indices[[i for i in truth_values]]
-            class_1_indices = event_indices[[not i for i in truth_values]]
+            class_0_indices = list(event_indices[[i for i in truth_values]])
+            class_1_indices = list(event_indices[[not i for i in truth_values]])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)
@@ -147,7 +147,7 @@ class RNN_Agent:
         def _test():
             """Evaluates the model on testing batches and saves ROC curve to history logger."""
             _, _, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
-            ROC_fig = plot_ROC.plot_ROC(self.options, test_raw_results, test_truth)
+            ROC_fig = plot_ROC.plot_ROOT_ROC(self.options, test_raw_results, test_truth)
             self.history_logger.add_figure("ROC", ROC_fig)
 
         _train(do_print)

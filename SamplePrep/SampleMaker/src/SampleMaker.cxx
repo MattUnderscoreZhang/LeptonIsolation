@@ -35,19 +35,9 @@ int main (int argc, char *argv[]) {
     // Object filters
     ObjectFilters object_filters;
 
-    // Parse input - split input TFile names by ','
-    const char* ALG = argv[0];
-    string inputFilenames = argv[1];
-
+    // Open data files - all argv after argv[0] are file names
     std::vector<std::string> fileList;
-    for (size_t i=0,n; i <= inputFilenames.length(); i=n+1)
-    {
-        n = inputFilenames.find_first_of(',',i);
-        if (n == std::string::npos)
-            n = inputFilenames.length();
-        string tmp = inputFilenames.substr(i,n-i);
-        fileList.push_back(tmp);
-    }
+    for (int i=1; i < argc; i++) fileList.push_back(argv[i]);
 
     TChain* fChain = new TChain("CollectionTree");
     for (unsigned int iFile=0; iFile<fileList.size(); ++iFile)
@@ -57,6 +47,7 @@ int main (int argc, char *argv[]) {
     }
 
     // Connect the event object to input files
+    const char* ALG = argv[0];
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
     RETURN_CHECK(ALG, event.readFrom(fChain));
@@ -173,7 +164,7 @@ int main (int argc, char *argv[]) {
         bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
         if (!passes_cuts) return false;
 
-        // get tracks associated to lepton
+        // store tracks associated to lepton in dR cone of 0.5
         auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
             set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
             return electron_tracks;
@@ -186,7 +177,6 @@ int main (int argc, char *argv[]) {
             return muon_tracks;
         };
 
-        // store tracks in dR cone of 0.5
         trk_lep_dR->clear(); trk_pT->clear(); trk_eta->clear(); trk_phi->clear();
         trk_d0->clear(); trk_z0->clear(); trk_charge->clear(); trk_chi2->clear();
         trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
@@ -196,6 +186,7 @@ int main (int argc, char *argv[]) {
         if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
         else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
 
+        bool has_associated_tracks = false;
         for (auto track : filtered_tracks) {
             if (!track->vertex() or track->vertex()!=primary_vertex) continue;
             bool matches_own_track = false;
@@ -204,6 +195,8 @@ int main (int argc, char *argv[]) {
             if (matches_own_track) continue;
             float dR = track->p4().DeltaR(lepton->p4());
             if (dR > 0.5) continue; 
+
+            has_associated_tracks = true;
 
             trk_lep_dR->push_back(dR);
             trk_pT->push_back(track->pt());
@@ -229,7 +222,8 @@ int main (int argc, char *argv[]) {
             track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
         }
 
-        return true;
+        // remove leptons with no associated tracks
+        return has_associated_tracks;
     };
 
     // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
@@ -260,7 +254,7 @@ int main (int argc, char *argv[]) {
     int entries = event.getEntries();
     cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
-    entries = 1000;
+    //entries = 1000;
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
@@ -339,6 +333,7 @@ int main (int argc, char *argv[]) {
     TTree* normalizedTree = new TTree("NormalizedTree", "normalized tree");
     TObjArray* myBranches = (TObjArray*)(unnormedTree->GetListOfBranches())->Clone();
     myBranches->SetOwner(kFALSE);
+    Long64_t treeEntries = unnormedTree->GetEntries();
 
     for (int i=0; i<myBranches->GetEntries(); i++) {
 
@@ -375,35 +370,36 @@ int main (int argc, char *argv[]) {
 
         // Fill tree with normalized branch
         unnormedTree->SetBranchStatus(currentBranchName.c_str(), 1);
-        int intVar; float floatVar;
-        vector<int>* intVecVar = new vector<int>; vector<float>* floatVecVar = new vector<float>;
         auto fillNonVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
-            normalizedTree->Branch(currentBranchName.c_str(), &branchVar, (currentBranchName+"/"+varType).c_str());
-            Long64_t nentries = unnormedTree->GetEntries();
-            for (Long64_t i=0; i<nentries; i++) {
+            float newFloatVar;
+            TBranch* normalizedBranch = normalizedTree->Branch(currentBranchName.c_str(), &newFloatVar, (currentBranchName+"/F").c_str());
+            for (Long64_t i=0; i<treeEntries; i++) {
                 unnormedTree->GetEntry(i);
-                branchVar = (branchVar-branchMean) / branchRMS;
-                normalizedTree->Fill();
+                newFloatVar = (branchVar-branchMean) / branchRMS;
+                normalizedBranch->Fill();
             }
         };
         auto fillVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
-            normalizedTree->Branch(currentBranchName.c_str(), varType.c_str(), &branchVar);
-            Long64_t nentries = unnormedTree->GetEntries();
-            for (Long64_t i=0; i<nentries; i++) {
+            vector<float>* newFloatVecVar = new vector<float>;
+            TBranch* normalizedBranch = normalizedTree->Branch(currentBranchName.c_str(), "vector<float>", &newFloatVecVar);
+            for (int i=0; i<treeEntries; i++) {
                 unnormedTree->GetEntry(i);
-                for (int i=0; i<branchVar->size(); i++) {
-                    branchVar->at(i) = (branchVar->at(i)-branchMean) / branchRMS;
-                }
-                normalizedTree->Fill();
+                newFloatVecVar->clear();
+                for (size_t i=0; i<branchVar->size(); i++)
+                    newFloatVecVar->push_back((branchVar->at(i)-branchMean) / branchRMS);
+                normalizedBranch->Fill();
             }
         };
+        int intVar = -1; float floatVar = -1;
+        vector<int>* intVecVar = new vector<int>; vector<float>* floatVecVar = new vector<float>;
         if (varType == "I") fillNonVecBranch(intVar);
         else if (varType == "F") fillNonVecBranch(floatVar);
         else if (varType == "vector<int>") fillVecBranch(intVecVar);
         else if (varType == "vector<float>") fillVecBranch(floatVecVar);
     }
+    normalizedTree->SetEntries(treeEntries);
     normalizedTree->Write();
 
     outputFile.Close();

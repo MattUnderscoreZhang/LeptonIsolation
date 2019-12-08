@@ -27,7 +27,7 @@ def Tensor_length(track):
         Length (int) of the tensor were it not zero-padded
 
     """
-    return len(set([i[0] for i in torch.nonzero(track).numpy()]))
+    return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
 
 def hot_fixed_pack_padded_sequence(input, lengths, batch_first=False, enforce_sorted=True):

@@ -49,7 +49,7 @@ class RNN_Agent:
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            truth_values = [bool(truth.numpy()[0]) for _, _, truth in full_dataset]
+            truth_values = [bool(truth.cpu().numpy()[0]) for _, _, truth in full_dataset]
             class_0_indices = event_indices[[i for i in truth_values]]
             class_1_indices = event_indices[[not i for i in truth_values]]
             n_each_class = min(len(class_0_indices), len(class_1_indices))

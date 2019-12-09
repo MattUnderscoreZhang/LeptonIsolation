@@ -93,7 +93,7 @@ class TrainRNN(Trainable):
         self.leptons_with_tracks = self.args.dataset
 
         self.training_events = self.leptons_with_tracks[: self.n_training_events]
-        self.test_events = self.leptons_with_tracks[self.n_training_events :]
+        self.test_events = self.leptons_with_tracks[self.n_training_events:]
         # prepare the generators
         self.train_set = Torchdata(self.training_events)
         self.test_set = Torchdata(self.test_events)
@@ -207,8 +207,6 @@ def get_dataset(options):
 
     data_file = options["input_data"]
     leptons_with_tracks = pkl.load(open(data_file, "rb"), encoding="latin1")
-    options["lepton_size"] = len(leptons_with_tracks["lepton_labels"])
-    options["track_size"] = len(leptons_with_tracks["track_labels"])
     lwt = list(
         zip(leptons_with_tracks["normed_leptons"], leptons_with_tracks["normed_tracks"])
     )

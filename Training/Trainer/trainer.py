@@ -93,12 +93,12 @@ class RNN_Agent:
         self.history_logger = SummaryWriter()
 
         # load previous state if training is resuming
-        self.epoch0 = 0
+        self.resumed_epoch_n = 0
         if self.options["continue_training"] is True:
             saved_agent = torch.load(self.options["model_path"])
             self.model.load_state_dict(saved_agent['model_state_dict'])
             self.model.optimizer.load_state_dict(saved_agent['optimizer_state_dict'])
-            self.epoch0 = saved_agent['epoch']
+            self.resumed_epoch_n = saved_agent['epoch']
         print("Model parameters:\n{}".format(self.model.parameters))
 
     def train_and_test(self, do_print=True):
@@ -117,25 +117,25 @@ class RNN_Agent:
             Returns:
                 None
             """
-            for epoch_n in range(self.options["n_epochs"]):
+            for epoch_n in range(self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n):
                 train_loss, train_acc, _, train_truth = self.model.do_train(self.train_loader)
                 test_loss, test_acc, _, test_truth = self.model.do_eval(self.test_loader)
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Loss/Train Loss", train_loss, self.epoch0 + epoch_n)
-                self.history_logger.add_scalar("Loss/Test Loss", test_loss, self.epoch0 + epoch_n)
+                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, epoch_n)
+                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, epoch_n)
+                self.history_logger.add_scalar("Loss/Train Loss", train_loss, epoch_n)
+                self.history_logger.add_scalar("Loss/Test Loss", test_loss, epoch_n)
                 for name, param in self.model.named_parameters():
-                    self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), self.epoch0 + epoch_n)
+                    self.history_logger.add_histogram(name, param.clone().cpu().data.numpy(), epoch_n)
 
                 if Print:
                     print(
                         "Epoch: %03d, Train Loss: %0.4f, Train Acc: %0.4f, "
                         "Test Loss: %0.4f, Test Acc: %0.4f"
-                        % (self.epoch0 + epoch_n, train_loss, train_acc, test_loss, test_acc)
+                        % (epoch_n, train_loss, train_acc, test_loss, test_acc)
                     )
-                if (self.epoch0 + epoch_n) % 10 == 0:
+                if (epoch_n) % 10 == 0:
                     torch.save({
-                        'epoch': self.epoch0 + epoch_n,
+                        'epoch': epoch_n,
                         'model_state_dict': self.model.state_dict(),
                         'optimizer_state_dict': self.model.optimizer.state_dict(),
                         'train_loss': train_loss,
@@ -157,7 +157,7 @@ class RNN_Agent:
         """saves the model and closes the TensorBoard SummaryWriter."""
         if not pathlib.Path(self.options["output_folder"]).exists():
             pathlib.Path(self.options["output_folder"]).mkdir(parents=True)
-        self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
+        # self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
 
 

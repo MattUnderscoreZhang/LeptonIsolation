@@ -7,4 +7,4 @@ isolator.py is the steering file. It's in charge of performing training, saving 
 Edit isolator.py and run with "python isolator.py".
 
 The model will save every 10 epochs to the outputs folder.
-To continue training the saved model pass the flad " --continue " while running isolator
+To continue training the saved model pass the flag " --continue " while running isolator

@@ -12,9 +12,11 @@ Todo:
 
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
+import torch.nn.functional as F
+from torch.nn.utils.rnn import PackedSequence
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+import warnings
 
 
 def Tensor_length(track):
@@ -67,8 +69,8 @@ def hot_fixed_pack_padded_sequence(input, lengths, batch_first=False, enforce_so
                       'values, and it will treat them as constants, likely rendering '
                       'the trace incorrect for any other combination of lengths.',
                       category=torch.jit.TracerWarning, stacklevel=2)
-    lengths = torch.as_tensor(lengths, dtype=torch.int64, device = "cpu")
-    #lengths = lengths.cpu()
+    lengths = torch.as_tensor(lengths, dtype=torch.int64, device="cpu")
+    # lengths = lengths.cpu()
     if enforce_sorted:
         sorted_indices = None
     else:
@@ -141,7 +143,9 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-        self.fc = nn.Linear(self.hidden_size + self.n_lep_features , self.output_size).to(self.device)
+        self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
+        self.fc2 = nn.Linear(128, 128).to(self.device)
+        self.fc3 = nn.Linear(128, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss()
         self.optimizer = torch.optim.Adam(
@@ -167,8 +171,12 @@ class Model(nn.Module):
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
 
-        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim = 1).to(self.device)
-        out = self.fc(combined_out).to(self.device)
+        combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
+        out = self.fc1(combined_out).to(self.device)
+        out = F.relu(out)
+        out = self.fc2(out)
+        out = F.relu(out)
+        out = self.fc3(out)
         out = self.softmax(out).to(self.device)
         return out
 
@@ -228,16 +236,14 @@ class Model(nn.Module):
                 [Tensor_length(track_info[i]) for i in range(len(track_info))]
             ).cpu()
 
-
             sorted_n, indices = torch.sort(n_tracks, descending=True)
-            # reodering information according to sorted indices
-            # if padding is required, this should be changed to make sorting more efficient
-            sorted_tracks = track_info[indices].to(self.device)
+            # # reodering information according to sorted indices
+            # # if padding is required, this should be changed to make sorting more efficient
+            # sorted_tracks = track_info[indices].to(self.device)
             sorted_leptons = lepton_info[indices].to(self.device)
-            ## padding sequences - turned off for now, due to 0-track leptons
-            # padded_seq = hot_fixed_pack_padded_sequence(
-                # track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
-            padded_seq = sorted_tracks
+            # padding sequences
+            padded_seq = hot_fixed_pack_padded_sequence(
+                track_info, n_tracks.cpu(), batch_first=True, enforce_sorted=False)
 
             output = self.forward(padded_seq, sorted_leptons).to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())

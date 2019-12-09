@@ -88,6 +88,13 @@ def plot_ROOT_ROC(options, test_raw_results, test_truth):
             baseline_array.append(getattr(data_tree, key))
         baselines[key] = baseline_array
 
+    # remove features with NaNs
+    good_features = []
+    for key in options["baseline_features"]:
+        if not np.isnan(baselines[key]).any():
+            good_features.append(key)
+    options["baseline_features"] = good_features
+
     # normalize baseline features to be between 0 and 1
     for key in options["baseline_features"]:
         max_key = max(baselines[key])

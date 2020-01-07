@@ -66,7 +66,8 @@ class Model(nn.Module):
             ).to(self.device)
 
         # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
-        self.fc1 = nn.Linear(self.hidden_size, self.output_size).to(self.device)
+        self.fc1 = nn.Linear(
+            self.hidden_size, self.output_size).to(self.device)
         # self.fc2 = nn.Linear(128, 128).to(self.device)
         # self.fc3 = nn.Linear(128, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
@@ -164,7 +165,8 @@ class Model(nn.Module):
             batch_dim = 0 if batch_first else 1
             input = input.index_select(batch_dim, sorted_indices)
 
-        data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+        data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
+            input, lengths, batch_first)
         return PackedSequence(data, batch_sizes, sorted_indices)
 
     def do_train(self, batches, do_training=True):
@@ -205,9 +207,11 @@ class Model(nn.Module):
             truth = truth[:, 0].to(self.device)
 
             # sort and pack padded sequences
-            n_tracks = [self._tensor_length(track_info[i]) for i in range(len(track_info))]
+            n_tracks = [self._tensor_length(track_info[i])
+                        for i in range(len(track_info))]
             n_tracks = torch.tensor(n_tracks).cpu()
-            sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
+            sorted_n_tracks, sorted_indices = torch.sort(
+                n_tracks, descending=True)
             # this should be changed to make sorting more efficient
             sorted_tracks = track_info[sorted_indices].to(self.device)
             sorted_leptons = lepton_info[sorted_indices].to(self.device)
@@ -223,7 +227,8 @@ class Model(nn.Module):
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
             accuracy = float(
-                np.array((predicted.data.cpu().detach() == truth.data.cpu().detach()).sum().float() / len(truth))
+                np.array((predicted.data.cpu().detach() ==
+                          truth.data.cpu().detach()).sum().float() / len(truth))
             )
             total_acc += accuracy
             raw_results += output[:, 0].cpu().detach().tolist()

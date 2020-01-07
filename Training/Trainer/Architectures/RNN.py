@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import warnings
-
+import pdb
 class Model(nn.Module):
     """Model class implementing rnn inheriting structure from pytorch nn module
 
@@ -95,15 +96,20 @@ class Model(nn.Module):
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
 
+        pdb.set_trace()
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        combined_out = hidden[-1]
+        output, _ = pad_packed_sequence(output, batch_first = True)
+        output = output.contiguous()
+        combined_out = output.view(-1, output.shape[2])
         out = self.fc1(combined_out).to(self.device)
         # import pdb; pdb.set_trace()
         # out = F.relu(out)
         # out = self.fc2(out)
         # out = F.relu(out)
         # out = self.fc3(out)
-        out = self.softmax(out).to(self.device)
+        out = self.softmax(out)
+
+        out = out.view(self.batch_size, len(padded_seq.data), self.output_size)
         return out
 
     def _tensor_length(self, track):
@@ -116,7 +122,7 @@ class Model(nn.Module):
             Length (int) of the tensor were it not zero-padded
 
         """
-        return len(set([i[0] for i in torch.nonzero(track).numpy()]))
+        return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
     def _hot_fixed_pack_padded_sequence(self, input, lengths, batch_first=False, enforce_sorted=True):
         r"""Packs a Tensor containing padded sequences of variable length.
@@ -218,6 +224,9 @@ class Model(nn.Module):
             padded_seq = self._hot_fixed_pack_padded_sequence(
                 sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
 
+            # sorted_n_tracks = torch.as_tensor(sorted_n_tracks, dtype=torch.int64, device="cpu") 
+
+            # padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
             output = self.forward(padded_seq, sorted_leptons).to(self.device)
             loss = self.loss_function(output[:, 0], truth.float())
 
@@ -245,7 +254,7 @@ class Model(nn.Module):
                     "Loss/Test Loss", float(loss), i)
             for name, param in self.named_parameters():
                 self.history_logger.add_histogram(
-                    name, param.clone().cpu().data.numpy(), i
+                    name, param.clone().cpu().data.cpu().numpy(), i
                 )
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size

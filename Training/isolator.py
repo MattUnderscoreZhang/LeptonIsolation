@@ -47,7 +47,7 @@ if __name__ == "__main__":
     options["n_epochs"] = 100
     options["n_layers"] = 1
     options["hidden_neurons"] = 512
-    options["output_neurons"] = 1
+    options["output_neurons"] = 2
     options["bidirectional"] = False
     options["device"] = args.device
 

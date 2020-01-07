@@ -99,9 +99,9 @@ class Model(nn.Module):
         pdb.set_trace()
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
         output, _ = pad_packed_sequence(output, batch_first = True)
-        output = output.contiguous()
-        combined_out = output.view(-1, output.shape[2])
-        out = self.fc1(combined_out).to(self.device)
+        # output = output.contiguous()
+        combined_out = output.reshape(-1, output.shape[0]).transpose(0,1)
+        out = nn.Linear(combined_out.shape[1],self.output_size)(combined_out).to(self.device)
         # import pdb; pdb.set_trace()
         # out = F.relu(out)
         # out = self.fc2(out)
@@ -109,7 +109,7 @@ class Model(nn.Module):
         # out = self.fc3(out)
         out = self.softmax(out)
 
-        out = out.view(self.batch_size, len(padded_seq.data), self.output_size)
+        # out = out.view(self.batch_size, len(padded_seq.data), self.output_size)
         return out
 
     def _tensor_length(self, track):

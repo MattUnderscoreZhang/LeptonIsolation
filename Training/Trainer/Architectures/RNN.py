@@ -79,6 +79,8 @@ class Model(nn.Module):
             self.hidden_size*3, self.output_size).to(self.device)
         self.fc_pooled_lep = nn.Linear(
             self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_final = nn.Linear(
+            self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(
@@ -133,9 +135,9 @@ class Model(nn.Module):
         max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
 
         # outp = self.fc_basic(hidden[-1])
-        # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
-        outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
-       
+        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
+        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
+        outp = self.fc_final(torch.cat([outp,sorted_leptons],dim=1))
         out = self.softmax(outp)
 
         return out, sorted_indices

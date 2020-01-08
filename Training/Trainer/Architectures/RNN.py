@@ -81,15 +81,16 @@ class Model(nn.Module):
             self.parameters(), lr=self.learning_rate)
 
     def forward(self, track_info, lepton_info):
-        """Takes a padded sequence and passes it through:
-            * the rnn cell
+        """Takes data about the event and passes it through:
+            * the rnn after padding
+            * pool the rnn output to utilize more information than the final layer
+            * concatenate all interesting information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
 
         Args:
-            padded_seq (paddedSequence): a collection for lepton track information
-            sorted_leptons : lepton features to add after rnn
-
+            track_info: variable length information about the track
+            lepton_info: fixed length information about the lepton
         Returns:
            the probability of particle beng prompt or heavy flavor
 
@@ -123,13 +124,13 @@ class Model(nn.Module):
 
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
         output, lengths = pad_packed_sequence(output)
-        # https://arxiv.org/pdf/1801.06146.pdf
+        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
 
         # outp = self.fc_basic(hidden[-1])
-        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
-        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
+        # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
+        outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
        
         out = self.softmax(outp)
 
@@ -148,7 +149,7 @@ class Model(nn.Module):
         return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
     def _hot_fixed_pack_padded_sequence(self, input, lengths, batch_first=False, enforce_sorted=True):
-        r"""Packs a Tensor containing padded sequences of variable length.
+        """Packs a Tensor containing padded sequences of variable length.
 
         :attr:`input` can be of size ``T x B x *`` where `T` is the length of the
         longest sequence (equal to ``lengths[0]``), ``B`` is the batch size, and

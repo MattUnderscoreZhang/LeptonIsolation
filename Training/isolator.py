@@ -43,6 +43,7 @@ if __name__ == "__main__":
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
     options["RNN_type"] = "GRU"
+    options["track_ordering"] = None  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 500
@@ -55,5 +56,3 @@ if __name__ == "__main__":
 
     trainer.train(options)
     torch.cuda.empty_cache()
-
-

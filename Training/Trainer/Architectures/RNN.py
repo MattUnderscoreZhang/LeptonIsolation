@@ -68,17 +68,13 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-        # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
-        self.fc_basic = nn.Linear(
-            self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(
-            self.hidden_size*3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(
-            self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
+        self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.learning_rate)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def forward(self, track_info, lepton_info):
         """Takes data about the event and passes it through:
@@ -102,10 +98,8 @@ class Model(nn.Module):
         lepton_info = lepton_info.to(self.device)
 
         # sort and pack padded sequences
-        n_tracks = torch.tensor([self._tensor_length(track_info[i])
-                                for i in range(len(track_info))])
-        sorted_n_tracks, sorted_indices = torch.sort(
-            n_tracks, descending=True)
+        n_tracks = torch.tensor([self._tensor_length(track_info[i]) for i in range(len(track_info))])
+        sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
 
         sorted_tracks = track_info[sorted_indices].to(self.device)
         sorted_leptons = lepton_info[sorted_indices].to(self.device)
@@ -129,7 +123,8 @@ class Model(nn.Module):
         max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
 
         # outp = self.fc_basic(hidden[-1])
-        # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
+        # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
+        # outp = self.fc_lep_info(torch.cat([outp, sorted_leptons], dim=1))
         outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons], dim=1))
 
         out = self.softmax(outp)

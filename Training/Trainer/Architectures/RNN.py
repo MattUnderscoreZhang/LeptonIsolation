@@ -69,9 +69,12 @@ class Model(nn.Module):
             ).to(self.device)
 
         # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
-        self.fc1 = nn.Linear(
+        self.fc_basic = nn.Linear(
+            self.hidden_size, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(
+            self.hidden_size*3, self.output_size).to(self.device)
+        self.fc_pooled_lep = nn.Linear(
             self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
-
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(
@@ -103,7 +106,6 @@ class Model(nn.Module):
         sorted_n_tracks, sorted_indices = torch.sort(
             n_tracks, descending=True)
 
-        # this should be changed to make sorting more efficient
         sorted_tracks = track_info[sorted_indices].to(self.device)
         sorted_leptons = lepton_info[sorted_indices].to(self.device)
         sorted_n_tracks=sorted_n_tracks.detach().cpu()
@@ -111,7 +113,6 @@ class Model(nn.Module):
         # padded_seq = self._hot_fixed_pack_padded_sequence(
         #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
 
-        # sorted_n_tracks = torch.as_tensor(sorted_n_tracks, dtype=torch.int64, device="cpu") 
         padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
         padded_seq.to(self.device)
 
@@ -126,19 +127,12 @@ class Model(nn.Module):
         avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
 
-        outp = self.fc1(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
-        # output = output.contiguous()
-        # combined_out = output.reshape(-1, output.shape[0]).transpose(0,1).to(self.device)
-        # pdb.set_trace()
-        # out = nn.Linear(combined_out.shape[1],self.output_size)(combined_out).to(self.device)
-        # import pdb; pdb.set_trace()
-        # out = F.relu(out)
-        # out = self.fc2(out)
-        # out = F.relu(out)
-        # out = self.fc3(out)
+        # outp = self.fc_basic(hidden[-1])
+        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
+        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
+       
         out = self.softmax(outp)
 
-        # out = out.view(self.batch_size, len(padded_seq.data), self.output_size)
         return out, sorted_indices
 
     def _tensor_length(self, track):
@@ -220,7 +214,7 @@ class Model(nn.Module):
 
         Notes:
             indices have been removed
-            I don't know how the new pack-pad-sequeces works yet
+            I don't know how the new pack-pad-sequences works yet
 
         """
         if do_training:
@@ -235,23 +229,23 @@ class Model(nn.Module):
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
-
             output, sorted_indices = self.forward(track_info, lepton_info)
-            truth=truth[sorted_indices]
+            truth = truth[:,0][sorted_indices]
+            output = output[:,0]
             loss = self.loss_function(output.cpu(), truth.float())
 
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()
             total_loss += float(loss)
-            predicted = torch.round(output)[:, 0]
+            predicted = torch.round(output)
 
             accuracy = float(
                 np.array((predicted.data.cpu().detach() ==
-                          truth[:,0].data.cpu().detach()).sum().float() / len(truth))
+                          truth.data.cpu().detach()).sum().float() / len(truth))
             )
             total_acc += accuracy
-            raw_results += output[:, 0].cpu().detach().tolist()
+            raw_results += output.cpu().detach().tolist()
             all_truth += truth.cpu().detach().tolist()
             if do_training is True:
                 self.history_logger.add_scalar(

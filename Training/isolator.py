@@ -28,7 +28,7 @@ args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device("cuda")
-    # torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    # torch.set_default_tensor_type(torch.cuda.FloatTensor)  #using this prevents default packing to not work
 else:
     args.device = torch.device("cpu")
 
@@ -48,8 +48,8 @@ if __name__ == "__main__":
     options["batch_size"] = 500
     options["n_epochs"] = 100
     options["n_layers"] = 2
-    options["hidden_neurons"] = 512
-    options["output_neurons"] = 1
+    options["hidden_neurons"] = 128
+    options["output_neurons"] = 2
     options["bidirectional"] = False
     options["device"] = args.device
 

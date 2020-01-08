@@ -28,6 +28,21 @@ class ROOT_Dataset(Dataset):
     def shuffle_indices(self):
         random.shuffle(self.event_order)
 
+    def sort_tracks(self, tracks, track_ordering, track_features):
+        if track_ordering in ["high-to-low-pt", "low-to-high-pt"]:
+            tracks_pT = tracks[:, track_features.index("trk_pT")]
+            _, sorted_indices = torch.sort(tracks_pT, descending=True)
+            if track_ordering == "low-to-high-pt":
+                sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+            tracks = tracks[sorted_indices]
+        elif track_ordering in ["near-to-far", "far-to-near"]:
+            tracks_dR = tracks[:, track_features.index("trk_lep_dR")]
+            _, sorted_indices = torch.sort(tracks_dR, descending=True)
+            if track_ordering == "near-to-far":
+                sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+            tracks = tracks[sorted_indices]
+        return tracks
+
     def __getitem__(self, index):
         """Returns the data at a given index."""
         self.data_tree.GetEntry(self.event_order[index])
@@ -45,6 +60,9 @@ class ROOT_Dataset(Dataset):
         truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
         lepton = torch.from_numpy(lepton).float()
         tracks = torch.from_numpy(np.array(tracks)).float()
+
+        tracks = self.sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
+
         return tracks, lepton, truth
 
     def __len__(self):

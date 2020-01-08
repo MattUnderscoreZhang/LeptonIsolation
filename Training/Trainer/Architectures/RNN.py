@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import torch.nn.functional as F
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import warnings
-
+import pdb
 
 class Model(nn.Module):
     """Model class implementing rnn inheriting structure from pytorch nn module
@@ -67,44 +69,72 @@ class Model(nn.Module):
             ).to(self.device)
 
         # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
-        self.fc1 = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        # self.fc2 = nn.Linear(128, 128).to(self.device)
-        # self.fc3 = nn.Linear(128, self.output_size).to(self.device)
+        self.fc_basic = nn.Linear(
+            self.hidden_size, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(
+            self.hidden_size*3, self.output_size).to(self.device)
+        self.fc_pooled_lep = nn.Linear(
+            self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
-        self.loss_function = nn.BCEWithLogitsLoss()
+        self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq, sorted_leptons):
-        """Takes a padded sequence and passes it through:
-            * the rnn cell
+    def forward(self, track_info, lepton_info):
+        """Takes data about the event and passes it through:
+            * the rnn after padding
+            * pool the rnn output to utilize more information than the final layer
+            * concatenate all interesting information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
 
         Args:
-            padded_seq (paddedSequence): a collection for lepton track information
-            sorted_leptons : lepton features to add after rnn
-
+            track_info: variable length information about the track
+            lepton_info: fixed length information about the lepton
         Returns:
            the probability of particle beng prompt or heavy flavor
 
         """
         self.rnn.flatten_parameters()
+
+        # moving tensors to adequate device
+        track_info = track_info.to(self.device)
+        lepton_info = lepton_info.to(self.device)
+
+        # sort and pack padded sequences
+        n_tracks = torch.tensor([self._tensor_length(track_info[i])
+                    for i in range(len(track_info))])
+        sorted_n_tracks, sorted_indices = torch.sort(
+            n_tracks, descending=True)
+
+        sorted_tracks = track_info[sorted_indices].to(self.device)
+        sorted_leptons = lepton_info[sorted_indices].to(self.device)
+        sorted_n_tracks=sorted_n_tracks.detach().cpu()
+
+        # padded_seq = self._hot_fixed_pack_padded_sequence(
+        #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
+
+        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
+        padded_seq.to(self.device)
+
         if self.is_lstm:
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
 
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        combined_out = hidden[-1]
-        out = self.fc1(combined_out).to(self.device)
-        # import pdb; pdb.set_trace()
-        # out = F.relu(out)
-        # out = self.fc2(out)
-        # out = F.relu(out)
-        # out = self.fc3(out)
-        out = self.softmax(out).to(self.device)
-        return out
+        output, lengths = pad_packed_sequence(output)
+        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
+        avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
+        max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
+
+        # outp = self.fc_basic(hidden[-1])
+        # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
+        outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
+       
+        out = self.softmax(outp)
+
+        return out, sorted_indices
 
     def _tensor_length(self, track):
         """Finds the length of the non zero tensor
@@ -116,10 +146,10 @@ class Model(nn.Module):
             Length (int) of the tensor were it not zero-padded
 
         """
-        return len(set([i[0] for i in torch.nonzero(track).numpy()]))
+        return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
     def _hot_fixed_pack_padded_sequence(self, input, lengths, batch_first=False, enforce_sorted=True):
-        r"""Packs a Tensor containing padded sequences of variable length.
+        """Packs a Tensor containing padded sequences of variable length.
 
         :attr:`input` can be of size ``T x B x *`` where `T` is the length of the
         longest sequence (equal to ``lengths[0]``), ``B`` is the batch size, and
@@ -165,7 +195,8 @@ class Model(nn.Module):
             batch_dim = 0 if batch_first else 1
             input = input.index_select(batch_dim, sorted_indices)
 
-        data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(input, lengths, batch_first)
+        data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
+            input, lengths, batch_first)
         return PackedSequence(data, batch_sizes, sorted_indices)
 
     def do_train(self, batches, do_training=True):
@@ -184,7 +215,7 @@ class Model(nn.Module):
 
         Notes:
             indices have been removed
-            I don't know how the new pack-pad-sequeces works yet
+            I don't know how the new pack-pad-sequences works yet
 
         """
         if do_training:
@@ -199,35 +230,23 @@ class Model(nn.Module):
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
-
-            # moving tensors to adequate device
-            track_info = track_info.to(self.device)
-            lepton_info = lepton_info.to(self.device)
-            truth = truth[:, 0].to(self.device)
-
-            # sort and pack padded sequences
-            n_tracks = [self._tensor_length(track_info[i]) for i in range(len(track_info))]
-            n_tracks = torch.tensor(n_tracks).cpu()
-            sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
-            # this should be changed to make sorting more efficient
-            sorted_tracks = track_info[sorted_indices].to(self.device)
-            sorted_leptons = lepton_info[sorted_indices].to(self.device)
-            padded_seq = self._hot_fixed_pack_padded_sequence(
-                sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
-
-            output = self.forward(padded_seq, sorted_leptons).to(self.device)
-            loss = self.loss_function(output[:, 0], truth.float())
+            output, sorted_indices = self.forward(track_info, lepton_info)
+            truth = truth[:,0][sorted_indices]
+            output = output[:,0]
+            loss = self.loss_function(output.cpu(), truth.float())
 
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()
             total_loss += float(loss)
-            predicted = torch.round(output)[:, 0]
+            predicted = torch.round(output)
+
             accuracy = float(
-                np.array((predicted.data.cpu().detach() == truth.data.cpu().detach()).sum().float() / len(truth))
+                np.array((predicted.data.cpu().detach() ==
+                          truth.data.cpu().detach()).sum().float() / len(truth))
             )
             total_acc += accuracy
-            raw_results += output[:, 0].cpu().detach().tolist()
+            raw_results += output.cpu().detach().tolist()
             all_truth += truth.cpu().detach().tolist()
             if do_training is True:
                 self.history_logger.add_scalar(
@@ -241,7 +260,7 @@ class Model(nn.Module):
                     "Loss/Test Loss", float(loss), i)
             for name, param in self.named_parameters():
                 self.history_logger.add_histogram(
-                    name, param.clone().cpu().data.numpy(), i
+                    name, param.clone().cpu().data.cpu().numpy(), i
                 )
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size

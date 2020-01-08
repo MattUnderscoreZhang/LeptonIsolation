@@ -13,6 +13,8 @@ from Trainer import trainer
 import argparse
 import torch
 
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
 # GPU Compatibility
 parser = argparse.ArgumentParser(description="Trainer")
@@ -26,7 +28,7 @@ args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device("cuda")
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    # torch.set_default_tensor_type(torch.cuda.FloatTensor)  #using this prevents default packing to not work
 else:
     args.device = torch.device("cpu")
 
@@ -41,14 +43,17 @@ if __name__ == "__main__":
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
     options["RNN_type"] = "GRU"
-    options["learning_rate"] = 0.0003
+    options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 500
     options["n_epochs"] = 100
-    options["n_layers"] = 3
-    options["hidden_neurons"] = 512
+    options["n_layers"] = 2
+    options["hidden_neurons"] = 128
     options["output_neurons"] = 2
     options["bidirectional"] = False
     options["device"] = args.device
 
     trainer.train(options)
+    torch.cuda.empty_cache()
+
+

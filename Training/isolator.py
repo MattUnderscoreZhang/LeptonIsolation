@@ -13,6 +13,8 @@ from Trainer import trainer
 import argparse
 import torch
 
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
 # GPU Compatibility
 parser = argparse.ArgumentParser(description="Trainer")
@@ -26,7 +28,7 @@ args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device("cuda")
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    # torch.set_default_tensor_type(torch.cuda.FloatTensor)
 else:
     args.device = torch.device("cpu")
 

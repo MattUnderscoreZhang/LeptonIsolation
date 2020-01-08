@@ -88,7 +88,7 @@ class RNN_Agent:
             return train_loader, test_loader
 
         self.options = options
-        self.model = Model(self.options)
+        self.model = Model(self.options).to(self.options["device"])
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
         self.history_logger = SummaryWriter()
 

@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import torch.nn.functional as F
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import warnings
 import pdb
+
 class Model(nn.Module):
     """Model class implementing rnn inheriting structure from pytorch nn module
 
@@ -68,7 +70,7 @@ class Model(nn.Module):
 
         # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
         self.fc1 = nn.Linear(
-            self.hidden_size, self.output_size).to(self.device)
+            self.hidden_size*3, self.output_size).to(self.device)
         # self.fc2 = nn.Linear(128, 128).to(self.device)
         # self.fc3 = nn.Linear(128, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
@@ -76,7 +78,7 @@ class Model(nn.Module):
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
-    def forward(self, padded_seq, sorted_leptons):
+    def forward(self, track_info, lepton_info):
         """Takes a padded sequence and passes it through:
             * the rnn cell
             * a fully connected layer to get it to the right output size
@@ -91,26 +93,55 @@ class Model(nn.Module):
 
         """
         self.rnn.flatten_parameters()
+
+        # moving tensors to adequate device
+        track_info = track_info.to(self.device)
+        lepton_info = lepton_info.to(self.device)
+
+        # sort and pack padded sequences
+        n_tracks = torch.tensor([self._tensor_length(track_info[i])
+                    for i in range(len(track_info))])
+        sorted_n_tracks, sorted_indices = torch.sort(
+            n_tracks, descending=True)
+
+        # this should be changed to make sorting more efficient
+        sorted_tracks = track_info[sorted_indices].to(self.device)
+        sorted_leptons = lepton_info[sorted_indices].to(self.device)
+        sorted_n_tracks=sorted_n_tracks.detach().cpu()
+
+        # padded_seq = self._hot_fixed_pack_padded_sequence(
+        #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
+
+        # sorted_n_tracks = torch.as_tensor(sorted_n_tracks, dtype=torch.int64, device="cpu") 
+        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
+        padded_seq.to(self.device)
+
         if self.is_lstm:
             output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
 
-        pdb.set_trace()
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        output, _ = pad_packed_sequence(output, batch_first = True)
+        output, lengths = pad_packed_sequence(output, batch_first = True)
+        pdb.set_trace()
+        avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(sorted_tracks.size(1),-1)
+        max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(sorted_tracks.size(1),-1)
+
+        outp = self.fc1(torch.cat([hidden[-1],avg_pool,max_pool],dim=1)) 
+
         # output = output.contiguous()
-        combined_out = output.reshape(-1, output.shape[0]).transpose(0,1)
-        out = nn.Linear(combined_out.shape[1],self.output_size)(combined_out).to(self.device)
+        # combined_out = output.reshape(-1, output.shape[0]).transpose(0,1).to(self.device)
+        # pdb.set_trace()
+        # out = nn.Linear(combined_out.shape[1],self.output_size)(combined_out).to(self.device)
         # import pdb; pdb.set_trace()
         # out = F.relu(out)
         # out = self.fc2(out)
         # out = F.relu(out)
         # out = self.fc3(out)
-        out = self.softmax(out)
+        out = self.softmax(outp)
 
         # out = out.view(self.batch_size, len(padded_seq.data), self.output_size)
-        return out
+        return out, sorted_indices
 
     def _tensor_length(self, track):
         """Finds the length of the non zero tensor
@@ -207,28 +238,8 @@ class Model(nn.Module):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
 
-            # moving tensors to adequate device
-            track_info = track_info.to(self.device)
-            lepton_info = lepton_info.to(self.device)
-            truth = truth[:, 0].to(self.device)
-
-            # sort and pack padded sequences
-            n_tracks = [self._tensor_length(track_info[i])
-                        for i in range(len(track_info))]
-            n_tracks = torch.tensor(n_tracks).cpu()
-            sorted_n_tracks, sorted_indices = torch.sort(
-                n_tracks, descending=True)
-            # this should be changed to make sorting more efficient
-            sorted_tracks = track_info[sorted_indices].to(self.device)
-            sorted_leptons = lepton_info[sorted_indices].to(self.device)
-            padded_seq = self._hot_fixed_pack_padded_sequence(
-                sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
-
-            # sorted_n_tracks = torch.as_tensor(sorted_n_tracks, dtype=torch.int64, device="cpu") 
-
-            # padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
-            output = self.forward(padded_seq, sorted_leptons).to(self.device)
-            loss = self.loss_function(output[:, 0], truth.float())
+            output, sorted_indices = self.forward(track_info, lepton_info).to(self.device)
+            loss = self.loss_function(output[:, 0], truth.float()[sorted_indices])
 
             if do_training is True:
                 loss.backward()

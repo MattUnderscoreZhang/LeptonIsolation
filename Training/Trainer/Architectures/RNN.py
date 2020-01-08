@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import PackedSequence
+# from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import torch.nn.functional as F
 import numpy as np
@@ -33,6 +33,7 @@ class Model(nn.Module):
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
+        self.dropout = options["dropout"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.h_0 = nn.Parameter(
@@ -48,6 +49,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
+                dropout=self.dropout,
                 bidirectional=options["bidirectional"],
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
@@ -57,6 +59,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
+                dropout=self.dropout,
                 bidirectional=options["bidirectional"],
             ).to(self.device)
         else:
@@ -65,6 +68,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
+                dropout=self.dropout,
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 

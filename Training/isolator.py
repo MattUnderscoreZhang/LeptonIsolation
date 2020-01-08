@@ -43,10 +43,11 @@ if __name__ == "__main__":
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
     options["RNN_type"] = "GRU"
+    options["dropout"] = 0.5
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 500
-    options["n_epochs"] = 100
+    options["n_epochs"] = 75
     options["n_layers"] = 2
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2

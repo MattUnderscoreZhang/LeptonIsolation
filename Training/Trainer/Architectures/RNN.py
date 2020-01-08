@@ -74,7 +74,7 @@ class Model(nn.Module):
         # self.fc2 = nn.Linear(128, 128).to(self.device)
         # self.fc3 = nn.Linear(128, self.output_size).to(self.device)
         self.softmax = nn.Softmax(dim=1).to(self.device)
-        self.loss_function = nn.BCEWithLogitsLoss()
+        self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate)
 
@@ -122,10 +122,11 @@ class Model(nn.Module):
             output, hidden = self.rnn(padded_seq, self.h_0)
 
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        output, lengths = pad_packed_sequence(output, batch_first = True)
-        pdb.set_trace()
-        avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(sorted_tracks.size(1),-1)
-        max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(sorted_tracks.size(1),-1)
+        output, lengths = pad_packed_sequence(output) #, batch_first = True)
+        # pdb.set_trace()
+        # https://arxiv.org/pdf/1801.06146.pdf
+        avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
+        max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
 
         outp = self.fc1(torch.cat([hidden[-1],avg_pool,max_pool],dim=1)) 
 
@@ -238,17 +239,18 @@ class Model(nn.Module):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
 
-            output, sorted_indices = self.forward(track_info, lepton_info).to(self.device)
-            loss = self.loss_function(output[:, 0], truth.float()[sorted_indices])
+            output, sorted_indices = self.forward(track_info, lepton_info)
+            loss = self.loss_function(output.cpu(), truth.float()[sorted_indices])
 
             if do_training is True:
                 loss.backward()
                 self.optimizer.step()
             total_loss += float(loss)
             predicted = torch.round(output)[:, 0]
+
             accuracy = float(
                 np.array((predicted.data.cpu().detach() ==
-                          truth.data.cpu().detach()).sum().float() / len(truth))
+                          truth[:,0].data.cpu().detach()).sum().float() / len(truth))
             )
             total_acc += accuracy
             raw_results += output[:, 0].cpu().detach().tolist()

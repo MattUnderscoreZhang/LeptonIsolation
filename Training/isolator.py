@@ -47,10 +47,13 @@ if __name__ == "__main__":
     options["training_split"] = 0.7
     options["batch_size"] = 500
     options["n_epochs"] = 100
-    options["n_layers"] = 1
+    options["n_layers"] = 2
     options["hidden_neurons"] = 512
-    options["output_neurons"] = 2
+    options["output_neurons"] = 1
     options["bidirectional"] = False
     options["device"] = args.device
 
     trainer.train(options)
+    torch.cuda.empty_cache()
+
+

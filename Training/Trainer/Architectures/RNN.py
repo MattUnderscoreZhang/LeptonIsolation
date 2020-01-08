@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import warnings
-import pdb
+
 
 class Model(nn.Module):
     """Model class implementing rnn inheriting structure from pytorch nn module
@@ -103,18 +103,18 @@ class Model(nn.Module):
 
         # sort and pack padded sequences
         n_tracks = torch.tensor([self._tensor_length(track_info[i])
-                    for i in range(len(track_info))])
+                                for i in range(len(track_info))])
         sorted_n_tracks, sorted_indices = torch.sort(
             n_tracks, descending=True)
 
         sorted_tracks = track_info[sorted_indices].to(self.device)
         sorted_leptons = lepton_info[sorted_indices].to(self.device)
-        sorted_n_tracks=sorted_n_tracks.detach().cpu()
+        sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
         # padded_seq = self._hot_fixed_pack_padded_sequence(
         #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
 
-        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted = True)
+        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
         padded_seq.to(self.device)
 
         if self.is_lstm:
@@ -125,13 +125,13 @@ class Model(nn.Module):
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
         output, lengths = pad_packed_sequence(output)
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
-        max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
+        avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
 
         # outp = self.fc_basic(hidden[-1])
         # outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
-        outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
-       
+        outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons], dim=1))
+
         out = self.softmax(outp)
 
         return out, sorted_indices
@@ -231,8 +231,8 @@ class Model(nn.Module):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
             output, sorted_indices = self.forward(track_info, lepton_info)
-            truth = truth[:,0][sorted_indices]
-            output = output[:,0]
+            truth = truth[:, 0][sorted_indices]
+            output = output[:, 0]
             loss = self.loss_function(output.cpu(), truth.float())
 
             if do_training is True:

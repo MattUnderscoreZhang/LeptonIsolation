@@ -70,9 +70,8 @@ class Model(nn.Module):
 
         # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
         self.fc1 = nn.Linear(
-            self.hidden_size*3, self.output_size).to(self.device)
-        # self.fc2 = nn.Linear(128, 128).to(self.device)
-        # self.fc3 = nn.Linear(128, self.output_size).to(self.device)
+            self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(
@@ -122,14 +121,12 @@ class Model(nn.Module):
             output, hidden = self.rnn(padded_seq, self.h_0)
 
         # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        output, lengths = pad_packed_sequence(output) #, batch_first = True)
-        # pdb.set_trace()
+        output, lengths = pad_packed_sequence(output)
         # https://arxiv.org/pdf/1801.06146.pdf
         avg_pool = F.adaptive_avg_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1,2,0),1).view(-1, self.hidden_size)
 
-        outp = self.fc1(torch.cat([hidden[-1],avg_pool,max_pool],dim=1)) 
-
+        outp = self.fc1(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
         # output = output.contiguous()
         # combined_out = output.reshape(-1, output.shape[0]).transpose(0,1).to(self.device)
         # pdb.set_trace()
@@ -240,7 +237,8 @@ class Model(nn.Module):
             track_info, lepton_info, truth = batch
 
             output, sorted_indices = self.forward(track_info, lepton_info)
-            loss = self.loss_function(output.cpu(), truth.float()[sorted_indices])
+            truth=truth[sorted_indices]
+            loss = self.loss_function(output.cpu(), truth.float())
 
             if do_training is True:
                 loss.backward()

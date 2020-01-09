@@ -112,8 +112,9 @@ class Model(nn.Module):
 
         # padded_seq = self._hot_fixed_pack_padded_sequence(
         #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
-
+        torch.set_default_tensor_type(torch.FloatTensor)
         padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        if self.device == torch.device("cuda"): torch.set_default_tensor_type(torch.cuda.FloatTensor)
         padded_seq.to(self.device)
 
         if self.is_lstm:
@@ -181,7 +182,7 @@ class Model(nn.Module):
             output, sorted_indices = self.forward(track_info, lepton_info)
             truth = truth[:, 0][sorted_indices]
             output = output[:, 0]
-            loss = self.loss_function(output.cpu(), truth.float())
+            loss = self.loss_function(output, truth.float())
 
             if do_training is True:
                 loss.backward()

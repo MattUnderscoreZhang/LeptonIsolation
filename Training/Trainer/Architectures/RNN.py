@@ -70,11 +70,13 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
+
         self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
         self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
         self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
         self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -110,8 +112,9 @@ class Model(nn.Module):
 
         # padded_seq = self._hot_fixed_pack_padded_sequence(
         #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
-
+        torch.set_default_tensor_type(torch.FloatTensor)
         padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        if self.device == torch.device("cuda"): torch.set_default_tensor_type(torch.cuda.FloatTensor)
         padded_seq.to(self.device)
 
         if self.is_lstm:
@@ -125,7 +128,7 @@ class Model(nn.Module):
         avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
 
-        # outp = self.fc_basic(hidden[-1])
+
         outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
         # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
         outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
@@ -179,7 +182,7 @@ class Model(nn.Module):
             output, sorted_indices = self.forward(track_info, lepton_info)
             truth = truth[:, 0][sorted_indices]
             output = output[:, 0]
-            loss = self.loss_function(output.cpu(), truth.float())
+            loss = self.loss_function(output, truth.float())
 
             if do_training is True:
                 loss.backward()

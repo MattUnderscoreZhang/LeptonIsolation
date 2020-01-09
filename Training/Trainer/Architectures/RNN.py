@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
-# from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import torch.nn.functional as F
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
-import warnings
 
 
 class Model(nn.Module):
@@ -72,15 +70,13 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-        # self.fc1 = nn.Linear(self.hidden_size + self.n_lep_features, 128).to(self.device)
-        self.fc_basic = nn.Linear(
-            self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(
-            self.hidden_size*3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(
-            self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_final = nn.Linear(
-            self.output_size + self.n_lep_features, self.output_size).to(self.device)
+
+        self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
+        self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -131,11 +127,10 @@ class Model(nn.Module):
         avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
 
-        # outp = self.fc_basic(hidden[-1])
-        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool],dim=1))
-        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
-        outp = self.fc_final(torch.cat([outp,sorted_leptons],dim=1))
 
+        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
+        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
+        outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
         out = self.softmax(outp)
 
         return out, sorted_indices
@@ -151,57 +146,6 @@ class Model(nn.Module):
 
         """
         return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
-
-    def _hot_fixed_pack_padded_sequence(self, input, lengths, batch_first=False, enforce_sorted=True):
-        """Packs a Tensor containing padded sequences of variable length.
-
-        :attr:`input` can be of size ``T x B x *`` where `T` is the length of the
-        longest sequence (equal to ``lengths[0]``), ``B`` is the batch size, and
-        ``*`` is any number of dimensions (including 0). If ``batch_first`` is
-        ``True``, ``B x T x *`` :attr:`input` is expected.
-
-        For unsorted sequences, use `enforce_sorted = False`. If :attr:`enforce_sorted` is
-        ``True``, the sequences should be sorted by length in a decreasing order, i.e.
-        ``input[:,0]`` should be the longest sequence, and ``input[:,B-1]`` the shortest
-        one. `enforce_sorted = True` is only necessary for ONNX export.
-
-        Note:
-            This function accepts any input that has at least two dimensions. You
-            can apply it to pack the labels, and use the output of the RNN with
-            them to compute the loss directly. A Tensor can be retrieved from
-            a :class:`PackedSequence` object by accessing its ``.data`` attribute.
-
-        Arguments:
-            input (Tensor): padded batch of variable length sequences.
-            lengths (Tensor): list of sequences lengths of each batch element.
-            batch_first (bool, optional): if ``True``, the input is expected in ``B x T x *``
-                format.
-            enforce_sorted (bool, optional): if ``True``, the input is expected to
-                contain sequences sorted by length in a decreasing order. If
-                ``False``, this condition is not checked. Default: ``True``.
-
-        Returns:
-            a :class:`PackedSequence` object
-        """
-        if torch._C._get_tracing_state() and not isinstance(lengths, torch.Tensor):
-            warnings.warn('pack_padded_sequence has been called with a Python list of '
-                          'sequence lengths. The tracer cannot track the data flow of Python '
-                          'values, and it will treat them as constants, likely rendering '
-                          'the trace incorrect for any other combination of lengths.',
-                          category=torch.jit.TracerWarning, stacklevel=2)
-        lengths = torch.as_tensor(lengths, dtype=torch.int64, device="cpu")
-        # lengths = lengths.cpu()
-        if enforce_sorted:
-            sorted_indices = None
-        else:
-            lengths, sorted_indices = torch.sort(lengths, descending=True)
-            sorted_indices = sorted_indices.to(input.device)
-            batch_dim = 0 if batch_first else 1
-            input = input.index_select(batch_dim, sorted_indices)
-
-        data, batch_sizes = torch._C._VariableFunctions._pack_padded_sequence(
-            input, lengths, batch_first)
-        return PackedSequence(data, batch_sizes, sorted_indices)
 
     def do_train(self, batches, do_training=True):
         """runs the neural net on batches of data passed into it

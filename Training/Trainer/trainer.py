@@ -60,7 +60,7 @@ class RNN_Agent:
             del full_dataset
 
             # split test and train
-            print("Splitting test and training events")
+            print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.options["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]

@@ -19,50 +19,46 @@ class ROOT_Dataset(Dataset):
     def __init__(self, data_filename, readable_event_indices, options, shuffle_indices=True):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
-        self.data_tree = getattr(self.data_file, options["tree_name"])
+        self.data_tree_on_disk = getattr(self.data_file, options["tree_name"])
         self.event_order = readable_event_indices
         if shuffle_indices:
-            self.shuffle_indices()
+            random.shuffle(self.event_order)
         self.options = options
+        self.data_tree = self._store_tree_in_memory(self.data_tree_on_disk, self.event_order, self.options)
 
-    def shuffle_indices(self):
-        random.shuffle(self.event_order)
+    def _store_tree_in_memory(self, tree, event_order, options):
+        def _sort_tracks(tracks, track_ordering, track_features):
+            if track_ordering in ["high-to-low-pt", "low-to-high-pt"]:
+                tracks_pT = tracks[:, track_features.index("trk_pT")]
+                _, sorted_indices = torch.sort(tracks_pT, descending=True)
+                if track_ordering == "low-to-high-pt":
+                    sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+                tracks = tracks[sorted_indices]
+            elif track_ordering in ["near-to-far", "far-to-near"]:
+                tracks_dR = tracks[:, track_features.index("trk_lep_dR")]
+                _, sorted_indices = torch.sort(tracks_dR, descending=True)
+                if track_ordering == "near-to-far":
+                    sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+                tracks = tracks[sorted_indices]
+            return tracks
 
-    def sort_tracks(self, tracks, track_ordering, track_features):
-        if track_ordering in ["high-to-low-pt", "low-to-high-pt"]:
-            tracks_pT = tracks[:, track_features.index("trk_pT")]
-            _, sorted_indices = torch.sort(tracks_pT, descending=True)
-            if track_ordering == "low-to-high-pt":
-                sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
-            tracks = tracks[sorted_indices]
-        elif track_ordering in ["near-to-far", "far-to-near"]:
-            tracks_dR = tracks[:, track_features.index("trk_lep_dR")]
-            _, sorted_indices = torch.sort(tracks_dR, descending=True)
-            if track_ordering == "near-to-far":
-                sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
-            tracks = tracks[sorted_indices]
-        return tracks
+        tree_info = []
+        for index in event_order:
+            tree.GetEntry(index)
+            lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
+            transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
+            tracks = np.transpose(transposed_tracks)
+            truth = tree.truth_type
+            lepton = torch.Tensor(lepton)
+            tracks = torch.Tensor(tracks)
+            tracks = _sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
+            truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
+            tree_info.append((lepton, tracks, truth))
+        return tree_info
 
     def __getitem__(self, index):
         """Returns the data at a given index."""
-        self.data_tree.GetEntry(self.event_order[index])
-        truth = self.data_tree.truth_type
-        lepton = []
-        transposed_tracks = []
-        # import pdb; pdb.set_trace()
-        for lep_feature in self.options["lep_features"]:
-            lepton.append(getattr(self.data_tree, lep_feature))
-        for trk_feature in self.options["trk_features"]:
-            transposed_tracks.append(list(getattr(self.data_tree, trk_feature)))
-        lepton = np.array(lepton)
-        tracks = np.transpose(transposed_tracks)
-
-        truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
-        lepton = torch.from_numpy(lepton).float()
-        tracks = torch.from_numpy(np.array(tracks)).float()
-
-        tracks = self.sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
-
+        lepton, tracks, truth = self.data_tree[index]
         return tracks, lepton, truth
 
     def __len__(self):

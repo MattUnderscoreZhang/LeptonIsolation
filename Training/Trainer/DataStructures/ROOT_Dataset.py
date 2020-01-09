@@ -32,13 +32,13 @@ class ROOT_Dataset(Dataset):
                 tracks_pT = tracks[:, track_features.index("trk_pT")]
                 _, sorted_indices = torch.sort(tracks_pT, descending=True)
                 if track_ordering == "low-to-high-pt":
-                    sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+                    sorted_indices = sorted_indices.flip(0)
                 tracks = tracks[sorted_indices]
             elif track_ordering in ["near-to-far", "far-to-near"]:
                 tracks_dR = tracks[:, track_features.index("trk_lep_dR")]
                 _, sorted_indices = torch.sort(tracks_dR, descending=True)
                 if track_ordering == "near-to-far":
-                    sorted_indices = torch.from_numpy(sorted_indices.numpy()[::-1])
+                    sorted_indices = sorted_indices.flip(0)
                 tracks = tracks[sorted_indices]
             return tracks
 

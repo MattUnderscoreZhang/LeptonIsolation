@@ -23,7 +23,6 @@ class Model(nn.Module):
 
     def __init__(self, options):
         super().__init__()
-        self.n_directions = int(options["bidirectional"]) + 1
         self.n_layers = options["n_layers"]
         self.n_trk_features = options["n_trk_features"]
         self.hidden_size = options["hidden_neurons"]
@@ -36,7 +35,7 @@ class Model(nn.Module):
         self.device = options["device"]
         self.h_0 = nn.Parameter(
             torch.zeros(
-                self.n_layers * self.n_directions, self.batch_size, self.hidden_size
+                self.n_layers, self.batch_size, self.hidden_size
             ).to(self.device)
         )
 
@@ -48,7 +47,7 @@ class Model(nn.Module):
                 batch_first=True,
                 num_layers=self.n_layers,
                 dropout=self.dropout,
-                bidirectional=options["bidirectional"],
+                bidirectional=False,
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
             self.is_lstm = True
@@ -58,7 +57,7 @@ class Model(nn.Module):
                 batch_first=True,
                 num_layers=self.n_layers,
                 dropout=self.dropout,
-                bidirectional=options["bidirectional"],
+                bidirectional=False,
             ).to(self.device)
         else:
             self.rnn = nn.GRU(
@@ -67,7 +66,7 @@ class Model(nn.Module):
                 batch_first=True,
                 num_layers=self.n_layers,
                 dropout=self.dropout,
-                bidirectional=options["bidirectional"],
+                bidirectional=False,
             ).to(self.device)
 
         self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
@@ -109,8 +108,6 @@ class Model(nn.Module):
         sorted_leptons = lepton_info[sorted_indices].to(self.device)
         sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
-        # padded_seq = self._hot_fixed_pack_padded_sequence(
-        #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
         torch.set_default_tensor_type(torch.FloatTensor)
         padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
         if self.device == torch.device("cuda"):
@@ -127,9 +124,7 @@ class Model(nn.Module):
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-
         outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
-        # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
         outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
         out = self.softmax(outp)
 

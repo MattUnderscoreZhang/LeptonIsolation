@@ -8,7 +8,7 @@ from ROOT import TFile
 from .Architectures.RNN import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
-
+import time
 
 class RNN_Agent:
     """Model class implementing rnn inheriting structure from pytorch nn module
@@ -39,6 +39,7 @@ class RNN_Agent:
                 train_loader, test_loader
             """
             # load data files
+            t0 = time.time()
             print("Loading data")
             data_file = TFile(data_filename)
             data_tree = getattr(data_file, self.options["tree_name"])
@@ -46,20 +47,23 @@ class RNN_Agent:
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
+            t1 = time.time()
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            truth_values = [bool(truth.cpu().numpy()[0]) for _, _, truth in full_dataset]
-            class_0_indices = list(event_indices[[i for i in truth_values]])
-            class_1_indices = list(event_indices[[not i for i in truth_values]])
+            # import pdb; pdb.set_trace()
+            truth_values = [truth[0].bool() for _, _, truth in full_dataset]
+            class_0_indices = list(event_indices[[i.item() for i in truth_values]])
+            class_1_indices = list(event_indices[[not i.item() for i in truth_values]])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)
             balanced_event_indices = class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
             n_balanced_events = len(balanced_event_indices)
             del full_dataset
-
             # split test and train
+            t2 = time.time()
+            print(t2-t1,' s')
             print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.options["training_split"] * n_balanced_events)
@@ -70,6 +74,8 @@ class RNN_Agent:
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
             # prepare the data loaders
+            t3 = time.time()
+            print(t3-t2,' s')
             print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
@@ -85,6 +91,7 @@ class RNN_Agent:
                 shuffle=True,
                 drop_last=True,
             )
+            print(time.time()-t3,' s')
             return train_loader, test_loader
 
         self.options = options

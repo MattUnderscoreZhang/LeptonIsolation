@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     options = {}
     # options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["input_data"] = "/public/data/RNN/large_data.root"
+    options["input_data"] = "/public/data/RNN/data.root"
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -52,7 +52,6 @@ if __name__ == "__main__":
     options["n_layers"] = 2
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2
-    options["bidirectional"] = False
     options["device"] = args.device
 
     trainer.train(options)

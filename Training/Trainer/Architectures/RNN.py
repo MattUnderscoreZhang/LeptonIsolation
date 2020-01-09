@@ -70,7 +70,6 @@ class Model(nn.Module):
                 bidirectional=options["bidirectional"],
             ).to(self.device)
 
-
         self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
         self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
         self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
@@ -114,7 +113,8 @@ class Model(nn.Module):
         #     sorted_tracks, sorted_n_tracks.cpu(), batch_first=True, enforce_sorted=True)
         torch.set_default_tensor_type(torch.FloatTensor)
         padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        if self.device == torch.device("cuda"): torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        if self.device == torch.device("cuda"):
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
         padded_seq.to(self.device)
 
         if self.is_lstm:
@@ -127,7 +127,6 @@ class Model(nn.Module):
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-
 
         outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
         # outp = self.fc_pooled_lep(torch.cat([hidden[-1], avg_pool, max_pool, sorted_leptons],dim=1))
@@ -149,7 +148,7 @@ class Model(nn.Module):
         return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
     def do_train(self, batches, do_training=True):
-        """runs the neural net on batches of data passed into it
+        """Runs the neural net on batches of data passed into it
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -207,10 +206,8 @@ class Model(nn.Module):
                     "Accuracy/Test Accuracy", accuracy, i)
                 self.history_logger.add_scalar(
                     "Loss/Test Loss", float(loss), i)
-            for name, param in self.named_parameters():
-                self.history_logger.add_histogram(
-                    name, param.clone().cpu().data.cpu().numpy(), i
-                )
+            # for name, param in self.named_parameters():
+                # self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

@@ -59,7 +59,7 @@ class ROOT_Dataset(Dataset):
     def __getitem__(self, index):
         """Returns the data at a given index."""
         lepton, tracks, truth = self.data_tree[index]
-        return tracks, lepton, truth
+        return tracks, lepton, truth, tracks.shape[0]
 
     def __len__(self):
         return len(self.event_order)
@@ -73,11 +73,11 @@ def collate(batch):
     Returns:
         [tracks_batch, lepton_batch, truth_batch]: tracks_batch is a 3D Tensor, lepton_batch is 2D, and truth_batch is 1D
     """
-
-    length = torch.tensor([len(event[0]) for event in batch])
-    max_size = int(length.max())
-    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_size - len(event[0])))(event[0]) for event in batch]  # pads the data with 0's
+    batch = np.array(batch)
+    length = torch.from_numpy(batch[:, 3].astype(int))
+    max_size = length.max()
+    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_size - event[3]))(event[0]) for event in batch]  # pads the data with 0's
     tracks_batch = torch.stack(tracks_batch)
-    truth_batch = torch.stack([event[-1] for event in batch])
-    lepton_batch = torch.stack([event[1] for event in batch])
-    return [tracks_batch, lepton_batch, truth_batch]
+    truth_batch = torch.from_numpy(batch[:, 2].astype(int))
+    lepton_batch = torch.stack(batch[:, 1].tolist())
+    return [tracks_batch, lepton_batch, truth_batch, length]

@@ -7,7 +7,7 @@ from .DeepSetLayers import InvLinear
 
 
 class Model(nn.Module):
-    """Model class implementing rnn inheriting structure from pytorch nn module
+    r"""Model class implementing rnn inheriting structure from pytorch nn module
 
     Attributes:
         options (dict) : configuration for the nn
@@ -39,14 +39,15 @@ class Model(nn.Module):
             ).to(self.device)
         )
         self.feature_extractor = nn.Sequential(
-            nn.Linear(28*28, 300),
+            nn.Linear(28 * 28, 300),
             nn.ReLU(inplace=True),
             nn.Linear(300, 100),
             nn.ReLU(inplace=True),
             nn.Linear(100, 30),
             nn.ReLU(inplace=True)
-        ) 
-        self.set = InvLinear(30, 30, bias =True )
+        )
+        self.set = InvLinear(30, 30, bias=True)
+        self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.output_layer = nn.Sequential(nn.ReLU(inplace=True),
                                           nn.Linear(30, 2))
         self.softmax = nn.Softmax(dim=1).to(self.device)
@@ -56,8 +57,8 @@ class Model(nn.Module):
     def _get_mask(sizes, max_size):
         return (torch.arange(max_size).reshape(1, -1).to(sizes.device) < sizes.reshape(-1, 1))
 
-    def forward(self, track_info, lepton_info):
-        """Takes data about the event and passes it through:
+    def forward(self, track_info, lepton_info, track_length):
+        r"""Takes data about the event and passes it through:
             *
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
@@ -70,17 +71,20 @@ class Model(nn.Module):
 
         """
         import pdb; pdb.set_trace()
+        track_info.to_device(self.device)
+        lepton_info.to_device(self.device)
+
 
         N, S, C, D, _ = X.shape
         h = self.feature_extractor(X.reshape(N, S, C*D*D))
         h = self.set(h, mask=mask)
-        y = self.output_layer(h)
-        y = self.softmax(y)
+        outp = self.output_layer(h)
+        outp = outp = self.fc_final(torch.cat([outp,leptons], dim=1))
+        out = self.softmax(p)
         return y
 
-
     def do_train(self, batches, do_training=True):
-        """Runs the neural net on batches of data passed into it
+        r"""Runs the neural net on batches of data passed into it
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -107,8 +111,8 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, lepton_info, truth = batch
-            output = self.forward(track_info, lepton_info)
+            track_info, lepton_info, truth, track_length = batch
+            output = self.forward(track_info, lepton_info, track_length)
             truth = truth[:, 0]
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
@@ -143,7 +147,7 @@ class Model(nn.Module):
         return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, batches, do_training=False):
-        """Convienience function for running do_train in evaluation mode
+        r"""Convienience function for running do_train in evaluation mode
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -160,7 +164,7 @@ class Model(nn.Module):
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
-        """ getter function to help easy storage of the model
+        r""" getter function to help easy storage of the model
 
         Args:
             None

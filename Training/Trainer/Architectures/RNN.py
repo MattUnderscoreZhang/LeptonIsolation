@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class Model(nn.Module):
-    """Model class implementing rnn inheriting structure from pytorch nn module
+    r"""Model class implementing rnn inheriting structure from pytorch nn module
 
     Attributes:
         options (dict) : configuration for the nn
@@ -69,8 +69,8 @@ class Model(nn.Module):
             ).to(self.device)
 
         self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.output_size).to(self.device)
+        self.fc_pooled_lep = nn.Linear(self.hidden_size * 3 + self.n_lep_features, self.output_size).to(self.device)
         self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
 
@@ -78,8 +78,8 @@ class Model(nn.Module):
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def forward(self, track_info, lepton_info):
-        """Takes data about the event and passes it through:
+    def forward(self, track_info, lepton_info, track_length):
+        r"""Takes data about the event and passes it through:
             * the rnn after padding
             * pool the rnn output to utilize more information than the final layer
             * concatenate all interesting information
@@ -100,8 +100,7 @@ class Model(nn.Module):
         lepton_info = lepton_info.to(self.device)
 
         # sort and pack padded sequences
-        n_tracks = torch.tensor([self._tensor_length(track_info[i]) for i in range(len(track_info))])
-        sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
+        sorted_n_tracks, sorted_indices = torch.sort(track_length, descending=True)
 
         sorted_tracks = track_info[sorted_indices].to(self.device)
         sorted_leptons = lepton_info[sorted_indices].to(self.device)
@@ -118,7 +117,6 @@ class Model(nn.Module):
         else:
             output, hidden = self.rnn(padded_seq, self.h_0)
 
-        # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
         output, lengths = pad_packed_sequence(output)
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
@@ -129,20 +127,8 @@ class Model(nn.Module):
 
         return out, sorted_indices
 
-    def _tensor_length(self, track):
-        """Finds the length of the non zero tensor
-
-        Args:
-            track (torch.tensor): tensor containing the events padded with zeroes at the end
-
-        Returns:
-            Length (int) of the tensor were it not zero-padded
-
-        """
-        return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
-
     def do_train(self, batches, do_training=True):
-        """Runs the neural net on batches of data passed into it
+        r"""Runs the neural net on batches of data passed into it
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -171,9 +157,9 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, lepton_info, truth = batch
-            output, sorted_indices = self.forward(track_info, lepton_info)
-            truth = truth[:, 0][sorted_indices]
+            track_info, lepton_info, truth, track_length = batch
+            output, sorted_indices = self.forward(track_info, lepton_info, track_length)
+            truth = truth[sorted_indices].to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -200,8 +186,6 @@ class Model(nn.Module):
                     "Accuracy/Test Accuracy", accuracy, i)
                 self.history_logger.add_scalar(
                     "Loss/Test Loss", float(loss), i)
-            # for name, param in self.named_parameters():
-                # self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size
@@ -209,7 +193,7 @@ class Model(nn.Module):
         return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, batches, do_training=False):
-        """Convienience function for running do_train in evaluation mode
+        r"""Convienience function for running do_train in evaluation mode
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -226,7 +210,7 @@ class Model(nn.Module):
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
-        """ getter function to help easy storage of the model
+        r""" getter function to help easy storage of the model
 
         Args:
             None

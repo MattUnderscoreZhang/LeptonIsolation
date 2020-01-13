@@ -20,6 +20,7 @@ class InvLinear(nn.Module):
         reduction: Permutation invariant operation that maps the input set into a single
             vector. Currently, the following are supported: mean, sum, max and min.
     """
+
     def __init__(self, in_features, out_features, bias=True, reduction='mean'):
         super(InvLinear, self).__init__()
 
@@ -68,7 +69,7 @@ class InvLinear(nn.Module):
         if self.reduction == 'mean':
             sizes = mask.float().sum(dim=1).unsqueeze(1)
             Z = X * mask.unsqueeze(2).float()
-            y = (Z.sum(dim=1) @ self.beta)/sizes
+            y = (Z.sum(dim=1) @ self.beta) / sizes
 
         elif self.reduction == 'sum':
             Z = X * mask.unsqueeze(2).float()
@@ -105,6 +106,7 @@ class EquivLinear(InvLinear):
         reduction: Permutation invariant operation that maps the input set into a single
             vector. Currently, the following are supported: mean, sum, max and min.
     """
+
     def __init__(self, in_features, out_features, bias=True, reduction='mean'):
         super(EquivLinear, self).__init__(in_features, out_features,
                                           bias=bias, reduction=reduction)

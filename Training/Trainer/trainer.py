@@ -52,7 +52,7 @@ class RNN_Agent:
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
             # import pdb; pdb.set_trace()
-            truth_values = [truth[0].bool() for _, _, truth in full_dataset]
+            truth_values = [truth[0].bool() for _, _, truth, _ in full_dataset]
             class_0_indices = list(event_indices[[i.item() for i in truth_values]])
             class_1_indices = list(event_indices[[not i.item() for i in truth_values]])
             n_each_class = min(len(class_0_indices), len(class_1_indices))

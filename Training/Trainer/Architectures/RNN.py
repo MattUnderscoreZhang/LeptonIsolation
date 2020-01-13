@@ -161,9 +161,9 @@ class Model(nn.Module):
 
         """
         if do_training:
-            self.rnn.train()
+            self.train()
         else:
-            self.rnn.eval()
+            self.eval()
         total_loss = 0
         total_acc = 0
         raw_results = []

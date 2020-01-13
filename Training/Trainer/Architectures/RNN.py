@@ -18,7 +18,6 @@ class Model(nn.Module):
         do_eval: runs the neural net on the data after setting it up for evaluation
         get_model: returns the model and its optimizer
         _tensor_length (private): returns the length of a tensor
-        _hot_fixed_pack_padded_sequence (private): pads tensor sequences with zeros
     """
 
     def __init__(self, options):

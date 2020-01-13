@@ -35,25 +35,26 @@ int main (int argc, char *argv[]) {
     // Object filters
     ObjectFilters object_filters;
 
-    // Open data files - all argv after argv[0] are file names
-    std::vector<std::string> fileList;
-    for (int i=1; i < argc; i++) fileList.push_back(argv[i]);
+    // Open input and output files - all argv after argv[0] are file names
+    std::vector<std::string> inputFileNames;
+    for (int i=1; i < argc; i++) inputFileNames.push_back(argv[i]);
 
-    TChain* fChain = new TChain("CollectionTree");
-    for (unsigned int iFile=0; iFile<fileList.size(); ++iFile)
+    TChain* inputFileChain = new TChain("CollectionTree");
+    for (unsigned int iFile=0; iFile<inputFileNames.size(); ++iFile)
     {
-        cout << "Opened file: " << fileList[iFile].c_str() << endl;
-        fChain->Add(fileList[iFile].c_str());
+        cout << "Opened file: " << inputFileNames[iFile].c_str() << endl;
+        inputFileChain->Add(inputFileNames[iFile].c_str());
     }
 
-    // Connect the event object to input files
+    TFile outputFile("output.root", "recreate");
+
+    // Connect the event object to read from input files
     const char* ALG = argv[0];
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
-    RETURN_CHECK(ALG, event.readFrom(fChain));
+    RETURN_CHECK(ALG, event.readFrom(inputFileChain));
 
-    // Leptons
-    TFile outputFile("output.root", "recreate");
+    // Create branches in unnormalized tree
     TTree* unnormedTree = new TTree("UnnormedTree", "unnormalized tree");
 
     int entry_n; unnormedTree->Branch("event_n", &entry_n, "event_n/I");
@@ -101,21 +102,39 @@ int main (int argc, char *argv[]) {
     vector<int>* trk_nSCTHoles = new vector<int>; unnormedTree->Branch("trk_nSCTHoles", "vector<int>", &trk_nSCTHoles);
     vector<int>* trk_nTRTHits = new vector<int>; unnormedTree->Branch("trk_nTRTHits", "vector<int>", &trk_nTRTHits);
 
-    // Event objects
-    const xAOD::TrackParticleContainer *tracks;
-    const xAOD::VertexContainer *primary_vertices;
-    const xAOD::Vertex *primary_vertex;
-    const xAOD::ElectronContainer *electrons;
-    const xAOD::MuonContainer *muons;
-    const xAOD::CaloClusterContainer *calo_clusters;
-    vector<const xAOD::TrackParticle*> filtered_tracks;
-    vector<pair<const xAOD::Electron*, int>> filtered_electrons;
-    vector<pair<const xAOD::Muon*, int>> filtered_muons;
+    // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
+    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
 
-    // Fill branches for one lepton
+    auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
+        //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
+        for (auto electron_info : electrons) {
+            truth_type = electron_info.second;
+            int is_isolated = (truth_type == 2);
+            cutflow_table[is_isolated][stage]++;
+        }
+        for (auto muon_info : muons) {
+            truth_type = muon_info.second;
+            int is_isolated = (truth_type == 6);
+            cutflow_table[2+is_isolated][stage]++;
+        }
+    };
+
+    auto print_cutflow = [&] () {
+        cout << "Printing cutflow table:" << endl;
+        for (int i=0; i<4; i++) {
+            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
+        }
+    };
+
+    // Function to fill branches for one lepton
     SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
 
-    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, bool is_electron) {
+    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::Vertex *primary_vertex, const vector<const xAOD::TrackParticle*> &filtered_tracks, const xAOD::CaloClusterContainer *calo_clusters, bool is_electron) {
+
+        // get leptons's associated track particle
+        const xAOD::TrackParticle* track_particle; 
+        if (is_electron) track_particle = ((xAOD::Electron*)lepton)->trackParticle(); 
+        else track_particle = ((xAOD::Muon*)lepton)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
 
         // retrieve ptcone and etcone variables
         auto process_electron_cones = [&] (const xAOD::Electron* electron) {
@@ -226,36 +245,23 @@ int main (int argc, char *argv[]) {
         return has_associated_tracks;
     };
 
-    // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
-    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-
-    auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
-        //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
-        for (auto electron_info : electrons) {
-            truth_type = electron_info.second;
-            int is_isolated = (truth_type == 2);
-            cutflow_table[is_isolated][stage]++;
-        }
-        for (auto muon_info : muons) {
-            truth_type = muon_info.second;
-            int is_isolated = (truth_type == 6);
-            cutflow_table[2+is_isolated][stage]++;
-        }
-    };
-
-    auto print_cutflow = [&] () {
-        cout << "Printing cutflow table:" << endl;
-        for (int i=0; i<4; i++) {
-            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
-        }
-    };
-
-    // Loop over entries
+    // Loop over events
     int entries = event.getEntries();
     cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
     //entries = 1000;
     cout << "\nProcessing leptons" << endl;
+
+    const xAOD::TrackParticleContainer *tracks;
+    const xAOD::VertexContainer *primary_vertices;
+    const xAOD::Vertex *primary_vertex;
+    const xAOD::ElectronContainer *electrons;
+    const xAOD::MuonContainer *muons;
+    const xAOD::CaloClusterContainer *calo_clusters;
+    vector<const xAOD::TrackParticle*> filtered_tracks;
+    vector<pair<const xAOD::Electron*, int>> filtered_electrons;
+    vector<pair<const xAOD::Muon*, int>> filtered_muons;
+
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
         // Get event
@@ -286,7 +292,7 @@ int main (int argc, char *argv[]) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
-            if (!process_lepton(electron, electron->trackParticle(), true)) continue;
+            if (!process_lepton(electron, primary_vertex, filtered_tracks, calo_clusters, true)) continue;
             new_filtered_electrons.push_back(electron_info);
             unnormedTree->Fill();
         }
@@ -294,7 +300,7 @@ int main (int argc, char *argv[]) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
-            if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
+            if (!process_lepton(muon, primary_vertex, filtered_tracks, calo_clusters,false)) continue;
             new_filtered_muons.push_back(muon_info);
             unnormedTree->Fill();
         }
@@ -403,7 +409,7 @@ int main (int argc, char *argv[]) {
     normalizedTree->Write();
 
     outputFile.Close();
-    delete fChain;
+    delete inputFileChain;
 
     return 0;
 }

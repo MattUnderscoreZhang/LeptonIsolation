@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import torch.nn.functional as F
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+from .DeepSetLayers import InvLinear
 
 
 class Model(nn.Module):
@@ -38,52 +38,24 @@ class Model(nn.Module):
                 self.n_layers, self.batch_size, self.hidden_size
             ).to(self.device)
         )
-
-        self.is_lstm = False
-        if options["RNN_type"] == "RNN":
-            self.rnn = nn.RNN(
-                input_size=self.n_trk_features,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                dropout=self.dropout,
-                bidirectional=False,
-            ).to(self.device)
-        elif options["RNN_type"] == "LSTM":
-            self.is_lstm = True
-            self.rnn = nn.LSTM(
-                input_size=self.n_trk_features,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                dropout=self.dropout,
-                bidirectional=False,
-            ).to(self.device)
-        else:
-            self.rnn = nn.GRU(
-                input_size=self.n_trk_features,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                dropout=self.dropout,
-                bidirectional=False,
-            ).to(self.device)
-
-        self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(28*28, 300),
+            nn.ReLU(inplace=True),
+            nn.Linear(300, 100),
+            nn.ReLU(inplace=True),
+            nn.Linear(100, 30),
+            nn.ReLU(inplace=True)
+        ) 
+        self.set = InvLinear(30, 30, bias =True )
+        self.output_layer = nn.Sequential(nn.ReLU(inplace=True),
+                                          nn.Linear(30, 2))
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def forward(self, track_info, lepton_info):
         """Takes data about the event and passes it through:
-            * the rnn after padding
-            * pool the rnn output to utilize more information than the final layer
-            * concatenate all interesting information
+            *
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
 
@@ -94,53 +66,14 @@ class Model(nn.Module):
            the probability of particle beng prompt or heavy flavor
 
         """
-        self.rnn.flatten_parameters()
 
-        # moving tensors to adequate device
-        track_info = track_info.to(self.device)
-        lepton_info = lepton_info.to(self.device)
+        N, S, C, D, _ = X.shape
+        h = self.feature_extractor(X.reshape(N, S, C*D*D))
+        h = self.adder(h, mask=mask)
+        y = self.output_layer(h)
+        y = self.softmax(y)
+        return y
 
-        # sort and pack padded sequences
-        n_tracks = torch.tensor([self._tensor_length(track_info[i]) for i in range(len(track_info))])
-        sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
-
-        sorted_tracks = track_info[sorted_indices].to(self.device)
-        sorted_leptons = lepton_info[sorted_indices].to(self.device)
-        sorted_n_tracks = sorted_n_tracks.detach().cpu()
-
-        torch.set_default_tensor_type(torch.FloatTensor)
-        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        if self.device == torch.device("cuda"):
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_seq.to(self.device)
-
-        if self.is_lstm:
-            output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
-        else:
-            output, hidden = self.rnn(padded_seq, self.h_0)
-
-        # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        output, lengths = pad_packed_sequence(output)
-        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
-        outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
-        out = self.softmax(outp)
-
-        return out, sorted_indices
-
-    def _tensor_length(self, track):
-        """Finds the length of the non zero tensor
-
-        Args:
-            track (torch.tensor): tensor containing the events padded with zeroes at the end
-
-        Returns:
-            Length (int) of the tensor were it not zero-padded
-
-        """
-        return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
 
     def do_train(self, batches, do_training=True):
         """Runs the neural net on batches of data passed into it
@@ -157,14 +90,12 @@ class Model(nn.Module):
         Returns: total loss, total accuracy, raw results, and all truths
 
         Notes:
-            indices have been removed
-            I don't know how the new pack-pad-sequences works yet
 
         """
         if do_training:
-            self.rnn.train()
+            self.train()
         else:
-            self.rnn.eval()
+            self.eval()
         total_loss = 0
         total_acc = 0
         raw_results = []
@@ -173,8 +104,8 @@ class Model(nn.Module):
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
             track_info, lepton_info, truth = batch
-            output, sorted_indices = self.forward(track_info, lepton_info)
-            truth = truth[:, 0][sorted_indices]
+            output = self.forward(track_info, lepton_info)
+            truth = truth[:, 0]
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -201,8 +132,6 @@ class Model(nn.Module):
                     "Accuracy/Test Accuracy", accuracy, i)
                 self.history_logger.add_scalar(
                     "Loss/Test Loss", float(loss), i)
-            # for name, param in self.named_parameters():
-                # self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

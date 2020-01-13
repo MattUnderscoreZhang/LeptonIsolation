@@ -5,13 +5,13 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-from .Architectures.RNN import Model
+from .Architectures.DeepSets.DeepSet import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 import time
 
-class RNN_Agent:
-    """Driver class for RNN
+class Set_Agent:
+    """Driver Class for deep sets
 
     Attributes:
         options (dict): configuration for the nn
@@ -47,7 +47,7 @@ class RNN_Agent:
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
-            t1 = time.time()
+
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
@@ -62,8 +62,7 @@ class RNN_Agent:
             n_balanced_events = len(balanced_event_indices)
             del full_dataset
             # split test and train
-            t2 = time.time()
-            print(t2-t1,' s')
+
             print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.options["training_split"] * n_balanced_events)
@@ -74,8 +73,7 @@ class RNN_Agent:
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
             # prepare the data loaders
-            t3 = time.time()
-            print(t3-t2,' s')
+
             print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
@@ -91,7 +89,7 @@ class RNN_Agent:
                 shuffle=True,
                 drop_last=True,
             )
-            print(time.time()-t3,' s')
+
             return train_loader, test_loader
 
         self.options = options
@@ -190,6 +188,6 @@ def train(options):
         return options
 
     options = _set_features(options)
-    agent = RNN_Agent(options)
+    agent = Set_Agent(options)
     agent.train_and_test()
     agent.save_agent()

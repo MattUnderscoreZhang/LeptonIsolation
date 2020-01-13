@@ -9,7 +9,7 @@ Todo:
     *
 """
 
-from Trainer import trainer
+from Trainer import Deep_Set_Trainer as trainer
 import argparse
 import torch
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     options = {}
     # options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["input_data"] = "/public/data/RNN/large_data.root"
+    options["input_data"] = "/public/data/RNN/data.root"
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -48,11 +48,12 @@ if __name__ == "__main__":
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 500
-    options["n_epochs"] = 100
+    options["n_epochs"] = 1
     options["n_layers"] = 2
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2
     options["device"] = args.device
-
+    # import pdb; pdb.set_trace()
     trainer.train(options)
+
     torch.cuda.empty_cache()

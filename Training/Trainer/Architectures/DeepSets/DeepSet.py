@@ -71,15 +71,15 @@ class Model(nn.Module):
 
         """
         import pdb; pdb.set_trace()
-        track_info.to_device(self.device)
-        lepton_info.to_device(self.device)
+        track_info.to(self.device)
+        lepton_info.to(self.device)
 
 
         N, S, C, D, _ = X.shape
         h = self.feature_extractor(X.reshape(N, S, C*D*D))
         h = self.set(h, mask=mask)
         outp = self.output_layer(h)
-        outp = outp = self.fc_final(torch.cat([outp,leptons], dim=1))
+        outp = outp = self.fc_final(torch.cat([outp, leptons_info], dim=1))
         out = self.softmax(p)
         return y
 

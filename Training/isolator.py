@@ -55,13 +55,18 @@ if __name__ == "__main__":
     options["track_ordering"] = None  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
-    options["batch_size"] = 500
+    options["batch_size"] = 256
     options["n_epochs"] = 1
     options["n_layers"] = 2
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2
     options["device"] = args.device
     t0 = time.time()
+    print("number of epochs planned:", options["n_epochs"])
+    print("input data:", options["input_data"].split('/')[-1])
+    print("batch_size:", options["batch_size"])
+    print("device:", args.device)
+    print("deep_sets:", args.deep_sets)
     trainer.train(options)
     print("total runtime :", time.time() - t0)
     torch.cuda.empty_cache()

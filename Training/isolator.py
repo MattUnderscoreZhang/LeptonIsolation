@@ -6,12 +6,12 @@ Attributes:
     *--continue-training : loads in a previous model to continue training
 
 Todo:
-    *
+    * implement and test deep sets
 """
 
-from Trainer import Deep_Set_Trainer as trainer
 import argparse
 import torch
+import time
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
@@ -23,14 +23,22 @@ parser.add_argument(
     "--continue-training",
     action="store_true",
     help="loads in previous model and continues training")
-
+parser.add_argument(
+    "--deep_sets",
+    action="store_true",
+    help="uses deep sets")
 args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device("cuda")
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)  #using this prevents default packing to not work
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
 else:
     args.device = torch.device("cpu")
+
+if args.deep_sets:
+    from Trainer import Deep_Set_Trainer as trainer
+else:
+    from Trainer import trainer as trainer
 
 
 if __name__ == "__main__":
@@ -53,7 +61,7 @@ if __name__ == "__main__":
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2
     options["device"] = args.device
-    # import pdb; pdb.set_trace()
+    t0 = time.time()
     trainer.train(options)
-
+    print("total runtime :", time.time() - t0)
     torch.cuda.empty_cache()

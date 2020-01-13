@@ -53,6 +53,9 @@ class Model(nn.Module):
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
+    def _get_mask(sizes, max_size):
+        return (torch.arange(max_size).reshape(1, -1).to(sizes.device) < sizes.reshape(-1, 1))
+
     def forward(self, track_info, lepton_info):
         """Takes data about the event and passes it through:
             *
@@ -66,10 +69,11 @@ class Model(nn.Module):
            the probability of particle beng prompt or heavy flavor
 
         """
+        import pdb; pdb.set_trace()
 
         N, S, C, D, _ = X.shape
         h = self.feature_extractor(X.reshape(N, S, C*D*D))
-        h = self.adder(h, mask=mask)
+        h = self.set(h, mask=mask)
         y = self.output_layer(h)
         y = self.softmax(y)
         return y

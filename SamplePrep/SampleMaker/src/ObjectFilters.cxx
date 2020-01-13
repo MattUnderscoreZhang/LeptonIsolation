@@ -152,7 +152,7 @@ class ObjectFilters {
             return m_current_muons;
         }
 
-        vector<pair<const xAOD::Muon*, int>> filter_muons_medium(vector<pair<const xAOD::Muon*, int>> muons) {
+        vector<pair<const xAOD::Muon*, int>> filter_muons_tight(vector<pair<const xAOD::Muon*, int>> muons) {
             vector<pair<const xAOD::Muon*, int>> m_current_muons;
             for (pair<const xAOD::Muon*, int> muon : muons) {
                 // check that muon passes selections

@@ -276,7 +276,7 @@ int main (int argc, char *argv[]) {
         filtered_muons = object_filters.filter_muons_truth_type(muons);
         update_cutflow(filtered_electrons, filtered_muons, 0);
         filtered_electrons = object_filters.filter_electrons_medium(filtered_electrons);
-        filtered_muons = object_filters.filter_muons_medium(filtered_muons);
+        filtered_muons = object_filters.filter_muons_tight(filtered_muons);
         update_cutflow(filtered_electrons, filtered_muons, 1);
 
         // Write event
@@ -300,7 +300,7 @@ int main (int argc, char *argv[]) {
         }
         update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
 
-        // Additional cutflow step - what passes isolation cut?
+        // Additional cutflow step for comparison - what does a ptvarcone40/lep_pT cut identify as isolated?
         vector<pair<const xAOD::Electron*, int>> isolated_filtered_electrons;
         vector<pair<const xAOD::Muon*, int>> isolated_filtered_muons;
         float temp_ptvarcone40;

@@ -30,13 +30,13 @@ class ROOT_Dataset(Dataset):
         def _sort_tracks(tracks, track_ordering, track_features):
             if track_ordering in ["high-to-low-pt", "low-to-high-pt"]:
                 tracks_pT = tracks[:, track_features.index("trk_pT")]
-                _, sorted_indices = torch.sort(tracks_pT, descending=True)
+                sorted_indices = torch.argsort(tracks_pT, descending=True)
                 if track_ordering == "low-to-high-pt":
                     sorted_indices = sorted_indices.flip(0)
                 tracks = tracks[sorted_indices]
             elif track_ordering in ["near-to-far", "far-to-near"]:
                 tracks_dR = tracks[:, track_features.index("trk_lep_dR")]
-                _, sorted_indices = torch.sort(tracks_dR, descending=True)
+                sorted_indices = torch.argsort(tracks_dR, descending=True)
                 if track_ordering == "near-to-far":
                     sorted_indices = sorted_indices.flip(0)
                 tracks = tracks[sorted_indices]
@@ -48,18 +48,21 @@ class ROOT_Dataset(Dataset):
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
+            transposed_clusters = [list(getattr(tree, cal_feature)) for cal_feature in options["cal_features"]]
+            clusters = np.transpose(transposed_clusters)
             truth = tree.truth_type
             lepton = torch.Tensor(lepton)
             tracks = torch.Tensor(tracks)
+            clusters = torch.Tensor(clusters)
             tracks = _sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
             truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
-            tree_info.append((lepton, tracks, truth))
+            tree_info.append((lepton, tracks, clusters, truth))
         return tree_info
 
     def __getitem__(self, index):
         """Returns the data at a given index."""
-        lepton, tracks, truth = self.data_tree[index]
-        return tracks, lepton, truth, tracks.shape[0]
+        lepton, tracks, clusters, truth = self.data_tree[index]
+        return tracks, tracks.shape[0], clusters, clusters.shape[0], lepton, truth
 
     def __len__(self):
         return len(self.event_order)
@@ -74,10 +77,14 @@ def collate(batch):
         [tracks_batch, lepton_batch, truth_batch]: tracks_batch is a 3D Tensor, lepton_batch is 2D, and truth_batch is 1D
     """
     batch = np.array(batch)
-    length = torch.from_numpy(batch[:, 3].astype(int))
-    max_size = length.max()
-    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_size - event[3]))(event[0]) for event in batch]  # pads the data with 0's
+    track_length = torch.from_numpy(batch[:, 1].astype(int))
+    max_track_size = track_length.max()
+    cluster_length = torch.from_numpy(batch[:, 1].astype(int))
+    max_cluster_size = cluster_length.max()
+    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(event[0]) for event in batch]  # pads the data with 0's
     tracks_batch = torch.stack(tracks_batch)
+    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(event[2]) for event in batch]  # pads the data with 0's
+    clusters_batch = torch.stack(clusters_batch)
     truth_batch = torch.from_numpy(batch[:, 2].astype(int))
     lepton_batch = torch.stack(batch[:, 1].tolist())
-    return [tracks_batch, lepton_batch, truth_batch, length]
+    return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch]

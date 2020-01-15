@@ -46,7 +46,6 @@ class ROOT_Dataset(Dataset):
         for index in event_order:
             tree.GetEntry(index)
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
-            import pdb; pdb.set_trace()
             # print(len(tree.trk_lep_dR))
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)

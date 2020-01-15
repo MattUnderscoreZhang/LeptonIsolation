@@ -159,7 +159,6 @@ class Model(nn.Module):
             output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
             output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 
-
         output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
         output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
 

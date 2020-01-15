@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     options = {}
     # options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["input_data"] = "/public/data/RNN/data.root"
+    options["input_data"] = "/public/data/RNN/large_data.root"
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     options["dropout"] = 0.5
     options["track_ordering"] = None  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
     options["learning_rate"] = 0.001
-    options["training_split"] = 0.7
+    options["training_split"] = 0.9
     options["batch_size"] = 256
     options["n_epochs"] = 100
     options["n_layers"] = 2

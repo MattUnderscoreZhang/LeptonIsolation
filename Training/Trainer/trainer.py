@@ -8,7 +8,6 @@ from ROOT import TFile
 from .Architectures.RNN import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
-import time
 
 
 class RNN_Agent:

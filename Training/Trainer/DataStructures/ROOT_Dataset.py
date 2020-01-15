@@ -21,7 +21,7 @@ class ROOT_Dataset(Dataset):
     def __init__(self, data_filename, readable_event_indices, options, shuffle_indices=True):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
-        self.data_tree_on_disk = getattr(self.data_file, options["tree_name"])
+        self.data_tree_on_disk = self.data_file.get(options["tree_name"])
         self.event_order = readable_event_indices
         if shuffle_indices:
             random.shuffle(self.event_order)
@@ -48,7 +48,6 @@ class ROOT_Dataset(Dataset):
         for index in event_order:
             tree.GetEntry(index)
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
-            # import pdb; pdb.set_trace()
             # print(len(tree.trk_lep_dR))
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
@@ -81,7 +80,6 @@ def collate(batch):
         [tracks_batch, lepton_batch, truth_batch]: tracks_batch is a 3D Tensor, lepton_batch is 2D, and truth_batch is 1D
     """
     batch = np.array(batch)
-    # import pdb; pdb.set_trace()
     track_length = torch.from_numpy(batch[:, 1].astype(int))
     max_track_size = track_length.max()
     cluster_length = torch.from_numpy(batch[:, 1].astype(int))

@@ -24,6 +24,7 @@ class Model(nn.Module):
         super().__init__()
         self.n_layers = options["n_layers"]
         self.n_trk_features = options["n_trk_features"]
+        self.n_cal_features = options["n_cal_features"]
         self.hidden_size = options["hidden_neurons"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
@@ -40,7 +41,7 @@ class Model(nn.Module):
 
         self.is_lstm = False
         if options["RNN_type"] == "RNN":
-            self.rnn = nn.RNN(
+            self.trk_rnn = nn.RNN(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
@@ -50,7 +51,7 @@ class Model(nn.Module):
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
             self.is_lstm = True
-            self.rnn = nn.LSTM(
+            self.trk_rnn = nn.LSTM(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
@@ -59,7 +60,7 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
         else:
-            self.rnn = nn.GRU(
+            self.trk_rnn = nn.GRU(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
@@ -68,17 +69,47 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
 
-        self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(self.hidden_size * 3 + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+        if options["RNN_type"] == "RNN":
+            self.cal_rnn = nn.RNN(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.dropout,
+                bidirectional=False,
+            ).to(self.device)
+        elif options["RNN_type"] == "LSTM":
+            self.is_lstm = True
+            self.cal_rnn = nn.LSTM(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.dropout,
+                bidirectional=False,
+            ).to(self.device)
+        else:
+            self.cal_rnn = nn.GRU(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.dropout,
+                bidirectional=False,
+            ).to(self.device)
+
+        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
+        self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
+        self.fc_final = nn.Linear(self.hidden_size + self.n_lep_features, self.output_size).to(self.device)
+        # self.fc_pooled_lep = nn.Linear(self.hidden_size * 3 + self.n_lep_features, self.output_size).to(self.device)
+        # self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+        # self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
 
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def forward(self, track_info, lepton_info, track_length):
+    def forward(self, track_info, track_length, lepton_info, cal_info, cal_length):
         r"""Takes data about the event and passes it through:
             * the rnn after padding
             * pool the rnn output to utilize more information than the final layer
@@ -93,39 +124,68 @@ class Model(nn.Module):
            the probability of particle beng prompt or heavy flavor
 
         """
-        self.rnn.flatten_parameters()
+        self.trk_rnn.flatten_parameters()
+        self.cal_rnn.flatten_parameters()
 
         # moving tensors to adequate device
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
-
-        # sort and pack padded sequences
-        sorted_n_tracks, sorted_indices = torch.sort(track_length, descending=True)
-
-        sorted_tracks = track_info[sorted_indices].to(self.device)
-        sorted_leptons = lepton_info[sorted_indices].to(self.device)
+        # sort and pack padded sequences for tracks
+        sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
+        sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
         sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
         torch.set_default_tensor_type(torch.FloatTensor)
-        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
         if self.device == torch.device("cuda"):
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_seq.to(self.device)
+        padded_track_seq.to(self.device)
+
+        # sort and pack padded sequences for cal
+        sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
+        sorted_cal = cal_info[sorted_indices_cal].to(self.device)
+        sorted_n_cal = sorted_n_cal.detach().cpu()
+
+        torch.set_default_tensor_type(torch.FloatTensor)
+        padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
+        if self.device == torch.device("cuda"):
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        padded_cal_seq.to(self.device)
 
         if self.is_lstm:
-            output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
+            output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
+            output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
         else:
-            output, hidden = self.rnn(padded_seq, self.h_0)
+            output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
+            output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 
-        output, lengths = pad_packed_sequence(output)
+
+        output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
+        output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
+
+        # unsorting the output
+        # output_track = torch.zeros_like(output_track).scatter_(0,
+        #  sorted_indices_tracks.to(self.device).unsqueeze(1).unsqueeze(1).expand(-1,
+        #   output_track.shape[1], output_track.shape[2]), output_track)
+        # output_cal = torch.zeros_like(output_cal).scatter_(0,
+        #  sorted_indices_cal.to(self.device).unsqueeze(1).unsqueeze(1).expand(-1,
+        #   output_cal.shape[1], output_cal.shape[2]), output_cal)
+
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
-        outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
+        avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
+
+        avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
+
+        # combining rnn outputs
+        out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
+        outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
         out = self.softmax(outp)
 
-        return out, sorted_indices
+        return out
 
     def do_train(self, batches, do_training=True):
         r"""Runs the neural net on batches of data passed into it
@@ -157,9 +217,9 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, lepton_info, truth, track_length = batch
-            output, sorted_indices = self.forward(track_info, lepton_info, track_length)
-            truth = truth[sorted_indices].to(self.device)
+            track_info, track_length, cal_info, cal_length, lepton_info, truth = batch
+            output = self.forward(track_info, track_length, lepton_info, cal_info, cal_length)
+            truth = truth.to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 

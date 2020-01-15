@@ -51,10 +51,9 @@ class RNN_Agent:
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            # import pdb; pdb.set_trace()
-            truth_values = [truth[0].bool() for _, _, truth, _ in full_dataset]
-            class_0_indices = list(event_indices[[i.item() for i in truth_values]])
-            class_1_indices = list(event_indices[[not i.item() for i in truth_values]])
+            truth_values = [data[-1].bool().item() for data in full_dataset]
+            class_0_indices = event_indices[truth_values]
+            class_1_indices = event_indices[np.invert(truth_values)]
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)
@@ -179,8 +178,10 @@ def train(options):
         options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
+        options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])
         options["n_trk_features"] = len(options["trk_features"])
+        options["n_cal_features"] = len(options["cal_features"])
         data_file.Close()
         return options
 

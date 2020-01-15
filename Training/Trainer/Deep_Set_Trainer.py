@@ -10,6 +10,7 @@ from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 import time
 
+
 class Set_Agent:
     """Driver Class for deep sets
 

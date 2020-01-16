@@ -100,9 +100,6 @@ class Model(nn.Module):
         self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
         self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
         self.fc_final = nn.Linear(self.hidden_size + self.n_lep_features, self.output_size).to(self.device)
-        # self.fc_pooled_lep = nn.Linear(self.hidden_size * 3 + self.n_lep_features, self.output_size).to(self.device)
-        # self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-        # self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         self.dropout = nn.Dropout(p=0.2)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
@@ -130,6 +127,7 @@ class Model(nn.Module):
         # moving tensors to adequate device
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
+        cal_info = cal_info.to(self.device)
 
         # sort and pack padded sequences for tracks
         sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)

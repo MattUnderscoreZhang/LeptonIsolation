@@ -8,7 +8,6 @@ from ROOT import TFile
 from .Architectures.DeepSets.DeepSet import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
-import time
 
 
 class Set_Agent:
@@ -40,7 +39,7 @@ class Set_Agent:
                 train_loader, test_loader
             """
             # load data files
-            t0 = time.time()
+
             print("Loading data")
             data_file = TFile(data_filename)
             data_tree = getattr(data_file, self.options["tree_name"])
@@ -48,33 +47,29 @@ class Set_Agent:
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
-
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            # import pdb; pdb.set_trace()
-            truth_values = [truth[0].bool() for _, _, truth, _ in full_dataset]
-            class_0_indices = list(event_indices[[i.item() for i in truth_values]])
-            class_1_indices = list(event_indices[[not i.item() for i in truth_values]])
+            truth_values = [data[-1].bool().item() for data in full_dataset]
+            class_0_indices = list(event_indices[truth_values])
+            class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)
             balanced_event_indices = class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
             n_balanced_events = len(balanced_event_indices)
             del full_dataset
-            # split test and train
 
+            # split test and train
             print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.options["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]
             test_event_indices = balanced_event_indices[n_training_events:]
-
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
             # prepare the data loaders
-
             print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
@@ -90,7 +85,6 @@ class Set_Agent:
                 shuffle=True,
                 drop_last=True,
             )
-
             return train_loader, test_loader
 
         self.options = options
@@ -183,8 +177,10 @@ def train(options):
         options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
+        options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])
         options["n_trk_features"] = len(options["trk_features"])
+        options["n_cal_features"] = len(options["cal_features"])
         data_file.Close()
         return options
 

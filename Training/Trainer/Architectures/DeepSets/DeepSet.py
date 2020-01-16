@@ -7,7 +7,7 @@ from .DeepSetLayers import InvLinear
 
 
 class Model(nn.Module):
-    r"""Model class implementing rnn inheriting structure from pytorch nn module
+    r"""Model class implementing deepsets inheriting structure from pytorch nn module
 
     Attributes:
         options (dict) : configuration for the nn
@@ -17,20 +17,19 @@ class Model(nn.Module):
         do_train: takes in data and passes the batches to forward to train
         do_eval: runs the neural net on the data after setting it up for evaluation
         get_model: returns the model and its optimizer
-        _tensor_length (private): returns the length of a tensor
-        _hot_fixed_pack_padded_sequence (private): pads tensor sequences with zeros
     """
 
     def __init__(self, options):
         super().__init__()
         self.n_layers = options["n_layers"]
         self.n_trk_features = options["n_trk_features"]
+        self.n_cal_features = options["n_cal_features"]
         self.hidden_size = options["hidden_neurons"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
-        self.dropout = options["dropout"]
+        self.rnn_dropout = options["dropout"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.h_0 = nn.Parameter(
@@ -38,6 +37,7 @@ class Model(nn.Module):
                 self.n_layers, self.batch_size, self.hidden_size
             ).to(self.device)
         )
+
         self.feature_extractor = nn.Sequential(
             nn.Linear(28 * 28, 300),
             nn.ReLU(inplace=True),
@@ -57,7 +57,7 @@ class Model(nn.Module):
     def _get_mask(sizes, max_size):
         return (torch.arange(max_size).reshape(1, -1).to(sizes.device) < sizes.reshape(-1, 1))
 
-    def forward(self, track_info, lepton_info, track_length):
+    def forward(self, track_info, track_length, lepton_info, cal_info, cal_length):
         r"""Takes data about the event and passes it through:
             *
             * a fully connected layer to get it to the right output size
@@ -71,9 +71,9 @@ class Model(nn.Module):
 
         """
         import pdb; pdb.set_trace()
-        track_info.to(self.device)
-        lepton_info.to(self.device)
-
+        track_info = track_info.to(self.device)
+        lepton_info = lepton_info.to(self.device)
+        cal_info = cal_info.to(self.device)
 
         N, S, C, D, _ = X.shape
         h = self.feature_extractor(X.reshape(N, S, C*D*D))
@@ -111,9 +111,9 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, lepton_info, truth, track_length = batch
-            output = self.forward(track_info, lepton_info, track_length)
-            truth = truth[:, 0]
+            track_info, track_length, cal_info, cal_length, lepton_info, truth = batch
+            output = self.forward(track_info, track_length, lepton_info, cal_info, cal_length)
+            truth = truth.to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 

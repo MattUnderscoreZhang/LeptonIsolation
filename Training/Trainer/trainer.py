@@ -51,8 +51,8 @@ class RNN_Agent:
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
             truth_values = [data[-1].bool().item() for data in full_dataset]
-            class_0_indices = event_indices[truth_values]
-            class_1_indices = event_indices[np.invert(truth_values)]
+            class_0_indices = list(event_indices[truth_values])
+            class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)

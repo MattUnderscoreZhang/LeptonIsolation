@@ -142,47 +142,39 @@ class Model(nn.Module):
         padded_track_seq.to(self.device)
 
         # # sort and pack padded sequences for cal
-        # sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
-        # sorted_cal = cal_info[sorted_indices_cal].to(self.device)
-        # sorted_n_cal = sorted_n_cal.detach().cpu()
+        sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
+        sorted_cal = cal_info[sorted_indices_cal].to(self.device)
+        sorted_n_cal = sorted_n_cal.detach().cpu()
 
-        # torch.set_default_tensor_type(torch.FloatTensor)
-        # padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
-        # if self.device == torch.device("cuda"):
-        #     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        # padded_cal_seq.to(self.device)
+        torch.set_default_tensor_type(torch.FloatTensor)
+        padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
+        if self.device == torch.device("cuda"):
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        padded_cal_seq.to(self.device)
 
         if self.is_lstm:
             output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
-            # output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+            output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
         else:
             output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
-            # output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+            output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 
         output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
-        # output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
-
-        # unsorting the output
-        # output_track = torch.zeros_like(output_track).scatter_(0,
-        #  sorted_indices_tracks.to(self.device).unsqueeze(1).unsqueeze(1).expand(-1,
-        #   output_track.shape[1], output_track.shape[2]), output_track)
-        # output_cal = torch.zeros_like(output_cal).scatter_(0,
-        #  sorted_indices_cal.to(self.device).unsqueeze(1).unsqueeze(1).expand(-1,
-        #   output_cal.shape[1], output_cal.shape[2]), output_cal)
+        output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
 
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
         # out_tracks = self.dropout(out_tracks)
-        # avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        # max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        # out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
+        avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
         # out_cal = self.dropout(out_cal)
         # combining rnn outputs
         # out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
         # out_rnn = self.dropout(out_rnn)
-        outp = self.fc_final(torch.cat([out_tracks, lepton_info], dim=1))
+        outp = self.fc_final(torch.cat([out_tracks[sorted_indices_tracks.argsort()], lepton_info], dim=1))
         out = self.softmax(outp)
 
         return out

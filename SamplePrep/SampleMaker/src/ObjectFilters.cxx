@@ -164,7 +164,6 @@ class ObjectFilters {
             return m_current_muons;
         }
 
-
         vector<const xAOD::TrackParticle*> filter_tracks(const xAOD::TrackParticleContainer* tracks, const xAOD::Vertex* primary_vertex) {
             // using https://twiki.cern.ch/twiki/bin/viewauth/AtlasProtected/IsolationManualCalculation
             // https://twiki.cern.ch/twiki/bin/view/AtlasProtected/Run2IsolationHarmonisation
@@ -175,6 +174,14 @@ class ObjectFilters {
                 m_current_tracks.push_back(track);
             }
             return m_current_tracks;
+        }
+
+        vector<const xAOD::CaloCluster*> filter_calo_clusters(const xAOD::CaloClusterContainer* calo_clusters) {
+            vector<const xAOD::CaloCluster*> m_current_calo_clusters;
+            for (const xAOD::CaloCluster *calo_cluster : *calo_clusters) {
+                m_current_calo_clusters.push_back(calo_cluster);
+            }
+            return m_current_calo_clusters;
         }
 
     private:

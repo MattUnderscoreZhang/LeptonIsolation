@@ -47,8 +47,23 @@ class ROOT_Dataset(Dataset):
         tree_info = []
         for index in event_order:
             tree.GetEntry(index)
+            try:
+                lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
+            except Exception as e:
+                print("leptons")
+                # import pdb; pdb.set_trace()
+            try:
+                transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
+            except Exception as e:
+                print("tracks")
+                # import pdb; pdb.set_trace()
+            
+            try:
+                transposed_clusters = [list(getattr(tree, cal_feature)) for cal_feature in options["cal_features"]]
+            except Exception as e:
+                print("clusters")
+                # import pdb; pdb.set_trace()
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
-            # print(len(tree.trk_lep_dR))
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
             transposed_clusters = [list(getattr(tree, cal_feature)) for cal_feature in options["cal_features"]]

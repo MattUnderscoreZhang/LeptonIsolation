@@ -17,7 +17,6 @@ class Model(nn.Module):
         do_train: takes in data and passes the batches to forward to train
         do_eval: runs the neural net on the data after setting it up for evaluation
         get_model: returns the model and its optimizer
-        _tensor_length (private): returns the length of a tensor
     """
 
     def __init__(self, options):
@@ -116,13 +115,14 @@ class Model(nn.Module):
             * concatenate all interesting information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
-
         Args:
             track_info: variable length information about the track
             lepton_info: fixed length information about the lepton
+            cal_info: variable length information about caloclusters
+            track_length: unpadded length of tracks
+            cal_length: unpadded length of caloclusters
         Returns:
-           the probability of particle beng prompt or heavy flavor
-
+            the probability of particle beng prompt or heavy flavor
         """
         self.trk_rnn.flatten_parameters()
         self.cal_rnn.flatten_parameters()
@@ -130,26 +130,23 @@ class Model(nn.Module):
         # moving tensors to adequate device
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
+
         # sort and pack padded sequences for tracks
         sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
         sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
         sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
-        torch.set_default_tensor_type(torch.FloatTensor)
-        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        if self.device == torch.device("cuda"):
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_track_seq.to(self.device)
-
-        # # sort and pack padded sequences for cal
+        # sort and pack padded sequences for cal
         sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
         sorted_cal = cal_info[sorted_indices_cal].to(self.device)
         sorted_n_cal = sorted_n_cal.detach().cpu()
 
         torch.set_default_tensor_type(torch.FloatTensor)
+        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
         padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
         if self.device == torch.device("cuda"):
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        padded_track_seq.to(self.device)
         padded_cal_seq.to(self.device)
 
         if self.is_lstm:
@@ -172,9 +169,9 @@ class Model(nn.Module):
         out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
         # out_cal = self.dropout(out_cal)
         # combining rnn outputs
-        # out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
+        out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
         # out_rnn = self.dropout(out_rnn)
-        outp = self.fc_final(torch.cat([out_tracks[sorted_indices_tracks.argsort()], lepton_info], dim=1))
+        outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
         out = self.softmax(outp)
 
         return out
@@ -194,9 +191,6 @@ class Model(nn.Module):
         Returns: total loss, total accuracy, raw results, and all truths
 
         Notes:
-            indices have been removed
-            I don't know how the new pack-pad-sequences works yet
-
         """
         if do_training:
             self.train()

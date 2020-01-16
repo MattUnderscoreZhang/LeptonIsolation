@@ -3,8 +3,6 @@ import numpy as np
 import random
 from torch.utils.data import Dataset
 from ROOT import TFile
-# import rootpy.tree as rpt
-# from rootpy.io import root_open
 
 
 class ROOT_Dataset(Dataset):
@@ -47,22 +45,6 @@ class ROOT_Dataset(Dataset):
         tree_info = []
         for index in event_order:
             tree.GetEntry(index)
-            try:
-                lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
-            except Exception as e:
-                print("leptons")
-                # import pdb; pdb.set_trace()
-            try:
-                transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
-            except Exception as e:
-                print("tracks")
-                # import pdb; pdb.set_trace()
-            
-            try:
-                transposed_clusters = [list(getattr(tree, cal_feature)) for cal_feature in options["cal_features"]]
-            except Exception as e:
-                print("clusters")
-                # import pdb; pdb.set_trace()
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
@@ -92,7 +74,13 @@ def collate(batch):
     Args:
         batch (list): each element of the batch is a three-Tensor tuple consisting of (tracks, lepton, truth)
     Returns:
-        [tracks_batch, lepton_batch, truth_batch]: tracks_batch is a 3D Tensor, lepton_batch is 2D, and truth_batch is 1D
+        [tracks_batch,
+         track_length,
+         clusters_batch,
+         cluster_length,
+         lepton_batch,
+         truth_batch]: tracks_batch and clusters_batch is a 3D Tensor,
+         lepton_batch is 2D, and truth_batch, track_length, cluster_length is 1D
     """
     batch = np.array(batch)
     track_length = torch.from_numpy(batch[:, 1].astype(int))

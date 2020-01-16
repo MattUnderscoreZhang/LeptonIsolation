@@ -41,7 +41,7 @@ int main (int argc, char *argv[]) {
     }
 
     //--- Whether or not to filter out a lepton's own tracks
-    bool filter_own_tracks = false;
+    bool filter_own_tracks = true;
 
     //--- Connect the event object to read from input files
     const char* ALG = argv[0];
@@ -399,8 +399,8 @@ int main (int argc, char *argv[]) {
         float branchMean = histo->GetMean();
         float branchRMS = histo->GetRMS();
         delete histo;
-        if (currentBranchName.rfind("lep_",0)!=0 && currentBranchName.rfind("trk_",0)!=0) {
-            // don't normalize branches that don't start with lep_ or trk_
+        if (currentBranchName.rfind("lep_",0)!=0 && currentBranchName.rfind("trk_",0)!=0 && currentBranchName.rfind("calo_cluster_",0)!=0) {
+            // don't normalize branches that don't start with lep_, trk_, or calo_cluster_
             branchMean = 0;
             branchRMS = 1;
         }

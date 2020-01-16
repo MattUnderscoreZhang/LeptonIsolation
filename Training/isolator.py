@@ -28,7 +28,7 @@ args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
     args.device = torch.device("cuda")
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)  #using this prevents default packing to not work
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)  # using this prevents default packing to not work
 else:
     args.device = torch.device("cpu")
 
@@ -45,10 +45,14 @@ if __name__ == "__main__":
     options["RNN_type"] = "GRU"
     options["dropout"] = 0.5
     options["track_ordering"] = None  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
+    # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20"]
+    # options["additional_appended_features"] = ["baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
+    # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
+    options["additional_appended_features"] = []
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
-    options["batch_size"] = 500
-    options["n_epochs"] = 10
+    options["batch_size"] = 256
+    options["n_epochs"] = 50
     options["n_layers"] = 2
     options["hidden_neurons"] = 128
     options["output_neurons"] = 2

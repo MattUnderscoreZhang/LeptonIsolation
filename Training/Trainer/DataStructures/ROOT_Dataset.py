@@ -46,6 +46,7 @@ class ROOT_Dataset(Dataset):
         for index in event_order:
             tree.GetEntry(index)
             lepton = [getattr(tree, lep_feature) for lep_feature in options["lep_features"]]
+            lepton = [0 if np.isnan(value) else value for value in lepton]
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
             truth = tree.truth_type
@@ -54,6 +55,15 @@ class ROOT_Dataset(Dataset):
             tracks = _sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
             truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
             tree_info.append((lepton, tracks, truth))
+
+        n_additional_features = len(options["additional_appended_features"])
+        n_natural_lep_features = len(options["lep_features"]) - n_additional_features
+        if n_additional_features > 0:
+            etcone_vars = np.array([i[0][-n_additional_features:].cpu().numpy() for i in tree_info])
+            etcone_var_means = np.append(np.zeros(n_natural_lep_features), np.mean(etcone_vars, axis=0))
+            etcone_var_stds = np.append(np.ones(n_natural_lep_features), np.std(etcone_vars, axis=0))
+            tree_info = [(torch.from_numpy((i.cpu().numpy()-etcone_var_means)/etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
+
         return tree_info
 
     def __getitem__(self, index):

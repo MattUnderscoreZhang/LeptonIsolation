@@ -30,7 +30,7 @@ class Model(nn.Module):
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
-        self.dropout = options["dropout"]
+        self.rnn_dropout = options["dropout"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.h_0 = nn.Parameter(
@@ -46,7 +46,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
@@ -56,7 +56,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         else:
@@ -65,7 +65,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
 
@@ -75,7 +75,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
@@ -85,7 +85,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         else:
@@ -94,7 +94,7 @@ class Model(nn.Module):
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
 
@@ -104,7 +104,7 @@ class Model(nn.Module):
         # self.fc_pooled_lep = nn.Linear(self.hidden_size * 3 + self.n_lep_features, self.output_size).to(self.device)
         # self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
         # self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-
+        self.dropout = nn.Dropout(p=0.2)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -174,13 +174,14 @@ class Model(nn.Module):
         avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
-
+        out_tracks = self.dropout(out_tracks)
         avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
-
+        out_cal = self.dropout(out_cal)
         # combining rnn outputs
         out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
+        out_rnn = self.dropout(out_rnn)
         outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
         out = self.softmax(outp)
 

@@ -21,7 +21,7 @@ class ROOT_Dataset(Dataset):
     def __init__(self, data_filename, readable_event_indices, options, shuffle_indices=True):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
-        self.data_tree_on_disk = self.data_file.get(options["tree_name"])
+        self.data_tree_on_disk = self.data_file.Get(options["tree_name"])
         self.event_order = readable_event_indices
         if shuffle_indices:
             random.shuffle(self.event_order)

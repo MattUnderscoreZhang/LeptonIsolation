@@ -40,6 +40,9 @@ int main (int argc, char *argv[]) {
         inputFileChain->Add(inputFileNames[iFile].c_str());
     }
 
+    //--- Whether or not to filter out a lepton's own tracks
+    bool filter_own_tracks = false;
+
     //--- Connect the event object to read from input files
     const char* ALG = argv[0];
     RETURN_CHECK(ALG, xAOD::Init());
@@ -208,8 +211,10 @@ int main (int argc, char *argv[]) {
         trk_nIBLHits->clear(); trk_nPixHits->clear(); trk_nPixHoles->clear(); trk_nPixOutliers->clear();
         trk_nSCTHits->clear(); trk_nSCTHoles->clear(); trk_nTRTHits->clear();
         set<const xAOD::TrackParticle*> own_tracks;
-        if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
-        else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
+        if (filter_own_tracks) {
+            if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
+            else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
+        }
 
         bool has_associated_tracks = false;
         for (auto track : filtered_tracks) {
@@ -301,7 +306,6 @@ int main (int argc, char *argv[]) {
         const xAOD::Vertex *primary_vertex = primary_vertices->at(0);
 
         //--- Filter objects
-
         vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
         vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
         vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons_truth_type(muons);

@@ -211,10 +211,8 @@ int main (int argc, char *argv[]) {
         trk_nIBLHits->clear(); trk_nPixHits->clear(); trk_nPixHoles->clear(); trk_nPixOutliers->clear();
         trk_nSCTHits->clear(); trk_nSCTHoles->clear(); trk_nTRTHits->clear();
         set<const xAOD::TrackParticle*> own_tracks;
-        if (filter_own_tracks) {
-            if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
-            else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
-        }
+        if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
+        else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
 
         bool has_associated_tracks = false;
         for (auto track : filtered_tracks) {
@@ -222,11 +220,11 @@ int main (int argc, char *argv[]) {
             bool matches_own_track = false;
             for (auto own_track : own_tracks)
                 if (track == own_track) matches_own_track = true;
-            if (matches_own_track) continue;
+            if (filter_own_tracks && matches_own_track) continue;
             float dR = track->p4().DeltaR(lepton->p4());
             if (dR > max_dR) continue; 
 
-            has_associated_tracks = true;
+            if (!matches_own_track) has_associated_tracks = true;  // don't count the lepton's own tracks
 
             trk_lep_dR->push_back(dR);
             trk_pT->push_back(track->pt());

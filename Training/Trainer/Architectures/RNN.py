@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class Model(nn.Module):
-    """Model class implementing rnn inheriting structure from pytorch nn module
+    r"""Model class implementing rnn inheriting structure from pytorch nn module
 
     Attributes:
         options (dict) : configuration for the nn
@@ -17,20 +17,19 @@ class Model(nn.Module):
         do_train: takes in data and passes the batches to forward to train
         do_eval: runs the neural net on the data after setting it up for evaluation
         get_model: returns the model and its optimizer
-        _tensor_length (private): returns the length of a tensor
-        _hot_fixed_pack_padded_sequence (private): pads tensor sequences with zeros
     """
 
     def __init__(self, options):
         super().__init__()
         self.n_layers = options["n_layers"]
         self.n_trk_features = options["n_trk_features"]
+        self.n_cal_features = options["n_cal_features"]
         self.hidden_size = options["hidden_neurons"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
-        self.dropout = options["dropout"]
+        self.rnn_dropout = options["dropout"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.h_0 = nn.Parameter(
@@ -41,109 +40,142 @@ class Model(nn.Module):
 
         self.is_lstm = False
         if options["RNN_type"] == "RNN":
-            self.rnn = nn.RNN(
+            self.trk_rnn = nn.RNN(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         elif options["RNN_type"] == "LSTM":
             self.is_lstm = True
-            self.rnn = nn.LSTM(
+            self.trk_rnn = nn.LSTM(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
         else:
-            self.rnn = nn.GRU(
+            self.trk_rnn = nn.GRU(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
-                dropout=self.dropout,
+                dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
 
-        self.fc_basic = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.fc_pooled = nn.Linear(self.hidden_size*3, self.output_size).to(self.device)
-        self.fc_pooled_lep = nn.Linear(self.hidden_size*3 + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_lep_info = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-        self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
+        if options["RNN_type"] == "RNN":
+            self.cal_rnn = nn.RNN(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.rnn_dropout,
+                bidirectional=False,
+            ).to(self.device)
+        elif options["RNN_type"] == "LSTM":
+            self.is_lstm = True
+            self.cal_rnn = nn.LSTM(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.rnn_dropout,
+                bidirectional=False,
+            ).to(self.device)
+        else:
+            self.cal_rnn = nn.GRU(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.rnn_dropout,
+                bidirectional=False,
+            ).to(self.device)
 
+        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
+        self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
+        self.fc_final = nn.Linear(self.hidden_size + self.n_lep_features, self.output_size).to(self.device)
+        self.dropout = nn.Dropout(p=0.2)
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def forward(self, track_info, lepton_info):
-        """Takes data about the event and passes it through:
+    def forward(self, track_info, track_length, lepton_info, cal_info, cal_length):
+        r"""Takes data about the event and passes it through:
             * the rnn after padding
             * pool the rnn output to utilize more information than the final layer
             * concatenate all interesting information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
-
         Args:
             track_info: variable length information about the track
             lepton_info: fixed length information about the lepton
+            cal_info: variable length information about caloclusters
+            track_length: unpadded length of tracks
+            cal_length: unpadded length of caloclusters
         Returns:
-           the probability of particle beng prompt or heavy flavor
-
+            the probability of particle beng prompt or heavy flavor
         """
-        self.rnn.flatten_parameters()
+        self.trk_rnn.flatten_parameters()
+        self.cal_rnn.flatten_parameters()
 
         # moving tensors to adequate device
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
+        cal_info = cal_info.to(self.device)
 
-        # sort and pack padded sequences
-        n_tracks = torch.tensor([self._tensor_length(track_info[i]) for i in range(len(track_info))])
-        sorted_n_tracks, sorted_indices = torch.sort(n_tracks, descending=True)
-
-        sorted_tracks = track_info[sorted_indices].to(self.device)
-        sorted_leptons = lepton_info[sorted_indices].to(self.device)
+        # sort and pack padded sequences for tracks
+        sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
+        sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
         sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
+        # sort and pack padded sequences for cal
+        sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
+        sorted_cal = cal_info[sorted_indices_cal].to(self.device)
+        sorted_n_cal = sorted_n_cal.detach().cpu()
+
         torch.set_default_tensor_type(torch.FloatTensor)
-        padded_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
         if self.device == torch.device("cuda"):
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_seq.to(self.device)
+        padded_track_seq.to(self.device)
+        padded_cal_seq.to(self.device)
 
         if self.is_lstm:
-            output, hidden, cellstate = self.rnn(padded_seq, self.h_0)
+            output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
+            output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
         else:
-            output, hidden = self.rnn(padded_seq, self.h_0)
+            output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
+            output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 
-        # combined_out = torch.cat((sorted_leptons, hidden[-1]), dim=1).to(self.device)
-        output, lengths = pad_packed_sequence(output)
+        output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
+        output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
+
         # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        avg_pool = F.adaptive_avg_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        max_pool = F.adaptive_max_pool1d(output.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        outp = self.fc_pooled(torch.cat([hidden[-1], avg_pool, max_pool], dim=1))
-        outp = self.fc_final(torch.cat([outp, sorted_leptons], dim=1))
+        avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
+        # out_tracks = self.dropout(out_tracks)
+        avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+        out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
+        # out_cal = self.dropout(out_cal)
+        # combining rnn outputs
+        out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
+        # out_rnn = self.dropout(out_rnn)
+        outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
         out = self.softmax(outp)
 
-        return out, sorted_indices
-
-    def _tensor_length(self, track):
-        """Finds the length of the non zero tensor
-
-        Args:
-            track (torch.tensor): tensor containing the events padded with zeroes at the end
-
-        Returns:
-            Length (int) of the tensor were it not zero-padded
-
-        """
-        return len(set([i[0] for i in torch.nonzero(track).cpu().numpy()]))
+        return out
 
     def do_train(self, batches, do_training=True):
-        """Runs the neural net on batches of data passed into it
+        r"""Runs the neural net on batches of data passed into it
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -157,14 +189,11 @@ class Model(nn.Module):
         Returns: total loss, total accuracy, raw results, and all truths
 
         Notes:
-            indices have been removed
-            I don't know how the new pack-pad-sequences works yet
-
         """
         if do_training:
-            self.rnn.train()
+            self.train()
         else:
-            self.rnn.eval()
+            self.eval()
         total_loss = 0
         total_acc = 0
         raw_results = []
@@ -172,9 +201,9 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, lepton_info, truth = batch
-            output, sorted_indices = self.forward(track_info, lepton_info)
-            truth = truth[:, 0][sorted_indices]
+            track_info, track_length, cal_info, cal_length, lepton_info, truth = batch
+            output = self.forward(track_info, track_length, lepton_info, cal_info, cal_length)
+            truth = truth.to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -201,8 +230,6 @@ class Model(nn.Module):
                     "Accuracy/Test Accuracy", accuracy, i)
                 self.history_logger.add_scalar(
                     "Loss/Test Loss", float(loss), i)
-            # for name, param in self.named_parameters():
-                # self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size
@@ -210,7 +237,7 @@ class Model(nn.Module):
         return total_loss, total_acc, raw_results, all_truth
 
     def do_eval(self, batches, do_training=False):
-        """Convienience function for running do_train in evaluation mode
+        r"""Convienience function for running do_train in evaluation mode
 
         Args:
             batches (torch.dataset object): Shuffled samples of data for evaluation by the model
@@ -227,7 +254,7 @@ class Model(nn.Module):
         return self.do_train(batches, do_training=False)
 
     def get_model(self):
-        """ getter function to help easy storage of the model
+        r""" getter function to help easy storage of the model
 
         Args:
             None

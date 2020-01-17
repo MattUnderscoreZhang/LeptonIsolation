@@ -7,8 +7,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-# from .Architectures.RNN import Model
-from .Architectures.DeepSets.DeepSet import Model
+from .Architectures.Isolation_Model import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 

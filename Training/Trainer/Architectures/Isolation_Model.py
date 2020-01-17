@@ -1,9 +1,98 @@
 import torch
 import torch.nn as nn
+from torch.nn import init
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import torch.nn.functional as F
+import math
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+
+
+class InvLinear(nn.Module):
+    r"""Permutation invariant linear layer, as described in the
+    paper Deep Sets, by Zaheer et al. (https://arxiv.org/abs/1703.06114)
+    Args:
+        in_features: size of each input sample
+        out_features: size of each output sample
+        bias: If set to False, the layer will not learn an additive bias.
+            Default: ``True``
+        reduction: Permutation invariant operation that maps the input set into a single
+            vector. Currently, the following are supported: mean, sum, max and min.
+    """
+
+    def __init__(self, in_features, out_features, bias=True, reduction='mean'):
+        super().__init__()
+
+        self.in_features = in_features
+        self.out_features = out_features
+        assert reduction in ['mean', 'sum', 'max', 'min'],  \
+            '\'reduction\' should be \'mean\'/\'sum\'\'max\'/\'min\', got {}'.format(reduction)
+        self.reduction = reduction
+
+        self.beta = nn.Parameter(torch.Tensor(self.in_features,
+                                              self.out_features))
+        if bias:
+            self.bias = nn.Parameter(torch.Tensor(1, self.out_features))
+        else:
+            self.register_parameter('bias', None)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        init.xavier_uniform_(self.beta)
+        if self.bias is not None:
+            fan_in, _ = init._calculate_fan_in_and_fan_out(self.beta)
+            bound = 1 / math.sqrt(fan_in)
+            init.uniform_(self.bias, -bound, bound)
+
+    def forward(self, X, mask=None):
+        r"""
+        Maps the input set X = {x_1, ..., x_M} to a vector y of dimension out_features,
+        through a permutation invariant linear transformation of the form:
+            $y = \beta reduction(X) + bias$
+        Inputs:
+        X: N sets of size at most M where each element has dimension in_features
+           (tensor with shape (N, M, in_features))
+        mask: binary mask to indicate which elements in X are valid (byte tensor
+            with shape (N, M) or None); if None, all sets have the maximum size M.
+            Default: ``None``.
+        Outputs:
+        Y: N vectors of dimension out_features (tensor with shape (N, out_features))
+        """
+        N, M, _ = X.shape
+        device = X.device
+        y = torch.zeros(N, self.out_features).to(device)
+        if mask is None:
+            mask = torch.ones(N, M).byte().to(device)
+
+        if self.reduction == 'mean':
+            sizes = mask.float().sum(dim=1).unsqueeze(1)
+            Z = X * mask.unsqueeze(2).float()
+            y = (Z.sum(dim=1) @ self.beta) / sizes
+
+        elif self.reduction == 'sum':
+            Z = X * mask.unsqueeze(2).float()
+            y = Z.sum(dim=1) @ self.beta
+
+        elif self.reduction == 'max':
+            Z = X.clone()
+            Z[~mask] = float('-Inf')
+            y = Z.max(dim=1)[0] @ self.beta
+
+        else:  # min
+            Z = X.clone()
+            Z[~mask] = float('Inf')
+            y = Z.min(dim=1)[0] @ self.beta
+
+        if self.bias is not None:
+            y += self.bias
+
+        return y
+
+    def extra_repr(self):
+        return 'in_features={}, out_features={}, bias={}, reduction={}'.format(
+            self.in_features, self.out_features,
+            self.bias is not None, self.reduction)
 
 
 class Model(nn.Module):
@@ -32,14 +121,14 @@ class Model(nn.Module):
         self.rnn_dropout = options["dropout"]
         self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
+        self.architecture = options["architecture_type"]
         self.h_0 = nn.Parameter(
             torch.zeros(
                 self.n_layers, self.batch_size, self.hidden_size
             ).to(self.device)
         )
 
-        self.is_lstm = False
-        if options["architecture_type"] == "RNN":
+        if self.architecture == "RNN":
             self.trk_rnn = nn.RNN(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
@@ -56,8 +145,7 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
-        elif options["architecture_type"] == "LSTM":
-            self.is_lstm = True
+        elif self.architecture == "LSTM":
             self.trk_rnn = nn.LSTM(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
@@ -74,7 +162,7 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
-        elif options["architecture_type"] == "GRU":
+        elif self.architecture == "GRU":
             self.trk_rnn = nn.GRU(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
@@ -91,6 +179,15 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
+        elif self.architecture == "DeepSets":
+            self.feature_extractor = nn.Sequential(
+                nn.Linear(options["n_trk_features"], 300),
+                nn.ReLU(inplace=True),
+                nn.Linear(300, 30),
+                nn.ReLU(inplace=True)
+            )
+            self.set = InvLinear(30, 30, bias=True)
+            self.output_layer = nn.Sequential(nn.ReLU(inplace=True), nn.Linear(30, self.hidden_size))
         else:
             print("Unrecognized architecture type!")
             exit()
@@ -104,9 +201,16 @@ class Model(nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def forward(self, track_info, track_length, lepton_info, cal_info, cal_length):
-        r"""Takes data about the event and passes it through:
-            * the rnn after padding
+        r"""Takes event data and passes through different layers depending on the architecture.
+            RNN / LSTM / GRU:
+            * padding variable-length tracks with zeros
             * pool the rnn output to utilize more information than the final layer
+            * concatenate all interesting information
+            * a fully connected layer to get it to the right output size
+            * a softmax to get a probability
+            DeepSets:
+            * dense net to get each track to the right latent-space size
+            * summation in latent space
             * concatenate all interesting information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
@@ -119,56 +223,60 @@ class Model(nn.Module):
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
-        self.trk_rnn.flatten_parameters()
-        self.cal_rnn.flatten_parameters()
-
-        # moving tensors to adequate device
+        # move tensors to either CPU or GPU
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
         cal_info = cal_info.to(self.device)
 
-        # sort and pack padded sequences for tracks
-        sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
-        sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
-        sorted_n_tracks = sorted_n_tracks.detach().cpu()
+        if self.architecture == "DeepSets":
+            batch_size, max_n_tracks, n_track_features = track_info.shape
+            track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
+            intrinsic_tracks = self.feature_extractor(track_info).view(batch_size, max_n_tracks, -1)
+            intrinsic_vectors = self.set(intrinsic_tracks, mask=None)
+            out = self.output_layer(intrinsic_vectors)
+        elif self.architecture in ["RNN", "GRU", "LSTM"]:
+            self.trk_rnn.flatten_parameters()
+            self.cal_rnn.flatten_parameters()
 
-        # sort and pack padded sequences for cal
-        sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
-        sorted_cal = cal_info[sorted_indices_cal].to(self.device)
-        sorted_n_cal = sorted_n_cal.detach().cpu()
+            # sort and pack padded sequences for tracks and calo clusters
+            sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
+            sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
+            sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
-        torch.set_default_tensor_type(torch.FloatTensor)
-        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
-        if self.device == torch.device("cuda"):
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_track_seq.to(self.device)
-        padded_cal_seq.to(self.device)
+            sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
+            sorted_cal = cal_info[sorted_indices_cal].to(self.device)
+            sorted_n_cal = sorted_n_cal.detach().cpu()
 
-        if self.is_lstm:
-            output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
-            output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
-        else:
-            output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
-            output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+            torch.set_default_tensor_type(torch.FloatTensor)
+            padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+            padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
+            if self.device == torch.device("cuda"):
+                torch.set_default_tensor_type(torch.cuda.FloatTensor)
+            padded_track_seq.to(self.device)
+            padded_cal_seq.to(self.device)
 
-        output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
-        output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
+            if self.architecture == "LSTM":
+                output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
+                output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+            elif self.architecture in ["RNN", "GRU"]:
+                output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
+                output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 
-        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
-        # out_tracks = self.dropout(out_tracks)
-        avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
-        out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
-        # out_cal = self.dropout(out_cal)
-        # combining rnn outputs
-        out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
-        # out_rnn = self.dropout(out_rnn)
-        outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
-        out = self.softmax(outp)
+            output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
+            output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
+
+            # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
+            avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+            max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+            out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
+            avg_pool_cal = F.adaptive_avg_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+            max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
+            out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
+            # combining rnn outputs
+            out = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
+
+        out = self.fc_final(torch.cat([out, lepton_info], dim=1))
+        out = self.softmax(out)
 
         return out
 

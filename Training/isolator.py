@@ -29,15 +29,9 @@ else:
 if __name__ == "__main__":
 
     options = {}
-<<<<<<< HEAD
     options["input_data"] = "/public/data/RNN/large_data.root"
     options["run_location"] = "/public/data/RNN/runs"
     options["run_author"] = 'anil'
-=======
-    options["input_data"] = "/public/data/RNN/small_data.root"
-    options["run_location"] = "/public/data/RNN/runs/"
-    options["run_author"] = 'matt'
->>>>>>> upstream/master
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"

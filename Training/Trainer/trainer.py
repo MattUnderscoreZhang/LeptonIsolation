@@ -186,6 +186,7 @@ def train(options):
         options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches()]
         options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
+        options["lep_features"] += options["additional_appended_features"]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
         options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])

@@ -1,4 +1,12 @@
-// local tools
+#include <stdexcept>
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <memory>
+#include <cassert>
+#include "xAODRootAccess/Init.h"
+#include "xAODRootAccess/TEvent.h"
+#include "xAODRootAccess/tools/ReturnCheck.h"
 #include "ObjectFilters.cxx"
 #include "TFile.h"
 #include "TChain.h"
@@ -14,45 +22,34 @@
 #include "xAODEgamma/EgammaxAODHelpers.h"
 #include "xAODTracking/TrackParticlexAODHelpers.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
-
-// AnalysisBase tool include(s):
-#include "xAODRootAccess/Init.h"
-#include "xAODRootAccess/TEvent.h"
-#include "xAODRootAccess/tools/ReturnCheck.h"
-
-// stl includes
-#include <stdexcept>
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <memory>
-#include <cassert>
+#include "CaloGeoHelpers/CaloSampling.h"
 
 using namespace std;
 
 int main (int argc, char *argv[]) {
 
-    // Object filters
-    ObjectFilters object_filters;
+    //--- Open input files - all argv after argv[0] are file names
+    std::vector<std::string> inputFileNames;
+    for (int i=1; i < argc; i++) inputFileNames.push_back(argv[i]);
 
-    // Open data files - all argv after argv[0] are file names
-    std::vector<std::string> fileList;
-    for (int i=1; i < argc; i++) fileList.push_back(argv[i]);
-
-    TChain* fChain = new TChain("CollectionTree");
-    for (unsigned int iFile=0; iFile<fileList.size(); ++iFile)
+    cout << "\nReading input files" << endl;
+    TChain* inputFileChain = new TChain("CollectionTree");
+    for (unsigned int iFile=0; iFile<inputFileNames.size(); ++iFile)
     {
-        cout << "Opened file: " << fileList[iFile].c_str() << endl;
-        fChain->Add(fileList[iFile].c_str());
+        cout << "Opened file: " << inputFileNames[iFile].c_str() << endl;
+        inputFileChain->Add(inputFileNames[iFile].c_str());
     }
 
-    // Connect the event object to input files
+    //--- Whether or not to filter out a lepton's own tracks
+    bool filter_own_tracks = true;
+
+    //--- Connect the event object to read from input files
     const char* ALG = argv[0];
     RETURN_CHECK(ALG, xAOD::Init());
     xAOD::TEvent event(xAOD::TEvent::kClassAccess);
-    RETURN_CHECK(ALG, event.readFrom(fChain));
+    RETURN_CHECK(ALG, event.readFrom(inputFileChain));
 
-    // Leptons
+    //--- Create branches in unnormalized tree
     TFile outputFile("output.root", "recreate");
     TTree* unnormedTree = new TTree("UnnormedTree", "unnormalized tree");
 
@@ -101,23 +98,52 @@ int main (int argc, char *argv[]) {
     vector<int>* trk_nSCTHoles = new vector<int>; unnormedTree->Branch("trk_nSCTHoles", "vector<int>", &trk_nSCTHoles);
     vector<int>* trk_nTRTHits = new vector<int>; unnormedTree->Branch("trk_nTRTHits", "vector<int>", &trk_nTRTHits);
 
-    // Event objects
-    const xAOD::TrackParticleContainer *tracks;
-    const xAOD::VertexContainer *primary_vertices;
-    const xAOD::Vertex *primary_vertex;
-    const xAOD::ElectronContainer *electrons;
-    const xAOD::MuonContainer *muons;
-    const xAOD::CaloClusterContainer *calo_clusters;
-    vector<const xAOD::TrackParticle*> filtered_tracks;
-    vector<pair<const xAOD::Electron*, int>> filtered_electrons;
-    vector<pair<const xAOD::Muon*, int>> filtered_muons;
+    // See https://twiki.cern.ch/twiki/bin/view/AtlasProtected/EGammaD3PDtoxAOD
+    vector<float>* calo_cluster_lep_dR = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dR", "vector<float>", &calo_cluster_lep_dR);
+    vector<float>* calo_cluster_e = new vector<float>; unnormedTree->Branch("calo_cluster_e", "vector<float>", &calo_cluster_e);
+    vector<float>* calo_cluster_pT = new vector<float>; unnormedTree->Branch("calo_cluster_pT", "vector<float>", &calo_cluster_pT);
+    vector<float>* calo_cluster_eta = new vector<float>; unnormedTree->Branch("calo_cluster_eta", "vector<float>", &calo_cluster_eta);
+    vector<float>* calo_cluster_phi = new vector<float>; unnormedTree->Branch("calo_cluster_phi", "vector<float>", &calo_cluster_phi);
+    //vector<float>* calo_cluster_etamoment = new vector<float>; unnormedTree->Branch("calo_cluster_etamoment", "vector<float>", &calo_cluster_etamoment);
+    //vector<float>* calo_cluster_phimoment = new vector<float>; unnormedTree->Branch("calo_cluster_phimoment", "vector<float>", &calo_cluster_phimoment);
+    vector<float>* calo_cluster_lep_dEta = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dEta", "vector<float>", &calo_cluster_lep_dEta);
+    vector<float>* calo_cluster_lep_dPhi = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dPhi", "vector<float>", &calo_cluster_lep_dPhi);
 
-    // Fill branches for one lepton
+    //--- Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
+    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+
+    auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
+        //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
+        for (auto electron_info : electrons) {
+            truth_type = electron_info.second;
+            int is_isolated = (truth_type == 2);
+            cutflow_table[is_isolated][stage]++;
+        }
+        for (auto muon_info : muons) {
+            truth_type = muon_info.second;
+            int is_isolated = (truth_type == 6);
+            cutflow_table[2+is_isolated][stage]++;
+        }
+    };
+
+    auto print_cutflow = [&] () {
+        cout << "Printing cutflow table:" << endl;
+        for (int i=0; i<4; i++) {
+            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
+        }
+    };
+
+    //--- Function to fill branches for one lepton
     SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
 
-    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::TrackParticle* track_particle, bool is_electron) {
+    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::Vertex *primary_vertex, const vector<const xAOD::TrackParticle*> &filtered_tracks, vector<const xAOD::CaloCluster*> filtered_calo_clusters, bool is_electron) {
 
-        // retrieve ptcone and etcone variables
+        //--- Get lepton's associated track particle
+        const xAOD::TrackParticle* track_particle; 
+        if (is_electron) track_particle = ((xAOD::Electron*)lepton)->trackParticle(); 
+        else track_particle = ((xAOD::Muon*)lepton)->trackParticle(xAOD::Muon::InnerDetectorTrackParticle);
+
+        //--- Functions to retrieve ptcone and etcone variables
         auto process_electron_cones = [&] (const xAOD::Electron* electron) {
             electron->isolation(ptcone20,xAOD::Iso::ptcone20_TightTTVA_pt1000);
             ptcone30 = numeric_limits<float>::quiet_NaN();
@@ -145,7 +171,7 @@ int main (int argc, char *argv[]) {
             muon->isolation(eflowcone20,xAOD::Iso::neflowisol20);
         };
 
-        // retrieve all relevant lepton variables
+        //--- Retrieve all relevant lepton variables
         lep_pT = lepton->pt();
         lep_eta = lepton->eta();
         lep_theta = 2 * atan(exp(-lep_eta));
@@ -158,13 +184,15 @@ int main (int argc, char *argv[]) {
         if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
         else process_muon_cones((const xAOD::Muon*)lepton);
 
-        // check if lepton passes cuts
+        //--- Check if lepton passes cuts
         bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
         bool d0_over_sigd0_cut = (is_electron and (fabs(lep_d0_over_sigd0) < 5)) or (!is_electron and (fabs(lep_d0_over_sigd0) < 3));
         bool passes_cuts = (dz0_cut and d0_over_sigd0_cut);
         if (!passes_cuts) return false;
 
-        // store tracks associated to lepton in dR cone of 0.5
+        //--- Store tracks associated to lepton in dR cone
+        float max_dR = 0.5;
+
         auto get_electron_own_tracks = [&] (const xAOD::Electron* electron) {
             set<const xAOD::TrackParticle*> electron_tracks = xAOD::EgammaHelpers::getTrackParticles((const xAOD::Egamma*)electron, true);
             return electron_tracks;
@@ -192,11 +220,11 @@ int main (int argc, char *argv[]) {
             bool matches_own_track = false;
             for (auto own_track : own_tracks)
                 if (track == own_track) matches_own_track = true;
-            if (matches_own_track) continue;
+            if (filter_own_tracks && matches_own_track) continue;
             float dR = track->p4().DeltaR(lepton->p4());
-            if (dR > 0.5) continue; 
+            if (dR > max_dR) continue; 
 
-            has_associated_tracks = true;
+            if (!matches_own_track) has_associated_tracks = true;  // don't count the lepton's own tracks
 
             trk_lep_dR->push_back(dR);
             trk_pT->push_back(track->pt());
@@ -222,71 +250,77 @@ int main (int argc, char *argv[]) {
             track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
         }
 
-        // remove leptons with no associated tracks
+        //--- Store calo clusters associated to lepton in dR cone
+        calo_cluster_lep_dR->clear(); calo_cluster_e->clear(); calo_cluster_pT->clear(); calo_cluster_eta->clear(); calo_cluster_phi->clear();
+        /*calo_cluster_etamoment->clear(); calo_cluster_phimoment->clear();*/ calo_cluster_lep_dEta->clear(); calo_cluster_lep_dPhi->clear();
+
+        for (auto calo_cluster : filtered_calo_clusters) {
+            float dR = calo_cluster->p4().DeltaR(lepton->p4());
+            if (dR > max_dR) continue; 
+
+            calo_cluster_lep_dR->push_back(dR);
+            calo_cluster_e->push_back(calo_cluster->e());
+            calo_cluster_pT->push_back(calo_cluster->pt());
+            calo_cluster_eta->push_back(calo_cluster->eta());
+            calo_cluster_phi->push_back(calo_cluster->phi());
+            //calo_cluster_etamoment->push_back(calo_cluster->getMomentValue(xAOD::CaloCluster::ETA1CALOFRAME));
+            //calo_cluster_phimoment->push_back(calo_cluster->getMomentValue(xAOD::CaloCluster::PHI1CALOFRAME));
+
+            calo_cluster_lep_dEta->push_back(calo_cluster->eta() - lep_eta);
+            calo_cluster_lep_dPhi->push_back(calo_cluster->phi() - lep_phi);
+        }
+
+        //--- Remove leptons with no associated tracks
         return has_associated_tracks;
     };
 
-    // Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
-    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-
-    auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
-        //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
-        for (auto electron_info : electrons) {
-            truth_type = electron_info.second;
-            int is_isolated = (truth_type == 2);
-            cutflow_table[is_isolated][stage]++;
-        }
-        for (auto muon_info : muons) {
-            truth_type = muon_info.second;
-            int is_isolated = (truth_type == 6);
-            cutflow_table[2+is_isolated][stage]++;
-        }
-    };
-
-    auto print_cutflow = [&] () {
-        cout << "Printing cutflow table:" << endl;
-        for (int i=0; i<4; i++) {
-            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
-        }
-    };
-
-    // Loop over entries
+    //--- Loop over events
     int entries = event.getEntries();
-    cout << "\nReading input files" << endl;
     cout << "Retrieved " << entries << " events" << endl;
     //entries = 1000;
     cout << "\nProcessing leptons" << endl;
+
+    ObjectFilters object_filters;
+
     for (entry_n = 0; entry_n < entries; ++entry_n) {
 
-        // Get event
+        //--- Get event
         if (entry_n%500 == 0) cout << "Processing event " << entry_n << "/" << entries << "\n";
         event.getEntry(entry_n);
 
-        // Get event objects
+        //--- Get event objects
+        const xAOD::TrackParticleContainer *tracks;
+        const xAOD::VertexContainer *primary_vertices;
+        const xAOD::ElectronContainer *electrons;
+        const xAOD::MuonContainer *muons;
+        const xAOD::CaloClusterContainer *calo_clusters;
+
         RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
         RETURN_CHECK(ALG, event.retrieve(primary_vertices, "PrimaryVertices"));
-        primary_vertex = primary_vertices->at(0);
         RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
         RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
         RETURN_CHECK(ALG, event.retrieve(calo_clusters, "CaloCalTopoClusters"));
 
-        // Filter objects
-        filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
-        filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
-        filtered_muons = object_filters.filter_muons_truth_type(muons);
+        const xAOD::Vertex *primary_vertex = primary_vertices->at(0);
+
+        //--- Filter objects
+        vector<const xAOD::TrackParticle*> filtered_tracks = object_filters.filter_tracks(tracks, primary_vertex);
+        vector<pair<const xAOD::Electron*, int>> filtered_electrons = object_filters.filter_electrons_truth_type(electrons);
+        vector<pair<const xAOD::Muon*, int>> filtered_muons = object_filters.filter_muons_truth_type(muons);
         update_cutflow(filtered_electrons, filtered_muons, 0);
         filtered_electrons = object_filters.filter_electrons_medium(filtered_electrons);
-        filtered_muons = object_filters.filter_muons_medium(filtered_muons);
+        filtered_muons = object_filters.filter_muons_tight(filtered_muons);
         update_cutflow(filtered_electrons, filtered_muons, 1);
+        vector<const xAOD::CaloCluster*> filtered_calo_clusters = object_filters.filter_calo_clusters(calo_clusters);
 
-        // Write event
+        //--- Write event
         vector<pair<const xAOD::Electron*, int>> new_filtered_electrons;
         vector<pair<const xAOD::Muon*, int>> new_filtered_muons;
         for (auto electron_info : filtered_electrons) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
-            if (!process_lepton(electron, electron->trackParticle(), true)) continue;
+            if (!process_lepton(electron, primary_vertex, filtered_tracks, filtered_calo_clusters, true)) continue;
             new_filtered_electrons.push_back(electron_info);
             unnormedTree->Fill();
         }
@@ -294,13 +328,13 @@ int main (int argc, char *argv[]) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
-            if (!process_lepton(muon, muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle), false)) continue;
+            if (!process_lepton(muon, primary_vertex, filtered_tracks, filtered_calo_clusters, false)) continue;
             new_filtered_muons.push_back(muon_info);
             unnormedTree->Fill();
         }
         update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
 
-        // Additional cutflow step - what passes isolation cut?
+        //--- Additional cutflow step for comparison - what does a ptvarcone40/lep_pT cut identify as isolated?
         vector<pair<const xAOD::Electron*, int>> isolated_filtered_electrons;
         vector<pair<const xAOD::Muon*, int>> isolated_filtered_muons;
         float temp_ptvarcone40;
@@ -326,9 +360,10 @@ int main (int argc, char *argv[]) {
 
     cout << "\n" << endl;
     print_cutflow(); // Print # leptons passing each step
+    outputFile.cd();
     unnormedTree->Write();
 
-    // Create normalized tree
+    //--- Create normalized tree
     cout << "\nCreating normalized tree" << endl;
     TTree* normalizedTree = new TTree("NormalizedTree", "normalized tree");
     TObjArray* myBranches = (TObjArray*)(unnormedTree->GetListOfBranches())->Clone();
@@ -337,11 +372,11 @@ int main (int argc, char *argv[]) {
 
     for (int i=0; i<myBranches->GetEntries(); i++) {
 
-        // Get branch
+        //--- Get branch
         string currentBranchName = myBranches->At(i)->GetName();
         TBranch* currentBranch = unnormedTree->GetBranch((TString)currentBranchName);
 
-        // Find data type of branch
+        //--- Find data type of branch
         TClass* branchClass; EDataType branchType;
         currentBranch->GetExpectedType(branchClass, branchType);
         string varType;
@@ -356,19 +391,19 @@ int main (int argc, char *argv[]) {
             exit(0);
         }
 
-        // Get branch mean and RMS
+        //--- Get branch mean and RMS
         TH1F* histo = new TH1F("histo", "", 1, -1000000, 100000);
         unnormedTree->Draw((currentBranchName + ">>histo").c_str());
         float branchMean = histo->GetMean();
         float branchRMS = histo->GetRMS();
         delete histo;
-        if (currentBranchName.rfind("lep_",0)!=0 && currentBranchName.rfind("trk_",0)!=0) {
-            // don't normalize branches that don't start with lep_ or trk_
+        if (currentBranchName.rfind("lep_",0)!=0 && currentBranchName.rfind("trk_",0)!=0 && currentBranchName.rfind("calo_cluster_",0)!=0) {
+            // don't normalize branches that don't start with lep_, trk_, or calo_cluster_
             branchMean = 0;
             branchRMS = 1;
         }
 
-        // Fill tree with normalized branch
+        //--- Fill tree with normalized branch
         unnormedTree->SetBranchStatus(currentBranchName.c_str(), 1);
         auto fillNonVecBranch = [&] (auto branchVar) {
             unnormedTree->SetBranchAddress(currentBranchName.c_str(), &branchVar);
@@ -403,7 +438,7 @@ int main (int argc, char *argv[]) {
     normalizedTree->Write();
 
     outputFile.Close();
-    delete fChain;
+    delete inputFileChain;
 
     return 0;
 }

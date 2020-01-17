@@ -274,7 +274,8 @@ class Model(nn.Module):
             out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
             # combining rnn outputs
             out = self.fc_trk_cal(torch.cat([out_cal[sorted_indices_cal.argsort()], out_tracks[sorted_indices_tracks.argsort()]], dim=1))
-
+            F.relu_(out)
+            out = self.dropout(out)
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
         out = self.softmax(out)
 
@@ -329,16 +330,6 @@ class Model(nn.Module):
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
             all_truth += truth.cpu().detach().tolist()
-            if do_training is True:
-                self.history_logger.add_scalar(
-                    "Accuracy/Train Accuracy (Batch)", accuracy, i)
-                self.history_logger.add_scalar(
-                    "Loss/Train Loss (Batch)", float(loss), i)
-            else:
-                self.history_logger.add_scalar(
-                    "Accuracy/Test Accuracy (Batch)", accuracy, i)
-                self.history_logger.add_scalar(
-                    "Loss/Test Loss (Batch)", float(loss), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

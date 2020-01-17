@@ -159,6 +159,9 @@ class Isolation_Agent:
             test_loss, test_acc, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
+
+            # TODO: send lepton pt data to ROC curve plotter
+
             ROC_fig = plot_ROC.plot_ROOT_ROC(self.options, test_raw_results, test_truth)
             self.history_logger.add_figure("ROC", ROC_fig)
 

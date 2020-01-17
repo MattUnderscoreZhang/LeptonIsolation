@@ -47,6 +47,7 @@ if __name__ == "__main__":
     options["n_epochs"] = 50
     options["n_layers"] = 2
     options["hidden_neurons"] = 256
+    options["intrinsic_dimensions"] = 1024  # only matters for deep sets
     options["output_neurons"] = 2
     options["device"] = args.device
 

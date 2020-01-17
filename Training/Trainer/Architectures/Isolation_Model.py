@@ -107,6 +107,7 @@ class Model(nn.Module):
         self.n_trk_features = options["n_trk_features"]
         self.n_calo_features = options["n_calo_features"]
         self.hidden_size = options["hidden_neurons"]
+        self.intrinsic_dimensions = options["intrinsic_dimensions"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
         self.learning_rate = options["learning_rate"]
@@ -174,13 +175,13 @@ class Model(nn.Module):
             ).to(self.device)
         elif self.architecture == "DeepSets":
             self.trk_feature_extractor = nn.Sequential(
-                nn.Linear(options["n_trk_features"], 300),
+                nn.Linear(options["n_trk_features"], self.intrinsic_dimensions),
                 nn.ReLU(inplace=True),
                 nn.Linear(300, 30),
                 nn.ReLU(inplace=True)
             )
             self.calo_feature_extractor = nn.Sequential(
-                nn.Linear(options["n_calo_features"], 300),
+                nn.Linear(options["n_calo_features"], self.intrinsic_dimensions),
                 nn.ReLU(inplace=True),
                 nn.Linear(300, 30),
                 nn.ReLU(inplace=True)

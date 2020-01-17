@@ -167,8 +167,9 @@ class Model(nn.Module):
         out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
         # out_cal = self.dropout(out_cal)
         # combining rnn outputs
-        out_rnn = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
-        # out_rnn = self.dropout(out_rnn)
+        out_rnn = self.fc_trk_cal(torch.cat([out_cal[sorted_indices_cal.argsort()], out_tracks[sorted_indices_tracks.argsort()]], dim=1))
+        F.relu_(out_rnn)
+        out_rnn = self.dropout(out_rnn)
         outp = self.fc_final(torch.cat([out_rnn, lepton_info], dim=1))
         out = self.softmax(outp)
 
@@ -182,6 +183,9 @@ class Model(nn.Module):
                                             contains:
                                                 * track_info
                                                 * lepton_info
+                                                * cal_info
+                                                * track lengths
+                                                * cal lengths
                                                 * truth
             do_training (bool, True by default): flags whether the model is to be run in
                                                 training or evaluation mode

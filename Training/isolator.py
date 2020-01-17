@@ -44,7 +44,6 @@ else:
 if __name__ == "__main__":
 
     options = {}
-    # options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
     options["input_data"] = "/public/data/RNN/data.root"
     options["run_location"] = "/public/data/RNN/runs"
     options["run_author"] = 'anil'
@@ -62,8 +61,8 @@ if __name__ == "__main__":
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 256
-    options["n_epochs"] = 50
-    options["n_layers"] = 2
+    options["n_epochs"] = 30
+    options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["output_neurons"] = 2
     options["device"] = args.device

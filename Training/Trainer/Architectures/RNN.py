@@ -39,7 +39,7 @@ class Model(nn.Module):
         )
 
         self.is_lstm = False
-        if options["RNN_type"] == "RNN":
+        if options["architecture_type"] == "RNN":
             self.trk_rnn = nn.RNN(
                 input_size=self.n_trk_features,
                 hidden_size=self.hidden_size,
@@ -48,7 +48,15 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
-        elif options["RNN_type"] == "LSTM":
+            self.cal_rnn = nn.RNN(
+                input_size=self.n_cal_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.rnn_dropout,
+                bidirectional=False,
+            ).to(self.device)
+        elif options["architecture_type"] == "LSTM":
             self.is_lstm = True
             self.trk_rnn = nn.LSTM(
                 input_size=self.n_trk_features,
@@ -58,27 +66,6 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
-        else:
-            self.trk_rnn = nn.GRU(
-                input_size=self.n_trk_features,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                dropout=self.rnn_dropout,
-                bidirectional=False,
-            ).to(self.device)
-
-        if options["RNN_type"] == "RNN":
-            self.cal_rnn = nn.RNN(
-                input_size=self.n_cal_features,
-                hidden_size=self.hidden_size,
-                batch_first=True,
-                num_layers=self.n_layers,
-                dropout=self.rnn_dropout,
-                bidirectional=False,
-            ).to(self.device)
-        elif options["RNN_type"] == "LSTM":
-            self.is_lstm = True
             self.cal_rnn = nn.LSTM(
                 input_size=self.n_cal_features,
                 hidden_size=self.hidden_size,
@@ -87,7 +74,15 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
-        else:
+        elif options["architecture_type"] == "GRU":
+            self.trk_rnn = nn.GRU(
+                input_size=self.n_trk_features,
+                hidden_size=self.hidden_size,
+                batch_first=True,
+                num_layers=self.n_layers,
+                dropout=self.rnn_dropout,
+                bidirectional=False,
+            ).to(self.device)
             self.cal_rnn = nn.GRU(
                 input_size=self.n_cal_features,
                 hidden_size=self.hidden_size,
@@ -96,6 +91,9 @@ class Model(nn.Module):
                 dropout=self.rnn_dropout,
                 bidirectional=False,
             ).to(self.device)
+        else:
+            print("Unrecognized architecture type!")
+            exit()
 
         self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
         self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
@@ -222,14 +220,14 @@ class Model(nn.Module):
             all_truth += truth.cpu().detach().tolist()
             if do_training is True:
                 self.history_logger.add_scalar(
-                    "Accuracy/Train Accuracy", accuracy, i)
+                    "Accuracy/Train Accuracy (Batch)", accuracy, i)
                 self.history_logger.add_scalar(
-                    "Loss/Train Loss", float(loss), i)
+                    "Loss/Train Loss (Batch)", float(loss), i)
             else:
                 self.history_logger.add_scalar(
-                    "Accuracy/Test Accuracy", accuracy, i)
+                    "Accuracy/Test Accuracy (Batch)", accuracy, i)
                 self.history_logger.add_scalar(
-                    "Loss/Test Loss", float(loss), i)
+                    "Loss/Test Loss (Batch)", float(loss), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

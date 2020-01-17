@@ -7,13 +7,14 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-from .Architectures.RNN import Model
+# from .Architectures.RNN import Model
+from .Architectures.DeepSets.DeepSet import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 
 
-class RNN_Agent:
-    """Driver class for RNN
+class Isolation_Agent:
+    """Driver class for lepton isolation model
 
     Attributes:
         options (dict): configuration for the nn
@@ -93,22 +94,22 @@ class RNN_Agent:
         self.model = Model(self.options).to(self.options["device"])
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
 
-        # previous_runs = os.listdir(self.options["run_location"]
-        # if len(previous_runs) == 0:
-        #     run_number=1
-        # else:
-        #     run_number=max([int(s.split('run_')[1]) for s in previous_runs]) + 1
-
         logdir = 'run_' + time.strftime('%R:%S_%d_%m_%y') + '_' + self.options["run_author"]
-
         self.history_logger = SummaryWriter(os.path.join(self.options["run_location"], logdir))
+
         # load previous state if training is resuming
         self.resumed_epoch_n = 0
         if self.options["continue_training"] is True:
+            # previous_runs = os.listdir(self.options["run_location"]
+            # if len(previous_runs) == 0:
+            #     run_number=1
+            # else:
+            #     run_number=max([int(s.split('run_')[1]) for s in previous_runs]) + 1
             saved_agent = torch.load(self.options["model_path"])
             self.model.load_state_dict(saved_agent['model_state_dict'])
             self.model.optimizer.load_state_dict(saved_agent['optimizer_state_dict'])
             self.resumed_epoch_n = saved_agent['epoch']
+
         print("Model parameters:\n{}".format(self.model.parameters))
 
     def train_and_test(self, do_print=True):
@@ -130,10 +131,10 @@ class RNN_Agent:
             for epoch_n in range(self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n):
                 train_loss, train_acc, _, train_truth = self.model.do_train(self.train_loader)
                 test_loss, test_acc, _, test_truth = self.model.do_eval(self.test_loader)
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, epoch_n)
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, epoch_n)
-                self.history_logger.add_scalar("Loss/Train Loss", train_loss, epoch_n)
-                self.history_logger.add_scalar("Loss/Test Loss", test_loss, epoch_n)
+                self.history_logger.add_scalar("Accuracy/Train Accuracy (Epoch)", train_acc, epoch_n)
+                self.history_logger.add_scalar("Accuracy/Test Accuracy (Epoch)", test_acc, epoch_n)
+                self.history_logger.add_scalar("Loss/Train Loss (Epoch)", train_loss, epoch_n)
+                self.history_logger.add_scalar("Loss/Test Loss (Epoch)", test_loss, epoch_n)
                 for name, param in self.model.named_parameters():
                     self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), epoch_n)
 
@@ -156,7 +157,9 @@ class RNN_Agent:
 
         def _test():
             """Evaluates the model on testing batches and saves ROC curve to history logger."""
-            _, _, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
+            test_loss, test_acc, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
+            self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
+            self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
             ROC_fig = plot_ROC.plot_ROOT_ROC(self.options, test_raw_results, test_truth)
             self.history_logger.add_figure("ROC", ROC_fig)
 
@@ -196,6 +199,6 @@ def train(options):
         return options
 
     options = _set_features(options)
-    agent = RNN_Agent(options)
+    agent = Isolation_Agent(options)
     agent.train_and_test()
     agent.save_agent()

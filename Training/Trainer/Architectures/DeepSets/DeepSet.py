@@ -38,17 +38,14 @@ class Model(nn.Module):
         )
 
         self.feature_extractor = nn.Sequential(
-            nn.Linear(28 * 28, 300),
+            nn.Linear(options["n_trk_features"], 300),
             nn.ReLU(inplace=True),
-            nn.Linear(300, 100),
-            nn.ReLU(inplace=True),
-            nn.Linear(100, 30),
+            nn.Linear(300, 30),
             nn.ReLU(inplace=True)
         )
         self.set = InvLinear(30, 30, bias=True)
         self.fc_final = nn.Linear(self.output_size + self.n_lep_features, self.output_size).to(self.device)
-        self.output_layer = nn.Sequential(nn.ReLU(inplace=True),
-                                          nn.Linear(30, 2))
+        self.output_layer = nn.Sequential(nn.ReLU(inplace=True), nn.Linear(30, 2))
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -69,18 +66,18 @@ class Model(nn.Module):
            the probability of particle beng prompt or heavy flavor
 
         """
-        import pdb; pdb.set_trace()
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
-        cal_info = cal_info.to(self.device)
+        # cal_info = cal_info.to(self.device)
 
-        N, S, C, D, _ = X.shape
-        h = self.feature_extractor(X.reshape(N, S, C*D*D))
-        h = self.set(h, mask=mask)
-        outp = self.output_layer(h)
-        outp = outp = self.fc_final(torch.cat([outp, leptons_info], dim=1))
-        out = self.softmax(p)
-        return y
+        batch_size, max_n_tracks, n_track_features = track_info.shape
+        track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
+        intrinsic_tracks = self.feature_extractor(track_info).view(batch_size, max_n_tracks, -1)
+        intrinsic_vectors = self.set(intrinsic_tracks, mask=None)
+        outp = self.output_layer(intrinsic_vectors)
+        outp = outp = self.fc_final(torch.cat([outp, lepton_info], dim=1))
+        out = self.softmax(outp)
+        return out
 
     def do_train(self, batches, do_training=True):
         r"""Runs the neural net on batches of data passed into it

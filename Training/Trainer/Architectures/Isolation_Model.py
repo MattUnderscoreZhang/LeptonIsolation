@@ -5,7 +5,6 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import torch.nn.functional as F
 import math
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
 
 
 class InvLinear(nn.Module):
@@ -113,7 +112,6 @@ class Model(nn.Module):
         self.learning_rate = options["learning_rate"]
         self.batch_size = options["batch_size"]
         self.rnn_dropout = options["dropout"]
-        self.history_logger = SummaryWriter(options["output_folder"])
         self.device = options["device"]
         self.architecture = options["architecture_type"]
         self.h_0 = nn.Parameter(
@@ -333,16 +331,6 @@ class Model(nn.Module):
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
             all_truth += truth.cpu().detach().tolist()
-            if do_training is True:
-                self.history_logger.add_scalar(
-                    "Accuracy/Train Accuracy (Batch)", accuracy, i)
-                self.history_logger.add_scalar(
-                    "Loss/Train Loss (Batch)", float(loss), i)
-            else:
-                self.history_logger.add_scalar(
-                    "Accuracy/Test Accuracy (Batch)", accuracy, i)
-                self.history_logger.add_scalar(
-                    "Loss/Test Loss (Batch)", float(loss), i)
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

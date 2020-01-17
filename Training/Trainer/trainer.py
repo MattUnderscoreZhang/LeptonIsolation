@@ -1,6 +1,7 @@
 import random
 import pathlib
 import os
+import shutil
 import time
 import torch
 import numpy as np
@@ -95,6 +96,7 @@ class Isolation_Agent:
 
         logdir = 'run_' + time.strftime('%R:%S_%d_%m_%y') + '_' + self.options["run_author"]
         self.history_logger = SummaryWriter(os.path.join(self.options["run_location"], logdir))
+        shutil.copyfile("isolator.py", os.path.join(self.options["run_location"], logdir + "/isolator.py"))
 
         # load previous state if training is resuming
         self.resumed_epoch_n = 0

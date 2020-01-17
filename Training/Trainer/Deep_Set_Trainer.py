@@ -1,19 +1,17 @@
 import random
 import pathlib
-import os
-import time
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-from .Architectures.RNN import Model
+from .Architectures.DeepSets.DeepSet import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import plot_ROC
 
 
-class RNN_Agent:
-    """Driver class for RNN
+class Set_Agent:
+    """Driver Class for deep sets
 
     Attributes:
         options (dict): configuration for the nn
@@ -92,16 +90,8 @@ class RNN_Agent:
         self.options = options
         self.model = Model(self.options).to(self.options["device"])
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
+        self.history_logger = SummaryWriter()
 
-        # previous_runs = os.listdir(self.options["run_location"]
-        # if len(previous_runs) == 0:
-        #     run_number=1
-        # else:
-        #     run_number=max([int(s.split('run_')[1]) for s in previous_runs]) + 1
-
-        logdir = 'run_' + time.strftime('%R:%S_%d_%m_%y') + '_' + self.options["run_author"]
-
-        self.history_logger = SummaryWriter(os.path.join(self.options["run_location"], logdir))
         # load previous state if training is resuming
         self.resumed_epoch_n = 0
         if self.options["continue_training"] is True:
@@ -186,7 +176,6 @@ def train(options):
         options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches()]
         options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
-        options["lep_features"] += options["additional_appended_features"]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
         options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])
@@ -196,6 +185,6 @@ def train(options):
         return options
 
     options = _set_features(options)
-    agent = RNN_Agent(options)
+    agent = Set_Agent(options)
     agent.train_and_test()
     agent.save_agent()

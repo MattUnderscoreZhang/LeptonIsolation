@@ -190,10 +190,10 @@ def train(options):
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
         options["lep_features"] += options["additional_appended_features"]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
-        options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])
         options["n_trk_features"] = len(options["trk_features"])
-        options["n_cal_features"] = len(options["cal_features"])
+        options["n_calo_features"] = len(options["calo_features"])
         data_file.Close()
         return options
 

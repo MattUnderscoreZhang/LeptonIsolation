@@ -45,49 +45,42 @@ class InvLinear(nn.Module):
             bound = 1 / math.sqrt(fan_in)
             init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, X, mask=None):
+    def forward(self, vectors, vector_length):
         r"""
-        Maps the input set X = {x_1, ..., x_M} to a vector y of dimension out_features,
-        through a permutation invariant linear transformation of the form:
-            $y = \beta reduction(X) + bias$
+        Reduces set of input vectors to a single output vector.
         Inputs:
-        X: N sets of size at most M where each element has dimension in_features
-           (tensor with shape (N, M, in_features))
-        mask: binary mask to indicate which elements in X are valid (byte tensor
-            with shape (N, M) or None); if None, all sets have the maximum size M.
-            Default: ``None``.
+            vectors: tensor with shape (batch_size, max_n_vectors, in_features)
         Outputs:
-        Y: N vectors of dimension out_features (tensor with shape (N, out_features))
+            out: tensor with shape (batch_size, out_features)
         """
-        N, M, _ = X.shape
-        device = X.device
-        y = torch.zeros(N, self.out_features).to(device)
-        if mask is None:
-            mask = torch.ones(N, M).byte().to(device)
+        batch_size, max_n_vectors, _ = vectors.shape
+        device = vectors.device
+        out = torch.zeros(batch_size, self.out_features).to(device)
+        mask = torch.Tensor([[1]*i+[0]*(max_n_vectors-i) for i in vector_length.numpy()]).int()  # which elements in vectors are valid
 
         if self.reduction == 'mean':
             sizes = mask.float().sum(dim=1).unsqueeze(1)
-            Z = X * mask.unsqueeze(2).float()
-            y = (Z.sum(dim=1) @ self.beta) / sizes
+            Z = vectors * mask.unsqueeze(2).float()
+            out = (Z.sum(dim=1) @ self.beta) / sizes
 
         elif self.reduction == 'sum':
-            Z = X * mask.unsqueeze(2).float()
-            y = Z.sum(dim=1) @ self.beta
+            Z = vectors * mask.unsqueeze(2).float()
+            out = Z.sum(dim=1) @ self.beta
 
         elif self.reduction == 'max':
-            Z = X.clone()
+            Z = vectors.clone()
             Z[~mask] = float('-Inf')
-            y = Z.max(dim=1)[0] @ self.beta
+            out = Z.max(dim=1)[0] @ self.beta
 
         else:  # min
-            Z = X.clone()
+            Z = vectors.clone()
             Z[~mask] = float('Inf')
-            y = Z.min(dim=1)[0] @ self.beta
+            out = Z.min(dim=1)[0] @ self.beta
 
         if self.bias is not None:
-            y += self.bias
+            out += self.bias
 
-        return y
+        return out
 
     def extra_repr(self):
         return 'in_features={}, out_features={}, bias={}, reduction={}'.format(
@@ -112,7 +105,7 @@ class Model(nn.Module):
         super().__init__()
         self.n_layers = options["n_layers"]
         self.n_trk_features = options["n_trk_features"]
-        self.n_cal_features = options["n_cal_features"]
+        self.n_calo_features = options["n_calo_features"]
         self.hidden_size = options["hidden_neurons"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
@@ -138,7 +131,7 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
             self.cal_rnn = nn.RNN(
-                input_size=self.n_cal_features,
+                input_size=self.n_calo_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
@@ -155,7 +148,7 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
             self.cal_rnn = nn.LSTM(
-                input_size=self.n_cal_features,
+                input_size=self.n_calo_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
@@ -172,7 +165,7 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
             self.cal_rnn = nn.GRU(
-                input_size=self.n_cal_features,
+                input_size=self.n_calo_features,
                 hidden_size=self.hidden_size,
                 batch_first=True,
                 num_layers=self.n_layers,
@@ -180,14 +173,20 @@ class Model(nn.Module):
                 bidirectional=False,
             ).to(self.device)
         elif self.architecture == "DeepSets":
-            self.feature_extractor = nn.Sequential(
+            self.trk_feature_extractor = nn.Sequential(
                 nn.Linear(options["n_trk_features"], 300),
                 nn.ReLU(inplace=True),
                 nn.Linear(300, 30),
                 nn.ReLU(inplace=True)
             )
-            self.set = InvLinear(30, 30, bias=True)
-            self.output_layer = nn.Sequential(nn.ReLU(inplace=True), nn.Linear(30, self.hidden_size))
+            self.calo_feature_extractor = nn.Sequential(
+                nn.Linear(options["n_calo_features"], 300),
+                nn.ReLU(inplace=True),
+                nn.Linear(300, 30),
+                nn.ReLU(inplace=True)
+            )
+            self.inv_layer = InvLinear(30, 30, bias=True)
+            self.output_layer = nn.Sequential(nn.ReLU(inplace=True), nn.Linear(60, self.hidden_size))
         else:
             print("Unrecognized architecture type!")
             exit()
@@ -200,7 +199,7 @@ class Model(nn.Module):
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def forward(self, track_info, track_length, lepton_info, cal_info, cal_length):
+    def forward(self, track_info, track_length, lepton_info, calo_info, calo_length):
         r"""Takes event data and passes through different layers depending on the architecture.
             RNN / LSTM / GRU:
             * padding variable-length tracks with zeros
@@ -217,23 +216,30 @@ class Model(nn.Module):
         Args:
             track_info: variable length information about the track
             lepton_info: fixed length information about the lepton
-            cal_info: variable length information about caloclusters
+            calo_info: variable length information about caloclusters
             track_length: unpadded length of tracks
-            cal_length: unpadded length of caloclusters
+            calo_length: unpadded length of caloclusters
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
         # move tensors to either CPU or GPU
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
-        cal_info = cal_info.to(self.device)
+        calo_info = calo_info.to(self.device)
 
         if self.architecture == "DeepSets":
             batch_size, max_n_tracks, n_track_features = track_info.shape
             track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
-            intrinsic_tracks = self.feature_extractor(track_info).view(batch_size, max_n_tracks, -1)
-            intrinsic_vectors = self.set(intrinsic_tracks, mask=None)
-            out = self.output_layer(intrinsic_vectors)
+            intrinsic_tracks = self.trk_feature_extractor(track_info).view(batch_size, max_n_tracks, -1)
+
+            batch_size, max_n_calos, n_calo_features = calo_info.shape
+            calo_info = calo_info.view(batch_size * max_n_calos, n_calo_features)
+            intrinsic_calos = self.calo_feature_extractor(calo_info).view(batch_size, max_n_calos, -1)
+
+            intrinsic_trk_final = self.inv_layer(intrinsic_tracks, track_length)
+            intrinsic_calo_final = self.inv_layer(intrinsic_calos, calo_length)
+            out = self.output_layer(torch.cat([intrinsic_trk_final, intrinsic_calo_final], dim=1))
+
         elif self.architecture in ["RNN", "GRU", "LSTM"]:
             self.trk_rnn.flatten_parameters()
             self.cal_rnn.flatten_parameters()
@@ -243,8 +249,8 @@ class Model(nn.Module):
             sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
             sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
-            sorted_n_cal, sorted_indices_cal = torch.sort(cal_length, descending=True)
-            sorted_cal = cal_info[sorted_indices_cal].to(self.device)
+            sorted_n_cal, sorted_indices_cal = torch.sort(calo_length, descending=True)
+            sorted_cal = calo_info[sorted_indices_cal].to(self.device)
             sorted_n_cal = sorted_n_cal.detach().cpu()
 
             torch.set_default_tensor_type(torch.FloatTensor)
@@ -307,8 +313,8 @@ class Model(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, track_length, cal_info, cal_length, lepton_info, truth = batch
-            output = self.forward(track_info, track_length, lepton_info, cal_info, cal_length)
+            track_info, track_length, calo_info, calo_length, lepton_info, truth = batch
+            output = self.forward(track_info, track_length, lepton_info, calo_info, calo_length)
             truth = truth.to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())

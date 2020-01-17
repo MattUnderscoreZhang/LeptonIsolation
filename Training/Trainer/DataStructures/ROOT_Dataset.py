@@ -49,7 +49,7 @@ class ROOT_Dataset(Dataset):
             lepton = [0 if np.isnan(value) else value for value in lepton]
             transposed_tracks = [list(getattr(tree, trk_feature)) for trk_feature in options["trk_features"]]
             tracks = np.transpose(transposed_tracks)
-            transposed_clusters = [list(getattr(tree, cal_feature)) for cal_feature in options["cal_features"]]
+            transposed_clusters = [list(getattr(tree, calo_feature)) for calo_feature in options["calo_features"]]
             clusters = np.transpose(transposed_clusters)
             truth = tree.truth_type
             lepton = torch.Tensor(lepton)

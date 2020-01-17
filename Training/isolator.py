@@ -29,7 +29,7 @@ else:
 if __name__ == "__main__":
 
     options = {}
-    options["input_data"] = "/public/data/RNN/small_data.root"
+    options["input_data"] = "/public/data/RNN/large_data.root"
     options["run_location"] = "/public/data/RNN/runs/"
     options["run_author"] = 'matt'
     options["tree_name"] = "NormalizedTree"

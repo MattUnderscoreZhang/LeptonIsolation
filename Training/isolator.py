@@ -31,7 +31,7 @@ if __name__ == "__main__":
     options = {}
     options["input_data"] = "/public/data/RNN/large_data.root"
     options["run_location"] = "/public/data/RNN/runs/"
-    options["run_author"] = 'matt_low_to_high_pt'
+    options["run_label"] = 'matt_low_to_high_pt'
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"

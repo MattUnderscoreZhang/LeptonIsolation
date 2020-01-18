@@ -70,6 +70,7 @@ int main (int argc, char *argv[]) {
     float PLT; unnormedTree->Branch("baseline_PLT", &PLT, "baseline_PLT/F");
 
     float lep_pT; unnormedTree->Branch("lep_pT", &lep_pT, "lep_pT/F");
+    unnormedTree->Branch("ROC_slicing_lep_pT", &lep_pT, "ROC_slicing_lep_pT/F");  // for making ROC curve plots
     float lep_eta; unnormedTree->Branch("lep_eta", &lep_eta, "lep_eta/F");
     float lep_theta; unnormedTree->Branch("lep_theta", &lep_theta, "lep_theta/F");
     float lep_phi; unnormedTree->Branch("lep_phi", &lep_phi, "lep_phi/F");

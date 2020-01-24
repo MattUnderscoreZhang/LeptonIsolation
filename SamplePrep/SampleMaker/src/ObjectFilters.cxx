@@ -9,6 +9,7 @@
 #include "xAODTracking/TrackParticle.h"
 #include "xAODEgamma/EgammaxAODHelpers.h"
 #include "xAODTruth/xAODTruthHelpers.h"
+#include "xAODTruth/TruthEvent.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 
 namespace xAOD {
@@ -91,6 +92,11 @@ class ObjectFilters {
                 // truth type: 2 = real prompt, 3 = HF
                 int truth_type = xAOD::TruthHelpers::getParticleTruthType(*electron);
                 if (truth_type != 2 && truth_type != 3) continue;
+                // truth parent (filter out tau decays)
+                const xAOD::TruthParticle* particle = xAOD::TruthHelpers::getTruthParticle(*electron);
+                if (particle == 0) continue;
+                if (particle->parent() == 0) continue;
+                if (abs(particle->parent()->pdgId()) == 15 || abs(particle->parent()->pdgId()) == 17) continue;
                 // store electron
                 m_current_electrons.push_back(make_pair(electron, truth_type));
             }
@@ -146,6 +152,11 @@ class ObjectFilters {
                 // truth type: 6 = real prompt, 7 = HF
                 int truth_type = xAOD::TruthHelpers::getParticleTruthType(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)));
                 if (truth_type != 6 && truth_type != 7) continue;
+                // truth parent (filter out tau decays)
+                const xAOD::TruthParticle* particle = xAOD::TruthHelpers::getTruthParticle(*(muon->trackParticle(xAOD::Muon::InnerDetectorTrackParticle)));
+                if (particle == 0) continue;
+                if (particle->parent() == 0) continue;
+                if (abs(particle->parent()->pdgId()) == 15 || abs(particle->parent()->pdgId()) == 17) continue;
                 // store muon
                 m_current_muons.push_back(make_pair(muon, truth_type));
             }

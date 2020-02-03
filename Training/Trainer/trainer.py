@@ -1,6 +1,7 @@
 import random
 import pathlib
 import os
+import shutil
 import time
 import torch
 import numpy as np
@@ -93,8 +94,9 @@ class Isolation_Agent:
         self.model = Model(self.options).to(self.options["device"])
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
 
-        logdir = 'run_' + time.strftime('%R:%S_%d_%m_%y') + '_' + self.options["run_author"]
+        logdir = 'run_' + time.strftime('%y-%m-%d_%H-%M-%S') + '_' + self.options["run_label"]
         self.history_logger = SummaryWriter(os.path.join(self.options["run_location"], logdir))
+        shutil.copyfile("isolator.py", os.path.join(self.options["run_location"], logdir + "/isolator.py"))
 
         # load previous state if training is resuming
         self.resumed_epoch_n = 0
@@ -130,10 +132,10 @@ class Isolation_Agent:
             for epoch_n in range(self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n):
                 train_loss, train_acc, _, train_truth = self.model.do_train(self.train_loader)
                 test_loss, test_acc, _, test_truth = self.model.do_eval(self.test_loader)
-                self.history_logger.add_scalar("Accuracy/Train Accuracy (Epoch)", train_acc, epoch_n)
-                self.history_logger.add_scalar("Accuracy/Test Accuracy (Epoch)", test_acc, epoch_n)
-                self.history_logger.add_scalar("Loss/Train Loss (Epoch)", train_loss, epoch_n)
-                self.history_logger.add_scalar("Loss/Test Loss (Epoch)", test_loss, epoch_n)
+                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, epoch_n)
+                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, epoch_n)
+                self.history_logger.add_scalar("Loss/Train Loss", train_loss, epoch_n)
+                self.history_logger.add_scalar("Loss/Test Loss", test_loss, epoch_n)
                 for name, param in self.model.named_parameters():
                     self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), epoch_n)
 
@@ -193,10 +195,10 @@ def train(options):
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
         options["lep_features"] += options["additional_appended_features"]
         options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
-        options["cal_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
         options["n_lep_features"] = len(options["lep_features"])
         options["n_trk_features"] = len(options["trk_features"])
-        options["n_cal_features"] = len(options["cal_features"])
+        options["n_calo_features"] = len(options["calo_features"])
         data_file.Close()
         return options
 

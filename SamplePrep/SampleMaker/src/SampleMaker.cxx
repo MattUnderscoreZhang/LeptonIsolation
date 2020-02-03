@@ -6,6 +6,7 @@
 #include <cassert>
 #include "xAODRootAccess/Init.h"
 #include "xAODRootAccess/TEvent.h"
+#include "xAODTruth/TruthEvent.h"
 #include "xAODRootAccess/tools/ReturnCheck.h"
 #include "ObjectFilters.cxx"
 #include "TFile.h"
@@ -67,9 +68,20 @@ int main (int argc, char *argv[]) {
     float topoetcone30; unnormedTree->Branch("baseline_topoetcone30", &topoetcone30, "baseline_topoetcone30/F");
     float topoetcone40; unnormedTree->Branch("baseline_topoetcone40", &topoetcone40, "baseline_topoetcone40/F");
     float eflowcone20; unnormedTree->Branch("baseline_eflowcone20", &eflowcone20, "baseline_eflowcone20/F");
+    float ptcone20_over_pt; unnormedTree->Branch("baseline_ptcone20_over_pt", &ptcone20_over_pt, "baseline_ptcone20_over_pt/F");
+    float ptcone30_over_pt; unnormedTree->Branch("baseline_ptcone30_over_pt", &ptcone30_over_pt, "baseline_ptcone30_over_pt/F");
+    float ptcone40_over_pt; unnormedTree->Branch("baseline_ptcone40_over_pt", &ptcone40_over_pt, "baseline_ptcone40_over_pt/F");
+    float ptvarcone20_over_pt; unnormedTree->Branch("baseline_ptvarcone20_over_pt", &ptvarcone20_over_pt, "baseline_ptvarcone20_over_pt/F");
+    float ptvarcone30_over_pt; unnormedTree->Branch("baseline_ptvarcone30_over_pt", &ptvarcone30_over_pt, "baseline_ptvarcone30_over_pt/F");
+    float ptvarcone40_over_pt; unnormedTree->Branch("baseline_ptvarcone40_over_pt", &ptvarcone40_over_pt, "baseline_ptvarcone40_over_pt/F");
+    float topoetcone20_over_pt; unnormedTree->Branch("baseline_topoetcone20_over_pt", &topoetcone20_over_pt, "baseline_topoetcone20_over_pt/F");
+    float topoetcone30_over_pt; unnormedTree->Branch("baseline_topoetcone30_over_pt", &topoetcone30_over_pt, "baseline_topoetcone30_over_pt/F");
+    float topoetcone40_over_pt; unnormedTree->Branch("baseline_topoetcone40_over_pt", &topoetcone40_over_pt, "baseline_topoetcone40_over_pt/F");
+    float eflowcone20_over_pt; unnormedTree->Branch("baseline_eflowcone20_over_pt", &eflowcone20_over_pt, "baseline_eflowcone20_over_pt/F");
     float PLT; unnormedTree->Branch("baseline_PLT", &PLT, "baseline_PLT/F");
 
     float lep_pT; unnormedTree->Branch("lep_pT", &lep_pT, "lep_pT/F");
+    unnormedTree->Branch("ROC_slicing_lep_pT", &lep_pT, "ROC_slicing_lep_pT/F");  // for making ROC curve plots
     float lep_eta; unnormedTree->Branch("lep_eta", &lep_eta, "lep_eta/F");
     float lep_theta; unnormedTree->Branch("lep_theta", &lep_theta, "lep_theta/F");
     float lep_phi; unnormedTree->Branch("lep_phi", &lep_phi, "lep_phi/F");
@@ -97,6 +109,10 @@ int main (int argc, char *argv[]) {
     vector<int>* trk_nSCTHits = new vector<int>; unnormedTree->Branch("trk_nSCTHits", "vector<int>", &trk_nSCTHits);
     vector<int>* trk_nSCTHoles = new vector<int>; unnormedTree->Branch("trk_nSCTHoles", "vector<int>", &trk_nSCTHoles);
     vector<int>* trk_nTRTHits = new vector<int>; unnormedTree->Branch("trk_nTRTHits", "vector<int>", &trk_nTRTHits);
+    vector<float>* trk_vtx_x = new vector<float>; unnormedTree->Branch("trk_vtx_x", "vector<float>", &trk_vtx_x);
+    vector<float>* trk_vtx_y = new vector<float>; unnormedTree->Branch("trk_vtx_y", "vector<float>", &trk_vtx_y);
+    vector<float>* trk_vtx_z = new vector<float>; unnormedTree->Branch("trk_vtx_z", "vector<float>", &trk_vtx_z);
+    vector<int>* trk_vtx_type = new vector<int>; unnormedTree->Branch("trk_vtx_type", "vector<int>", &trk_vtx_type);
 
     // See https://twiki.cern.ch/twiki/bin/view/AtlasProtected/EGammaD3PDtoxAOD
     vector<float>* calo_cluster_lep_dR = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dR", "vector<float>", &calo_cluster_lep_dR);
@@ -184,6 +200,18 @@ int main (int argc, char *argv[]) {
         if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
         else process_muon_cones((const xAOD::Muon*)lepton);
 
+        //--- Cone variables divided by pT
+        ptcone20_over_pt = ptcone20 / lep_pT;
+        ptcone30_over_pt = ptcone30 / lep_pT;
+        ptcone40_over_pt = ptcone40 / lep_pT;
+        ptvarcone20_over_pt = ptvarcone20 / lep_pT;
+        ptvarcone30_over_pt = ptvarcone30 / lep_pT;
+        ptvarcone40_over_pt = ptvarcone40 / lep_pT;
+        topoetcone20_over_pt = topoetcone20 / lep_pT;
+        topoetcone30_over_pt = topoetcone30 / lep_pT;
+        topoetcone40_over_pt = topoetcone40 / lep_pT;
+        eflowcone20_over_pt = eflowcone20 / lep_pT;
+
         //--- Check if lepton passes cuts
         bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
         bool d0_over_sigd0_cut = (is_electron and (fabs(lep_d0_over_sigd0) < 5)) or (!is_electron and (fabs(lep_d0_over_sigd0) < 3));
@@ -210,6 +238,7 @@ int main (int argc, char *argv[]) {
         trk_lep_dEta->clear(); trk_lep_dPhi->clear(); trk_lep_dD0->clear(); trk_lep_dZ0->clear();
         trk_nIBLHits->clear(); trk_nPixHits->clear(); trk_nPixHoles->clear(); trk_nPixOutliers->clear();
         trk_nSCTHits->clear(); trk_nSCTHoles->clear(); trk_nTRTHits->clear();
+        trk_vtx_x->clear(); trk_vtx_y->clear(); trk_vtx_z->clear(); trk_vtx_type->clear();
         set<const xAOD::TrackParticle*> own_tracks;
         if (is_electron) own_tracks = get_electron_own_tracks((const xAOD::Electron*)lepton);
         else own_tracks = get_muon_own_tracks((const xAOD::Muon*)lepton);
@@ -239,6 +268,21 @@ int main (int argc, char *argv[]) {
             trk_lep_dPhi->push_back(track->phi() - lep_phi);
             trk_lep_dD0->push_back(track->d0() - lep_d0);
             trk_lep_dZ0->push_back(track->z0() - lep_z0);
+
+            auto vertexLink = track->vertexLink();
+            if (vertexLink != 0) {
+                auto vertex = *vertexLink;
+                trk_vtx_x->push_back(vertex->x());
+                trk_vtx_y->push_back(vertex->y());
+                trk_vtx_z->push_back(vertex->z());
+                trk_vtx_type->push_back(vertex->vertexType());
+            }
+            else {
+                trk_vtx_x->push_back(0);
+                trk_vtx_y->push_back(0);
+                trk_vtx_z->push_back(0);
+                trk_vtx_type->push_back(-1);
+            }
 
             uint8_t placeholder;
             track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); trk_nIBLHits->push_back(placeholder);

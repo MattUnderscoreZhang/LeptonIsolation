@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
 from .Architectures.Isolation_Model import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
-from .Analyzer import plot_ROC
+from .Analyzer import Plotter
 
 
 class Isolation_Agent:
@@ -111,7 +111,9 @@ class Isolation_Agent:
             self.model.optimizer.load_state_dict(saved_agent['optimizer_state_dict'])
             self.resumed_epoch_n = saved_agent['epoch']
 
-        print("Model parameters:\n{}".format(self.model.parameters))
+        # print("Model parameters:\n{}".format(self.model.parameters))
+        # for name, param in self.model.named_parameters():
+            # print(name, np.isnan(param.detach().cpu()).any())
 
     def train_and_test(self, do_print=True):
         """Trains and tests the model.
@@ -161,7 +163,7 @@ class Isolation_Agent:
             test_loss, test_acc, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
-            ROC_fig = plot_ROC.plot_ROOT_ROC(self.options, test_raw_results, test_truth)
+            ROC_fig = Plotter.plot_ROC(self.options, test_raw_results, test_truth)
             self.history_logger.add_figure("ROC", ROC_fig)
 
         _train(do_print)
@@ -187,7 +189,7 @@ def train(options):
         """Modifies options dictionary with branch name info."""
         data_file = TFile(options["input_data"])
         data_tree = getattr(data_file, options["tree_name"])
-        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches()]
+        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
         options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
         options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
         options["lep_features"] += options["additional_appended_features"]

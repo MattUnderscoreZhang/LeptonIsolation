@@ -193,7 +193,9 @@ class Model(nn.Module):
         self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
         self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
         self.fc_final = nn.Linear(self.hidden_size + self.n_lep_features, self.output_size).to(self.device)
-        self.dropout = nn.Dropout(p=0.2)
+        self.relu_final = nn.ReLU(inplace=True)
+        self.dropout_final = nn.Dropout(p=options["dropout"])
+        self.dropout = nn.Dropout(p=options["dropout"])
         self.softmax = nn.Softmax(dim=1).to(self.device)
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
@@ -281,6 +283,8 @@ class Model(nn.Module):
             out = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
 
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
+        out = self.relu_final(out)
+        out = self.dropout_final(out)
         out = self.softmax(out)
 
         return out

@@ -90,7 +90,7 @@ def collate(batch):
          cluster_length,
          lepton_batch,
          truth_batch]: tracks_batch and clusters_batch is a 3D Tensor,
-         lepton_batch is 2D, and truth_batch, track_length, cluster_length is 1D
+         lepton_batch is 2D, and truth_batch, track_length, cluster_length are 1D
     """
     batch = np.array(batch)
     track_length = torch.from_numpy(batch[:, 1].astype(int))
@@ -101,6 +101,6 @@ def collate(batch):
     tracks_batch = torch.stack(tracks_batch)
     clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(event[2]) for event in batch]  # pads the data with 0's
     clusters_batch = torch.stack(clusters_batch)
-    truth_batch = torch.from_numpy(batch[:, -1].astype(int))
     lepton_batch = torch.stack(batch[:, -2].tolist())
+    truth_batch = torch.from_numpy(batch[:, -1].astype(int))
     return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch]

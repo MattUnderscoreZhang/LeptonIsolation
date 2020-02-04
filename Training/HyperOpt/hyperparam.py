@@ -1,198 +1,97 @@
-import argparse
-import os
 import torch
-from torch.utils.data import DataLoader
-import torch.optim as optim
-import pickle as pkl
-import pathlib
-from Trainer.Architectures.RNN import Model, hotfix_pack_padded_sequence, Tensor_length
-from Trainer.DataStructures.LeptonTrackDataset import Torchdata, collate
+from ray import tune
 from ray.tune import Trainable
+from torch.utils.data import DataLoader
+from filelock import FileLock
+from ROOT import TFile
+from .Architectures.Isolation_Model import Model
+from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
+from .Analyzer import Plotter
 
 
-# Training settings
-parser = argparse.ArgumentParser(description="PyTorch Hyperparameter Tuner")
-parser.add_argument(
-    "--batch-size",
-    type=int,
-    default=200,
-    metavar="N",
-    help="input batch size for training (default: 200)",
-)
-parser.add_argument(
-    "--RNN_type", default="GRU", metavar="string", help="Type of RNN (default: GRU)"
-)
-parser.add_argument(
-    "--training_split",
-    type=float,
-    default=0.7,
-    metavar="fraction",
-    help="ratio of training to testing (default: 0.7)",
-)
-parser.add_argument(
-    "--learning_rate",
-    type=float,
-    default=0.0001,
-    metavar="learning_rate",
-    help="learning rate (default: 0.0001)",
-)
-parser.add_argument(
-    "--n_epochs",
-    type=int,
-    default=50,
-    metavar="N",
-    help="number of batches (default: 50)",
-)
-parser.add_argument(
-    "--n_layers",
-    type=int,
-    default=5,
-    metavar="N",
-    help="number of rnn layers (default: 5)",
-)
-parser.add_argument(
-    "--hidden_neurons",
-    type=int,
-    default=128,
-    metavar="N",
-    help="size of hidden neurons (default: 128)",
-)
-parser.add_argument(
-    "--disable-cuda", action="store_true", default=False, help="disables CUDA training"
-)
-parser.add_argument(
-    "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
-)
-parser.add_argument(
-    "--smoke-test", action="store_true", help="Finish quickly for testing"
-)
+class HyperTune(Trainable):
+    """Hyperparameter tuning for lepton isolation model
 
-args = parser.parse_args()
-if not args.disable_cuda and torch.cuda.is_available():
-    args.device = torch.device("cuda")
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    cuda = True
-else:
-    args.device = torch.device("cpu")
-    cuda = False
+    Attributes:
+        options (dict): configuration for the nn
 
+    Methods:
+    """
 
-class TrainRNN(Trainable):
+    def __init__(self, options):
+        """Sets up a new agent, or loads a saved agent if training is being resumed.
+
+        Args:
+            options (dict): configuration options
+        Returns:
+            None
+        """
+        def _load_data(data_filename):
+            """Reads the input data and sets up training and test data loaders.
+
+            Args:
+                data_filename: ROOT ntuple containing the relevant data
+            Returns:
+                train_loader, test_loader
+            """
+            # load data files
+
+            print("Loading data")
+            data_file = TFile(data_filename)
+            data_tree = getattr(data_file, self.options["tree_name"])
+            n_events = data_tree.GetEntries()
+            data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
+
+            # perform class balancing
+            print("Balancing classes")
+            event_indices = np.array(range(n_events))
+            full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
+            truth_values = [data[-1].bool().item() for data in full_dataset]
+            class_0_indices = list(event_indices[truth_values])
+            class_1_indices = list(event_indices[np.invert(truth_values)])
+            n_each_class = min(len(class_0_indices), len(class_1_indices))
+            random.shuffle(class_0_indices)
+            random.shuffle(class_1_indices)
+            balanced_event_indices = class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
+            n_balanced_events = len(balanced_event_indices)
+            del full_dataset
+
+            # split test and train
+            print("Splitting and processing test and train events")
+            random.shuffle(balanced_event_indices)
+            n_training_events = int(self.options["training_split"] * n_balanced_events)
+            train_event_indices = balanced_event_indices[:n_training_events]
+            test_event_indices = balanced_event_indices[n_training_events:]
+            train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
+            test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
+
+            # prepare the data loaders
+            print("Prepping data loaders")
+            train_loader = DataLoader(
+                train_set,
+                batch_size=self.options["batch_size"],
+                collate_fn=collate,
+                shuffle=True,
+                drop_last=True,
+            )
+            test_loader = DataLoader(
+                test_set,
+                batch_size=self.options["batch_size"],
+                collate_fn=collate,
+                shuffle=True,
+                drop_last=True,
+            )
+            return train_loader, test_loader
+
     def _setup(self, config):
-        self.args = config.pop("args")
-        vars(self.args).update(config)
-
-        torch.manual_seed(args.seed)
-        kwargs = {}
-        if cuda:
-            torch.cuda.manual_seed(args.seed)
-            kwargs = {"num_workers": 1, "pin_memory": True}
-
-        self.n_events = len(self.args.dataset)
-        self.n_training_events = int(self.args.training_split * self.n_events)
-        self.leptons_with_tracks = self.args.dataset
-
-        self.training_events = self.leptons_with_tracks[: self.n_training_events]
-        self.test_events = self.leptons_with_tracks[self.n_training_events:]
-        # prepare the generators
-        self.train_set = Torchdata(self.training_events)
-        self.test_set = Torchdata(self.test_events)
-
-        self.train_loader = DataLoader(
-            self.train_set,
-            batch_size=self.args.batch_size,
-            collate_fn=collate,
-            shuffle=True,
-            drop_last=True,
-            **kwargs
-        )
-        self.test_loader = DataLoader(
-            self.test_set,
-            batch_size=self.args.batch_size,
-            collate_fn=collate,
-            shuffle=True,
-            drop_last=True,
-            **kwargs
-        )
-        self.model = Model(vars(self.args))
-        if cuda:
-            self.model.cuda()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+        self.train_loader, self.test_loader = _load_data(self.options["input_data"])
 
     def _train_iteration(self):
-        self.model.train()
-        for batch_idx, data in enumerate(self.train_loader):
-            self.optimizer.zero_grad()
-            track_info, lepton_info, truth = data
-            # moving tensors to adequate device
-            track_info = track_info.to(args.device)
-            lepton_info = lepton_info.to(args.device)
-            truth = truth[:, 0].to(args.device)
-
-            # setting up for packing padded sequence
-            n_tracks = torch.tensor(
-                [Tensor_length(track_info[i]) for i in range(len(track_info))]
-            )
-
-            sorted_n, indices = torch.sort(n_tracks, descending=True)
-            # reodering information according to sorted indices
-            sorted_tracks = track_info[indices].to(args.device)
-            sorted_leptons = lepton_info[indices].to(args.device)
-            padded_seq = hotfix_pack_padded_sequence(
-                sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
-            )
-            output = self.model.forward(padded_seq, sorted_leptons).to(args.device)
-            indices = indices.to(args.device)
-            loss = self.model.loss_function(output[:, 0], truth[indices].float())
-            loss.backward()
-            self.optimizer.step()
 
     def _test(self):
-        self.model.eval()
-        test_loss = 0
-        test_acc = 0
-        with torch.no_grad():
-            for batch_idx, data in enumerate(self.train_loader):
-                self.optimizer.zero_grad()
-
-                track_info, lepton_info, truth = data
-                # moving tensors to adequate device
-                track_info = track_info.to(args.device)
-                lepton_info = lepton_info.to(args.device)
-                truth = truth[:, 0].to(args.device)
-
-                # setting up for packing padded sequence
-                n_tracks = torch.tensor(
-                    [Tensor_length(track_info[i]) for i in range(len(track_info))]
-                )
-
-                sorted_n, indices = torch.sort(n_tracks, descending=True)
-                # reodering information according to sorted indices
-                sorted_tracks = track_info[indices].to(args.device)
-                sorted_leptons = lepton_info[indices].to(args.device)
-                padded_seq = hotfix_pack_padded_sequence(
-                    sorted_tracks, lengths=sorted_n.cpu(), batch_first=True
-                )
-                output = self.model(padded_seq, sorted_leptons).to(args.device)
-                indices = indices.to(args.device)
-                test_loss += self.model.loss_function(
-                    output[:, 0], truth[indices].float()
-                ).item()
-                predicted = torch.round(output)[:, 0]
-                test_acc += float(
-                    self.model.accuracy(
-                        predicted.data.cpu().detach(),
-                        truth.data.cpu().detach()[indices],
-                    )
-                )
-
-        test_loss = test_loss / len(self.test_loader.dataset)
-        test_acc = test_acc / len(self.test_loader.dataset)
-        return {"mean_loss": test_loss, "mean_accuracy": test_acc}
 
     def _train(self):
-        self._train_iteration()
-        return self._test()
+
 
     def _save(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
@@ -203,72 +102,19 @@ class TrainRNN(Trainable):
         self.model.load_state_dict(checkpoint_path)
 
 
-def get_dataset(options):
+class CustomStopper(tune.Stopper):
+    """docstring for CustomStopper"""
+    def __init__(self):
+        self.should_stop = False
 
-    data_file = options["input_data"]
-    leptons_with_tracks = pkl.load(open(data_file, "rb"), encoding="latin1")
-    lwt = list(
-        zip(leptons_with_tracks["normed_leptons"], leptons_with_tracks["normed_tracks"])
-    )
-    good_leptons = [
-        i[leptons_with_tracks["lepton_labels"].index("ptcone20")] > 0
-        for i in leptons_with_tracks["unnormed_leptons"]
-    ]
-    lwt = np.array(lwt)[good_leptons]
+    def __call__(self, trial_id, result):
+        max_iter = 5 if args.smoke_test else 100
+        if not self.should_stop and result["mean_accuracy"] > 0.96:
+            self.should_stop = True
+        return self.should_stop or result["training_iteration"] >= max_iter
 
-    # prepare outputs
-    output_folder = options["output_folder"]
-    if not pathlib.Path(output_folder).exists():
-        pathlib.Path(output_folder).mkdir(parents=True)
-
-    return options, lwt
+    def stop_all(self):
+        return self.should_stop
 
 
-if __name__ == "__main__":
-
-    args = parser.parse_args()
-
-    import numpy as np
-    import ray
-    from ray import tune
-    from ray.tune.schedulers import AsyncHyperBandScheduler
-
-    options = {}
-
-    options["input_data"] = "/public/data/RNN/lepton_track_data.pkl"
-    options["output_folder"] = "../Outputs/Runs/HP_tune/"
-    options["output_neurons"] = 2
-    options["bidirectional"] = False
-    arguments = get_dataset(options)
-    vars(args).update(arguments[0])
-    vars(args).update({"dataset": arguments[1]})
-    if not args.disable_cuda and torch.cuda.is_available():
-        args.device = torch.device("cuda")
-    else:
-        args.device = torch.device("cpu")
-    ray.init()
-    sched = AsyncHyperBandScheduler(
-        time_attr="training_iteration", reward_attr="neg_mean_loss"
-    )
-    tune.run_experiments(
-        {
-            "exp": {
-                "stop": {
-                    "mean_accuracy": 0.95,
-                    "training_iteration": 1 if args.smoke_test else 20,
-                },
-                "resources_per_trial": {"cpu": 8, "gpu": int(not cuda)},
-                "run": TrainRNN,
-                "num_samples": 1 if args.smoke_test else 20,
-                "checkpoint_at_end": True,
-                "config": {
-                    "args": args,
-                    "learning_rate": tune.sample_from(
-                        lambda spec: np.random.uniform(0.0001, 0.1)
-                    ),
-                },
-            }
-        },
-        verbose=2,
-        scheduler=sched,
-    )
+stopper = CustomStopper()

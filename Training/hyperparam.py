@@ -40,7 +40,7 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/backup/data.root"
+options["input_data"] = "/public/data/RNN/backup/large_data.root"
 options["run_location"] = "/public/data/RNN/runs"
 options["run_label"] = 'anil_relu_dropout'
 options["tree_name"] = "NormalizedTree"
@@ -100,7 +100,7 @@ class HyperTune(Trainable):
         """
         # import pdb; pdb.set_trace()
         self.device = config["device"]
-        self.model = Model
+        self.model = Model(config)
 
         def _load_data(data_filename):
             """Reads the input data and sets up training and test data loaders.
@@ -163,9 +163,6 @@ class HyperTune(Trainable):
 
         # import pdb; pdb.set_trace()
         self.train_loader, self.test_loader = _load_data(self.config["input_data"])
-        self.optimizer = optim.Adam(
-            self.model.parameters(),
-            lr=config.get("lr", 0.01))
 
     def _train(self):
         self.model.do_train(self.train_loader)

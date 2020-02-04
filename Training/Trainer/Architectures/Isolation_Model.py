@@ -109,7 +109,7 @@ class Model(nn.Module):
         self.intrinsic_dimensions = options["intrinsic_dimensions"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
-        self.learning_rate = options["learning_rate"]
+        self.learning_rate = options["lr"]
         self.batch_size = options["batch_size"]
         self.rnn_dropout = options["dropout"]
         self.device = options["device"]

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     options["additional_appended_features"] = []
     # options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
     options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
-    options["learning_rate"] = 0.001
+    options["lr"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 256
     options["n_epochs"] = 50

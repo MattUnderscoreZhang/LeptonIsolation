@@ -2,7 +2,6 @@
 
 # To run this script:
 # source submit-to-grid.sh
-# --osMatching --athenaTag=22.0.6\
 
 source setup_env.sh
 source build/x86_64-centos7-gcc8-opt/setup.sh

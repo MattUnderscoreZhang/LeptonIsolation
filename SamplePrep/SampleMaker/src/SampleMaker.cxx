@@ -25,6 +25,10 @@
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
 #include "CaloGeoHelpers/CaloSampling.h"
 
+#include "xAODBTaggingEfficiency/BTaggingSelectionTool.h"
+#include "xAODJet/JetContainer.h"
+#include "xAODJet/Jet.h"
+
 using namespace std;
 
 int main (int argc, char *argv[]) {
@@ -89,6 +93,8 @@ int main (int argc, char *argv[]) {
     float lep_d0_over_sigd0; unnormedTree->Branch("lep_d0_over_sigd0", &lep_d0_over_sigd0, "lep_d0_over_sigd0/F");
     float lep_z0; unnormedTree->Branch("lep_z0", &lep_z0, "lep_z0/F");
     float lep_dz0; unnormedTree->Branch("lep_dz0", &lep_dz0, "lep_dz0/F");
+    int lep_has_associated_jet; unnormedTree->Branch("lep_has_associated_jet", &lep_has_associated_jet, "lep_has_associated_jet/I");
+    float lep_DL1r; unnormedTree->Branch("lep_DL1r", &lep_DL1r, "lep_DL1r/F");
 
     vector<float>* trk_lep_dR = new vector<float>; unnormedTree->Branch("trk_lep_dR", "vector<float>", &trk_lep_dR);
     vector<float>* trk_pT = new vector<float>; unnormedTree->Branch("trk_pT", "vector<float>", &trk_pT);
@@ -149,10 +155,22 @@ int main (int argc, char *argv[]) {
         }
     };
 
-    //--- Function to fill branches for one lepton
+    //--- Accessors
     SG::AuxElement::ConstAccessor<float> accessPromptVar("PromptLeptonVeto");
 
-    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::Vertex *primary_vertex, const vector<const xAOD::TrackParticle*> &filtered_tracks, vector<const xAOD::CaloCluster*> filtered_calo_clusters, bool is_electron) {
+    std::string FlvTagCutDefinitionsFileName = "/eos/atlas/atlascerngroupdisk/asg-calib/xAODBTaggingEfficiency/13TeV/2019-21-13TeV-MC16-CDI-2019-10-07_v1.root";
+    std::string WP = "FixedCutBEff_77";
+    BTaggingSelectionTool *m_bTagSel_DL1r = new BTaggingSelectionTool("BTagSel_DL1r");
+    m_bTagSel_DL1r->setProperty( "FlvTagCutDefinitionsFileName", FlvTagCutDefinitionsFileName);
+    m_bTagSel_DL1r->setProperty("TaggerName", "DL1");
+    m_bTagSel_DL1r->setProperty("OperatingPoint", WP);
+    m_bTagSel_DL1r->setProperty("JetAuthor", "AntiKt4EMPFlowJets_BTagging201903");
+    if (!m_bTagSel_DL1r->initialize()) {
+        cout << "BTagging tool could not initialize" << endl;
+        exit (EXIT_FAILURE);
+    }
+
+    auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::Vertex *primary_vertex, const vector<const xAOD::TrackParticle*> &filtered_tracks, vector<const xAOD::CaloCluster*> &filtered_calo_clusters, vector<const xAOD::Jet*> &filtered_jets, bool is_electron) {
 
         //--- Get lepton's associated track particle
         const xAOD::TrackParticle* track_particle; 
@@ -200,7 +218,6 @@ int main (int argc, char *argv[]) {
         if (is_electron) process_electron_cones((const xAOD::Electron*)lepton);
         else process_muon_cones((const xAOD::Muon*)lepton);
 
-        //--- Cone variables divided by pT
         ptcone20_over_pt = ptcone20 / lep_pT;
         ptcone30_over_pt = ptcone30 / lep_pT;
         ptcone40_over_pt = ptcone40 / lep_pT;
@@ -211,6 +228,29 @@ int main (int argc, char *argv[]) {
         topoetcone30_over_pt = topoetcone30 / lep_pT;
         topoetcone40_over_pt = topoetcone40 / lep_pT;
         eflowcone20_over_pt = eflowcone20 / lep_pT;
+
+        //--- Find nearest jet and get b-tagging variable
+        lep_has_associated_jet = 0;
+        float nearest_dR = -1;
+        const xAOD::Jet *nearest_jet = NULL;
+        for (auto jet : filtered_jets) {
+            float jet_dR = jet->p4().DeltaR(lepton->p4());
+            if (jet_dR > 0.4) continue;
+            if (nearest_dR == -1 || jet_dR < nearest_dR) {
+                lep_has_associated_jet = 1;
+                nearest_jet = jet;
+                nearest_dR = jet_dR;
+            }
+        }
+
+        if (lep_has_associated_jet) {
+            double lep_DL1r_double = 0.0;
+            m_bTagSel_DL1r->getTaggerWeight(*nearest_jet, lep_DL1r_double);
+            lep_DL1r = lep_DL1r_double;
+        }
+        else {
+            lep_DL1r = 0.0;
+        }
 
         //--- Check if lepton passes cuts
         bool dz0_cut = fabs(lep_dz0 * sin(lep_theta)) < 0.5;
@@ -269,6 +309,15 @@ int main (int argc, char *argv[]) {
             trk_lep_dD0->push_back(track->d0() - lep_d0);
             trk_lep_dZ0->push_back(track->z0() - lep_z0);
 
+            uint8_t placeholder;
+            track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); trk_nIBLHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHits); trk_nPixHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelHoles); trk_nPixHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); trk_nPixOutliers->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHits); trk_nSCTHits->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfSCTHoles); trk_nSCTHoles->push_back(placeholder);
+            track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
+
             auto vertexLink = track->vertexLink();
             if (vertexLink != 0) {
                 auto vertex = *vertexLink;
@@ -283,15 +332,6 @@ int main (int argc, char *argv[]) {
                 trk_vtx_z->push_back(0);
                 trk_vtx_type->push_back(-1);
             }
-
-            uint8_t placeholder;
-            track->summaryValue(placeholder, xAOD::numberOfInnermostPixelLayerHits); trk_nIBLHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelHits); trk_nPixHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelHoles); trk_nPixHoles->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfPixelOutliers); trk_nPixOutliers->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfSCTHits); trk_nSCTHits->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfSCTHoles); trk_nSCTHoles->push_back(placeholder);
-            track->summaryValue(placeholder, xAOD::numberOfTRTHits); trk_nTRTHits->push_back(placeholder);
         }
 
         //--- Store calo clusters associated to lepton in dR cone
@@ -338,12 +378,14 @@ int main (int argc, char *argv[]) {
         const xAOD::ElectronContainer *electrons;
         const xAOD::MuonContainer *muons;
         const xAOD::CaloClusterContainer *calo_clusters;
+        const xAOD::JetContainer *jets;
 
         RETURN_CHECK(ALG, event.retrieve(tracks, "InDetTrackParticles"));
         RETURN_CHECK(ALG, event.retrieve(primary_vertices, "PrimaryVertices"));
         RETURN_CHECK(ALG, event.retrieve(electrons, "Electrons"));
         RETURN_CHECK(ALG, event.retrieve(muons, "Muons"));
         RETURN_CHECK(ALG, event.retrieve(calo_clusters, "CaloCalTopoClusters"));
+        RETURN_CHECK(ALG, event.retrieve(jets, "AntiKt4EMTopoJets"));
 
         const xAOD::Vertex *primary_vertex = primary_vertices->at(0);
 
@@ -356,6 +398,7 @@ int main (int argc, char *argv[]) {
         filtered_muons = object_filters.filter_muons_tight(filtered_muons);
         update_cutflow(filtered_electrons, filtered_muons, 1);
         vector<const xAOD::CaloCluster*> filtered_calo_clusters = object_filters.filter_calo_clusters(calo_clusters);
+        vector<const xAOD::Jet*> filtered_jets = object_filters.filter_jets(jets);
 
         //--- Write event
         vector<pair<const xAOD::Electron*, int>> new_filtered_electrons;
@@ -364,7 +407,7 @@ int main (int argc, char *argv[]) {
             const xAOD::Electron* electron = electron_info.first;
             truth_type = electron_info.second;
             pdgID = 11;
-            if (!process_lepton(electron, primary_vertex, filtered_tracks, filtered_calo_clusters, true)) continue;
+            if (!process_lepton(electron, primary_vertex, filtered_tracks, filtered_calo_clusters, filtered_jets, true)) continue;
             new_filtered_electrons.push_back(electron_info);
             unnormedTree->Fill();
         }
@@ -372,7 +415,7 @@ int main (int argc, char *argv[]) {
             const xAOD::Muon* muon = muon_info.first;
             truth_type = muon_info.second;
             pdgID = 13;
-            if (!process_lepton(muon, primary_vertex, filtered_tracks, filtered_calo_clusters, false)) continue;
+            if (!process_lepton(muon, primary_vertex, filtered_tracks, filtered_calo_clusters, filtered_jets, false)) continue;
             new_filtered_muons.push_back(muon_info);
             unnormedTree->Fill();
         }

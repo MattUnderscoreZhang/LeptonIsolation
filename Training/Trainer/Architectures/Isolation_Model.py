@@ -301,7 +301,7 @@ class Model(nn.Module):
             do_training (bool, True by default): flags whether the model is to be run in
                                                 training or evaluation mode
 
-        Returns: total loss, total accuracy, raw results, and all truths
+        Returns: total loss, total accuracy, raw results, all truths, and lepton pT
 
         Notes:
         """
@@ -313,10 +313,11 @@ class Model(nn.Module):
         total_acc = 0
         raw_results = []
         all_truth = []
+        lep_pT = []
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, track_length, calo_info, calo_length, lepton_info, truth = batch
+            track_info, track_length, calo_info, calo_length, lepton_info, truth, lepton_pT = batch
             output = self.forward(track_info, track_length, lepton_info, calo_info, calo_length)
             truth = truth.to(self.device)
             output = output[:, 0]
@@ -335,11 +336,12 @@ class Model(nn.Module):
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
             all_truth += truth.cpu().detach().tolist()
+            lep_pT += lepton_pT.cpu().detach().tolist()
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
-        return total_loss, total_acc, raw_results, all_truth
+        return total_loss, total_acc, raw_results, all_truth, lep_pT
 
     def do_eval(self, batches, do_training=False):
         r"""Convienience function for running do_train in evaluation mode
@@ -353,7 +355,7 @@ class Model(nn.Module):
             do_training (bool, False by default): flags whether the model is to be run in
                                                 training or evaluation mode
 
-        Returns: total loss, total accuracy, raw results, and all truths
+        Returns: total loss, total accuracy, raw results, all truths, and lepton pT
 
         """
         return self.do_train(batches, do_training=False)

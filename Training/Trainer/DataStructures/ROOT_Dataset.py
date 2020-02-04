@@ -57,7 +57,8 @@ class ROOT_Dataset(Dataset):
             clusters = torch.Tensor(clusters)
             tracks = _sort_tracks(tracks, self.options["track_ordering"], self.options["trk_features"])
             truth = torch.Tensor([int(truth) in [2, 6]])  # 'truth_type': 2/6=prompt; 3/7=HF
-            tree_info.append((lepton, tracks, clusters, truth))
+            lep_pT = torch.Tensor([getattr(tree, "ROC_slicing_lep_pT")])
+            tree_info.append((lepton, tracks, clusters, truth, lep_pT))
 
         n_additional_features = len(options["additional_appended_features"])
         n_natural_lep_features = len(options["lep_features"]) - n_additional_features
@@ -71,8 +72,8 @@ class ROOT_Dataset(Dataset):
 
     def __getitem__(self, index):
         """Returns the data at a given index."""
-        lepton, tracks, clusters, truth = self.data_tree[index]
-        return tracks, tracks.shape[0], clusters, clusters.shape[0], lepton, truth
+        lepton, tracks, clusters, truth, lep_pT = self.data_tree[index]
+        return tracks, tracks.shape[0], clusters, clusters.shape[0], lepton, truth, lep_pT
 
     def __len__(self):
         return len(self.event_order)
@@ -101,6 +102,7 @@ def collate(batch):
     tracks_batch = torch.stack(tracks_batch)
     clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(event[2]) for event in batch]  # pads the data with 0's
     clusters_batch = torch.stack(clusters_batch)
-    lepton_batch = torch.stack(batch[:, -2].tolist())
-    truth_batch = torch.from_numpy(batch[:, -1].astype(int))
-    return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch]
+    lepton_batch = torch.stack(batch[:, -3].tolist())
+    truth_batch = torch.from_numpy(batch[:, -2].astype(int))
+    lep_pT_batch = torch.from_numpy(batch[:, -1].astype(float))
+    return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch, lep_pT_batch]

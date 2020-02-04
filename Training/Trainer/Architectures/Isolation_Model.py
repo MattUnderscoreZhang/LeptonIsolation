@@ -55,7 +55,7 @@ class InvLinear(nn.Module):
         batch_size, max_n_vectors, _ = vectors.shape
         device = vectors.device
         out = torch.zeros(batch_size, self.out_features).to(device)
-        mask = torch.Tensor([[1]*i+[0]*(max_n_vectors-i) for i in vector_length.numpy()]).int()  # which elements in vectors are valid
+        mask = torch.Tensor([[1] * i + [0] * (max_n_vectors - i) for i in vector_length.numpy()]).int()  # which elements in vectors are valid
 
         if self.reduction == 'mean':
             sizes = mask.float().sum(dim=1).unsqueeze(1)

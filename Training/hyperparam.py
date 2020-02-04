@@ -20,8 +20,8 @@ import numpy as np
 import random
 import os
 from ROOT import TFile
-from .Architectures.Isolation_Model import Model
-from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
+from Trainer.Architectures.Isolation_Model import Model
+from Trainer.DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
@@ -54,7 +54,7 @@ options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-
 options["additional_appended_features"] = []
 # options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
 options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
-options["learning_rate"] = 0.001
+options["lr"] = 0.001
 options["training_split"] = 0.7
 options["batch_size"] = 256
 options["n_epochs"] = 50
@@ -91,7 +91,6 @@ class HyperTune(Trainable):
                 train_loader, test_loader
             """
             # load data files
-
             print("Loading data")
             data_file = TFile(data_filename)
             data_tree = getattr(data_file, self.options["tree_name"])
@@ -148,7 +147,7 @@ class HyperTune(Trainable):
         self.model = Model.to(self.device)
         self.optimizer = optim.Adam(
             self.parameters(),
-            lr=self.learning_rate)
+            lr=options.get("lr", 0.01))
 
     def _train(self):
         self.model.do_train(self.train_loader)
@@ -164,42 +163,43 @@ class HyperTune(Trainable):
         self.model.load_state_dict(checkpoint_path)
 
 
-class CustomStopper(tune.Stopper):
-    """docstring for CustomStopper"""
+# class CustomStopper(Stopper):
+#     """docstring for CustomStopper"""
 
-    def __init__(self):
-        self.should_stop = False
+#     def __init__(self):
+#         self.should_stop = False
 
-    def __call__(self, trial_id, result):
-        max_iter = 5 if args.smoke_test else 100
-        if not self.should_stop and result["mean_accuracy"] > 0.96:
-            self.should_stop = True
-        return self.should_stop or result["training_iteration"] >= max_iter
+#     def __call__(self, trial_id, result):
+#         max_iter = 5 if args.smoke_test else 100
+#         if not self.should_stop and result["mean_accuracy"] > 0.96:
+#             self.should_stop = True
+#         return self.should_stop or result["training_iteration"] >= max_iter
 
-    def stop_all(self):
-        return self.should_stop
+#     def stop_all(self):
+#         return self.should_stop
 
 
 if __name__ == '__main__':
-    ray.init()
+    ray.init(local_mode=True)
+    # import pdb; pdb.set_trace()
+    import faulthandler; faulthandler.enable()
     sched = ASHAScheduler(metric="mean_accuracy")
+    # stopper = CustomStopper()
     analysis = tune.run(
         HyperTune,
         scheduler=sched,
         stop={
             "mean_accuracy": 0.95,
-            "training_iteration": 3 if args.smoke_test else 20,
+            "training_iteration": 3 if args.smoke_test else 3,
         },
         resources_per_trial={
-            "cpu": 3,
-            "gpu": int(args.disable_cuda and torch.cuda.is_available())
+            "cpu": 1,
+            "gpu": 0,
         },
-        num_samples=1 if args.smoke_test else 20,
+        num_samples=1 if args.smoke_test else 1,
         checkpoint_at_end=True,
         checkpoint_freq=3,
-        config={
-            "args": args,
-            "lr": tune.uniform(0.001, 0.1),
-        })
+        config=options.update({"lr": tune.uniform(0.001, 0.1)}),
+        )
 
     print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))

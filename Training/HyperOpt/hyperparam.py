@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
-"""Driver function for tuningg the neural network
+"""Driver function for tuning the neural network
 
 Attributes:
     *--disable-cuda : runs the code only on cpu even if gpu is available
     *--continue-training : loads in a previous model to continue training
+    *--smoke-test : Finish quickly for testing purposes
 """
 
 import torch
 import torch.optim as optim
+import ray
 from ray import tune
 from ray.tune import Trainable
 from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 from filelock import FileLock
 import argparse
+import numpy as np
+import random
+import os
 from ROOT import TFile
 from .Architectures.Isolation_Model import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
-from .Analyzer import Plotter
-
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
@@ -26,6 +29,8 @@ torch.backends.cudnn.enabled = True
 parser = argparse.ArgumentParser(description="Tuner")
 parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
 parser.add_argument("--continue-training", action="store_true", help="Loads in previous model and continues training")
+parser.add_argument(
+    "--smoke-test", action="store_true", help="Finish quickly for testing")
 args = parser.parse_args()
 args.device = None
 if not args.disable_cuda and torch.cuda.is_available():
@@ -69,7 +74,7 @@ class HyperTune(Trainable):
     Methods:
     """
 
-    def __init__(self, options):
+    def __setup__(self, options):
         """Sets up a new agent, or loads a saved agent if training is being resumed.
 
         Args:
@@ -137,19 +142,18 @@ class HyperTune(Trainable):
             )
             return train_loader, test_loader
 
-    def _setup(self, options):
         self.device = options["device"]
         with FileLock(self.options["input_data"]):
             self.train_loader, self.test_loader = _load_data(self.options["input_data"])
         self.model = Model.to(self.device)
-
-
-    def _train_iteration(self):
-
-    def _test(self):
+        self.optimizer = optim.Adam(
+            self.parameters(),
+            lr=self.learning_rate)
 
     def _train(self):
-
+        self.model.do_train(self.train_loader)
+        test_loss, test_acc, _, _ = self.model.do_eval(self.test_loader)
+        return {"mean_accuracy": test_acc}
 
     def _save(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
@@ -162,6 +166,7 @@ class HyperTune(Trainable):
 
 class CustomStopper(tune.Stopper):
     """docstring for CustomStopper"""
+
     def __init__(self):
         self.should_stop = False
 
@@ -174,5 +179,27 @@ class CustomStopper(tune.Stopper):
     def stop_all(self):
         return self.should_stop
 
+
 if __name__ == '__main__':
-    stopper = CustomStopper()
+    ray.init()
+    sched = ASHAScheduler(metric="mean_accuracy")
+    analysis = tune.run(
+        HyperTune,
+        scheduler=sched,
+        stop={
+            "mean_accuracy": 0.95,
+            "training_iteration": 3 if args.smoke_test else 20,
+        },
+        resources_per_trial={
+            "cpu": 3,
+            "gpu": int(args.disable_cuda and torch.cuda.is_available())
+        },
+        num_samples=1 if args.smoke_test else 20,
+        checkpoint_at_end=True,
+        checkpoint_freq=3,
+        config={
+            "args": args,
+            "lr": tune.uniform(0.001, 0.1),
+        })
+
+    print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))

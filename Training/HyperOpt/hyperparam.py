@@ -1,12 +1,63 @@
+# -*- coding: utf-8 -*-
+"""Driver function for tuningg the neural network
+
+Attributes:
+    *--disable-cuda : runs the code only on cpu even if gpu is available
+    *--continue-training : loads in a previous model to continue training
+"""
+
 import torch
+import torch.optim as optim
 from ray import tune
 from ray.tune import Trainable
+from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
 from filelock import FileLock
+import argparse
 from ROOT import TFile
 from .Architectures.Isolation_Model import Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import Plotter
+
+
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
+
+parser = argparse.ArgumentParser(description="Tuner")
+parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
+parser.add_argument("--continue-training", action="store_true", help="Loads in previous model and continues training")
+args = parser.parse_args()
+args.device = None
+if not args.disable_cuda and torch.cuda.is_available():
+    args.device = torch.device("cuda")
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+else:
+    args.device = torch.device("cpu")
+
+options = {}
+options["input_data"] = "/public/data/RNN/small_data.root"
+options["run_location"] = "/public/data/RNN/runs"
+options["run_label"] = 'anil_relu_dropout'
+options["tree_name"] = "NormalizedTree"
+options["output_folder"] = "./Outputs/"
+options["model_path"] = options["output_folder"] + "saved_model.pt"
+options["continue_training"] = args.continue_training
+options["architecture_type"] = "GRU"  # RNN, LSTM, GRU, DeepSets
+options["dropout"] = 0.3
+options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
+# options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
+options["additional_appended_features"] = []
+# options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
+options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
+options["learning_rate"] = 0.001
+options["training_split"] = 0.7
+options["batch_size"] = 256
+options["n_epochs"] = 50
+options["n_layers"] = 2
+options["hidden_neurons"] = 256
+options["intrinsic_dimensions"] = 1024  # only matters for deep sets
+options["output_neurons"] = 2
+options["device"] = args.device
 
 
 class HyperTune(Trainable):
@@ -65,6 +116,7 @@ class HyperTune(Trainable):
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
+            kwargs = {"num_workers": 1, "pin_memory": True} if self.options["device"] == torch.device("cuda") else {}
             # prepare the data loaders
             print("Prepping data loaders")
             train_loader = DataLoader(
@@ -73,6 +125,7 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
+                **kwargs
             )
             test_loader = DataLoader(
                 test_set,
@@ -80,11 +133,16 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
+                **kwargs
             )
             return train_loader, test_loader
 
-    def _setup(self, config):
-        self.train_loader, self.test_loader = _load_data(self.options["input_data"])
+    def _setup(self, options):
+        self.device = options["device"]
+        with FileLock(self.options["input_data"]):
+            self.train_loader, self.test_loader = _load_data(self.options["input_data"])
+        self.model = Model.to(self.device)
+
 
     def _train_iteration(self):
 
@@ -116,5 +174,5 @@ class CustomStopper(tune.Stopper):
     def stop_all(self):
         return self.should_stop
 
-
-stopper = CustomStopper()
+if __name__ == '__main__':
+    stopper = CustomStopper()

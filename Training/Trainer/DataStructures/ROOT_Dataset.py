@@ -72,7 +72,7 @@ class ROOT_Dataset(Dataset):
     def __getitem__(self, index):
         """Returns the data at a given index."""
         lepton, tracks, clusters, truth = self.data_tree[index]
-        return tracks, tracks.shape[0], clusters, clusters.shape[0], lepton, truth
+        return tracks.cpu().numpy(), tracks.shape[0], clusters.cpu().numpy(), clusters.shape[0], lepton, truth
 
     def __len__(self):
         return len(self.event_order)
@@ -94,12 +94,12 @@ def collate(batch):
     """
     batch = np.array(batch)
     track_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_track_size = track_length.max()
+    max_track_size = track_length.max().item()
     cluster_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_cluster_size = cluster_length.max()
-    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(event[0]) for event in batch]  # pads the data with 0's
+    max_cluster_size = cluster_length.max().item()
+    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(torch.from_numpy(event[0])) for event in batch]  # pads the data with 0's
     tracks_batch = torch.stack(tracks_batch)
-    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(event[2]) for event in batch]  # pads the data with 0's
+    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(torch.from_numpy(event[2])) for event in batch]  # pads the data with 0's
     clusters_batch = torch.stack(clusters_batch)
     lepton_batch = torch.stack(batch[:, -2].tolist())
     truth_batch = torch.from_numpy(batch[:, -1].astype(int))

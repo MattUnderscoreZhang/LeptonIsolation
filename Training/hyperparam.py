@@ -9,6 +9,7 @@ Attributes:
 
 import torch
 import torch.optim as optim
+from ROOT import TFile
 import ray
 from ray import tune
 from ray.tune import Trainable
@@ -19,7 +20,6 @@ import argparse
 import numpy as np
 import random
 import os
-from ROOT import TFile
 from Trainer.Architectures.Isolation_Model import Model
 from Trainer.DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 
@@ -40,7 +40,7 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/small_data.root"
+options["input_data"] = "/public/data/RNN/backup/data.root"
 options["run_location"] = "/public/data/RNN/runs"
 options["run_label"] = 'anil_relu_dropout'
 options["tree_name"] = "NormalizedTree"
@@ -54,7 +54,7 @@ options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-
 options["additional_appended_features"] = []
 # options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
 options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
-options["lr"] = 0.001
+# options["lr"] = 0.001
 options["training_split"] = 0.7
 options["batch_size"] = 256
 options["n_epochs"] = 50
@@ -69,19 +69,24 @@ class HyperTune(Trainable):
     """Hyperparameter tuning for lepton isolation model
 
     Attributes:
-        options (dict): configuration for the nn
+        config (dict): configuration for the nn
 
     Methods:
     """
 
-    def __setup__(self, options):
+    def _setup(self, config):
         """Sets up a new agent, or loads a saved agent if training is being resumed.
 
         Args:
-            options (dict): configuration options
+            config (dict): configuration config
         Returns:
             None
         """
+        # import pdb; pdb.set_trace()
+        print(config)
+        self.device = config["options"]["device"]
+        self.model = Model
+
         def _load_data(data_filename):
             """Reads the input data and sets up training and test data loaders.
 
@@ -93,14 +98,14 @@ class HyperTune(Trainable):
             # load data files
             print("Loading data")
             data_file = TFile(data_filename)
-            data_tree = getattr(data_file, self.options["tree_name"])
+            data_tree = getattr(data_file, self.config["tree_name"])
             n_events = data_tree.GetEntries()
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
             print("Balancing classes")
             event_indices = np.array(range(n_events))
-            full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
+            full_dataset = ROOT_Dataset(data_filename, event_indices, self.config, shuffle_indices=False)
             truth_values = [data[-1].bool().item() for data in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
@@ -114,18 +119,18 @@ class HyperTune(Trainable):
             # split test and train
             print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
-            n_training_events = int(self.options["training_split"] * n_balanced_events)
+            n_training_events = int(self.config["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]
             test_event_indices = balanced_event_indices[n_training_events:]
-            train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
-            test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
+            train_set = ROOT_Dataset(data_filename, train_event_indices, self.config)
+            test_set = ROOT_Dataset(data_filename, test_event_indices, self.config)
 
-            kwargs = {"num_workers": 1, "pin_memory": True} if self.options["device"] == torch.device("cuda") else {}
+            kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
             # prepare the data loaders
             print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
-                batch_size=self.options["batch_size"],
+                batch_size=self.config["batch_size"],
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
@@ -133,7 +138,7 @@ class HyperTune(Trainable):
             )
             test_loader = DataLoader(
                 test_set,
-                batch_size=self.options["batch_size"],
+                batch_size=self.config["batch_size"],
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
@@ -141,13 +146,12 @@ class HyperTune(Trainable):
             )
             return train_loader, test_loader
 
-        self.device = options["device"]
-        with FileLock(self.options["input_data"]):
-            self.train_loader, self.test_loader = _load_data(self.options["input_data"])
-        self.model = Model.to(self.device)
+        # import pdb; pdb.set_trace()
+        with FileLock(self.config["options"]["input_data"]):
+            self.train_loader, self.test_loader = _load_data(self.config["input_data"])
         self.optimizer = optim.Adam(
-            self.parameters(),
-            lr=options.get("lr", 0.01))
+            self.model.parameters(),
+            lr=config.get("lr", 0.01))
 
     def _train(self):
         self.model.do_train(self.train_loader)
@@ -182,7 +186,7 @@ class HyperTune(Trainable):
 if __name__ == '__main__':
     ray.init(local_mode=True)
     # import pdb; pdb.set_trace()
-    import faulthandler; faulthandler.enable()
+    # import faulthandler; faulthandler.enable()
     sched = ASHAScheduler(metric="mean_accuracy")
     # stopper = CustomStopper()
     analysis = tune.run(
@@ -190,16 +194,20 @@ if __name__ == '__main__':
         scheduler=sched,
         stop={
             "mean_accuracy": 0.95,
-            "training_iteration": 3 if args.smoke_test else 3,
+            "training_iteration": 3 if args.smoke_test else 1,
         },
         resources_per_trial={
-            "cpu": 1,
-            "gpu": 0,
+            "cpu": 3,
+            "gpu": 1,
         },
         num_samples=1 if args.smoke_test else 1,
         checkpoint_at_end=True,
         checkpoint_freq=3,
-        config=options.update({"lr": tune.uniform(0.001, 0.1)}),
+        config={
+            "options": options, 
+            "lr": tune.sample_from(lambda spec: 10**(-10 * np.random.rand())),
+        },
+        queue_trials=True,
         )
 
     print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))

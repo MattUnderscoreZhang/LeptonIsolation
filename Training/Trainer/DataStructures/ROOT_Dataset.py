@@ -65,7 +65,7 @@ class ROOT_Dataset(Dataset):
             etcone_vars = np.array([i[0][-n_additional_features:].cpu().numpy() for i in tree_info])
             etcone_var_means = np.append(np.zeros(n_natural_lep_features), np.mean(etcone_vars, axis=0))
             etcone_var_stds = np.append(np.ones(n_natural_lep_features), np.std(etcone_vars, axis=0))
-            tree_info = [(torch.from_numpy((i.cpu().numpy()-etcone_var_means)/etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
+            tree_info = [(torch.from_numpy((i.cpu().numpy() - etcone_var_means) / etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
 
         return tree_info
 

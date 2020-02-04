@@ -15,7 +15,7 @@ from ray import tune
 from ray.tune import Trainable
 from ray.tune.schedulers import ASHAScheduler
 from torch.utils.data import DataLoader
-from filelock import FileLock
+# from filelock import FileLock
 import argparse
 import numpy as np
 import random
@@ -65,6 +65,22 @@ options["output_neurons"] = 2
 options["device"] = args.device
 
 
+def set_features(options):
+        """Modifies options dictionary with branch name info."""
+        data_file = TFile(options["input_data"])
+        data_tree = getattr(data_file, options["tree_name"])
+        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
+        options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
+        options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
+        options["lep_features"] += options["additional_appended_features"]
+        options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
+        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+        options["n_lep_features"] = len(options["lep_features"])
+        options["n_trk_features"] = len(options["trk_features"])
+        options["n_calo_features"] = len(options["calo_features"])
+        data_file.Close()
+        return options
+
 class HyperTune(Trainable):
     """Hyperparameter tuning for lepton isolation model
 
@@ -83,8 +99,7 @@ class HyperTune(Trainable):
             None
         """
         # import pdb; pdb.set_trace()
-        print(config)
-        self.device = config["options"]["device"]
+        self.device = config["device"]
         self.model = Model
 
         def _load_data(data_filename):
@@ -147,8 +162,7 @@ class HyperTune(Trainable):
             return train_loader, test_loader
 
         # import pdb; pdb.set_trace()
-        with FileLock(self.config["options"]["input_data"]):
-            self.train_loader, self.test_loader = _load_data(self.config["input_data"])
+        self.train_loader, self.test_loader = _load_data(self.config["input_data"])
         self.optimizer = optim.Adam(
             self.model.parameters(),
             lr=config.get("lr", 0.01))
@@ -184,6 +198,7 @@ class HyperTune(Trainable):
 
 
 if __name__ == '__main__':
+    options = set_features(options)
     ray.init(local_mode=True)
     # import pdb; pdb.set_trace()
     # import faulthandler; faulthandler.enable()
@@ -204,8 +219,8 @@ if __name__ == '__main__':
         checkpoint_at_end=True,
         checkpoint_freq=3,
         config={
-            "options": options, 
             "lr": tune.sample_from(lambda spec: 10**(-10 * np.random.rand())),
+            **options
         },
         queue_trials=True,
         )

@@ -158,7 +158,7 @@ class HyperTune:
 
         self.train_loader, self.test_loader = _load_data(self.config["input_data"])
 
-    def _train(self):
+    def train(self):
         self.model.do_train(self.train_loader)
         test_loss, test_acc, _, _ = self.model.do_eval(self.test_loader)
         return test_acc
@@ -173,15 +173,18 @@ class HyperTune:
 
 def train_evaulate(parameters):
     """
-    evaluation function for the Ax hp tuneri
+    evaluation function for the Ax hp tuner
     """
+    options.update(parameters)
+    h = HyperTune(option)
+    return h._train()
 
 if __name__ == '__main__':
     options = set_features(options)
     h = HyperTune(options)
     best_parameters, values, experiment, model = optimize(
             parameters=[
-                {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale"; True},
+                {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
                 ],
             evaluation_function = train_evaluate,
             objective_name = 'accuracy',

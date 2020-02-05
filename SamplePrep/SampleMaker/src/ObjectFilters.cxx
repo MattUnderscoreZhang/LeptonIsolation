@@ -11,6 +11,8 @@
 #include "xAODTruth/xAODTruthHelpers.h"
 #include "xAODTruth/TruthEvent.h"
 #include "InDetTrackSelectionTool/InDetTrackSelectionTool.h"
+#include "xAODJet/JetContainer.h"
+#include "xAODJet/Jet.h"
 
 namespace xAOD {
     class Electron_v1;
@@ -193,6 +195,14 @@ class ObjectFilters {
                 m_current_calo_clusters.push_back(calo_cluster);
             }
             return m_current_calo_clusters;
+        }
+
+        vector<const xAOD::Jet*> filter_jets(const xAOD::JetContainer* jets) {
+            vector<const xAOD::Jet*> m_current_jets;
+            for (const xAOD::Jet *jet : *jets) {
+                m_current_jets.push_back(jet);
+            }
+            return m_current_jets;
         }
 
     private:

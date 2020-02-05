@@ -44,6 +44,8 @@ set(_common
   MuonSelectorToolsLib
   ElectronPhotonSelectorToolsLib
   InDetTrackSelectionToolLib
+  xAODBTaggingEfficiencyLib
+  xAODJet
 )
 
 # build the test executable:

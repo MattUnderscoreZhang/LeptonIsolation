@@ -53,7 +53,7 @@ class Isolation_Agent:
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            truth_values = [data[-1].bool().item() for data in full_dataset]
+            truth_values = [data[-2].bool().item() for data in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
@@ -132,8 +132,8 @@ class Isolation_Agent:
                 None
             """
             for epoch_n in range(self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n):
-                train_loss, train_acc, _, train_truth = self.model.do_train(self.train_loader)
-                test_loss, test_acc, _, test_truth = self.model.do_eval(self.test_loader)
+                train_loss, train_acc, _, train_truth, _ = self.model.do_train(self.train_loader)
+                test_loss, test_acc, _, test_truth, _ = self.model.do_eval(self.test_loader)
                 self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, epoch_n)
                 self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, epoch_n)
                 self.history_logger.add_scalar("Loss/Train Loss", train_loss, epoch_n)
@@ -160,13 +160,13 @@ class Isolation_Agent:
 
         def _test():
             """Evaluates the model on testing batches and saves ROC curve to history logger."""
-            test_loss, test_acc, test_raw_results, test_truth = self.model.do_eval(self.test_loader)
+            test_loss, test_acc, test_raw_results, test_truth, test_lep_pT = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
 
-            ROC_fig = Plotter.plot_ROC(self.options, test_raw_results, test_truth)
-
-            self.history_logger.add_figure("ROC", ROC_fig)
+            ROC_figs = Plotter.plot_ROC(self.options, test_raw_results, test_truth, test_lep_pT)
+            for ROC_fig in ROC_figs:
+                self.history_logger.add_figure(ROC_fig.label, ROC_fig.image)
 
         _train(do_print)
         _test()

@@ -10,12 +10,8 @@ Attributes:
 import torch
 import torch.optim as optim
 from ROOT import TFile
-import ray
-from ray import tune
-from ray.tune import Trainable
-from ray.tune.schedulers import ASHAScheduler
+from ax.service.managed_loop import optimize
 from torch.utils.data import DataLoader
-# from filelock import FileLock
 import argparse
 import numpy as np
 import random
@@ -40,9 +36,9 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/backup/small_data.root"
+options["input_data"] = "/public/data/RNN/small_data.root"
 options["run_location"] = "/public/data/RNN/runs"
-options["run_label"] = 'anil_relu_dropout'
+options["run_label"] = 'anil_test'
 options["tree_name"] = "NormalizedTree"
 options["output_folder"] = "./Outputs/"
 options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -52,13 +48,17 @@ options["dropout"] = 0.3
 options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
 # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
 options["additional_appended_features"] = []
-# options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
-options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
-# options["lr"] = 0.001
+options["lr"] = 0.001
+options["ignore_features"] = ["baseline_topoetcone20", "baseline_topoetcone30",
+                              "baseline_topoetcone40", "baseline_eflowcone20",
+                              "baseline_ptcone20", "baseline_ptcone30",
+                              "baseline_ptcone40", "baseline_ptvarcone20",
+                              "baseline_ptvarcone30", "baseline_ptvarcone40",
+                              "baseline_eflowcone20_over_pt", "trk_vtx_type"]
 options["training_split"] = 0.7
 options["batch_size"] = 256
-options["n_epochs"] = 50
-options["n_layers"] = 2
+options["n_epochs"] = 30
+options["n_layers"] = 3
 options["hidden_neurons"] = 256
 options["intrinsic_dimensions"] = 1024  # only matters for deep sets
 options["output_neurons"] = 2
@@ -82,7 +82,7 @@ def set_features(options):
         return options
 
 
-class HyperTune(Trainable):
+class HyperTune:
     """Hyperparameter tuning for lepton isolation model
 
     Attributes:
@@ -91,15 +91,9 @@ class HyperTune(Trainable):
     Methods:
     """
 
-    def _setup(self, config):
-        """Sets up a new agent, or loads a saved agent if training is being resumed.
-
-        Args:
-            config (dict): configuration config
-        Returns:
-            None
-        """
-        # import pdb; pdb.set_trace()
+    def __init__(self, config):
+        super(HyperTune, self).__init__()
+        self.config = config
         self.device = config["device"]
         self.model = Model(config)
 
@@ -141,7 +135,7 @@ class HyperTune(Trainable):
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.config)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.config)
 
-            kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
+            # kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
             # prepare the data loaders
             print("Prepping data loaders")
             train_loader = DataLoader(
@@ -150,7 +144,7 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             test_loader = DataLoader(
                 test_set,
@@ -158,7 +152,7 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             return train_loader, test_loader
 
@@ -167,7 +161,7 @@ class HyperTune(Trainable):
     def _train(self):
         self.model.do_train(self.train_loader)
         test_loss, test_acc, _, _ = self.model.do_eval(self.test_loader)
-        return {"mean_accuracy": test_acc}
+        return test_acc
 
     def _save(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
@@ -177,49 +171,20 @@ class HyperTune(Trainable):
     def _restore(self, checkpoint_path):
         self.model.load_state_dict(checkpoint_path)
 
-
-# class CustomStopper(Stopper):
-#     """docstring for CustomStopper"""
-
-#     def __init__(self):
-#         self.should_stop = False
-
-#     def __call__(self, trial_id, result):
-#         max_iter = 5 if args.smoke_test else 100
-#         if not self.should_stop and result["mean_accuracy"] > 0.96:
-#             self.should_stop = True
-#         return self.should_stop or result["training_iteration"] >= max_iter
-
-#     def stop_all(self):
-#         return self.should_stop
-
+def train_evaulate(parameters):
+    """
+    evaluation function for the Ax hp tuneri
+    """
 
 if __name__ == '__main__':
     options = set_features(options)
-    ray.init(local_mode=True)
-    import pdb; pdb.set_trace()
-    # import faulthandler; faulthandler.enable()
-    sched = ASHAScheduler(metric="mean_accuracy")
-    # stopper = CustomStopper()
-    analysis = tune.run(
-        HyperTune,
-        scheduler=sched,
-        stop={
-            "mean_accuracy": 0.95,
-            "training_iteration": 3 if args.smoke_test else 1,
-        },
-        resources_per_trial={
-            "cpu": 3,
-            "gpu": 1,
-        },
-        num_samples=1 if args.smoke_test else 1,
-        checkpoint_at_end=True,
-        checkpoint_freq=3,
-        config={
-            "lr": tune.sample_from(lambda spec: 10**(-10 * np.random.rand())),
-            **options
-        },
-        queue_trials=True,
-        )
+    h = HyperTune(options)
+    best_parameters, values, experiment, model = optimize(
+            parameters=[
+                {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale"; True},
+                ],
+            evaluation_function = train_evaluate,
+            objective_name = 'accuracy',
+            )
+    print(best_parameters)
 
-    print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))

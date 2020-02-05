@@ -29,7 +29,7 @@ else:
 if __name__ == "__main__":
 
     options = {}
-    options["input_data"] = "/public/data/RNN/small_data.root"
+    options["input_data"] = "/public/data/RNN/large_data.root"
     options["run_location"] = "/public/data/RNN/runs/"
     options["run_label"] = 'matt_test'
     options["tree_name"] = "NormalizedTree"
@@ -41,8 +41,7 @@ if __name__ == "__main__":
     options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
     # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
     options["additional_appended_features"] = []
-    # options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
-    options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
+    options["ignore_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
     options["learning_rate"] = 0.001
     options["training_split"] = 0.7
     options["batch_size"] = 256

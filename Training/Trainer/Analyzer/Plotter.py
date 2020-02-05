@@ -71,7 +71,6 @@ def plot_ROC(options, test_raw_results, test_truth, test_lep_pT):
     plt.grid("on", linestyle="--")
     plt.title("ROC Curves for Classification")
     plt.legend(loc="lower right")
-    plt.show()
 
     ROC_Fig = namedtuple('ROC_Fig', ['label', 'image'])
     figs = [ROC_Fig('ROC', fig)]
@@ -110,7 +109,6 @@ def plot_ROC(options, test_raw_results, test_truth, test_lep_pT):
         plt.grid("on", linestyle="--")
         plt.title("ROC Curves for Classification")
         plt.legend(loc="lower right")
-        plt.show()
 
         figs.append(ROC_Fig('ROC slice - pT ' + str(int(low_pT/1000)) + ' to ' + str(int(high_pT/1000)), fig))
 

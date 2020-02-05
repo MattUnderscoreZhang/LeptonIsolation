@@ -60,9 +60,9 @@ def plot_ROC(options, test_raw_results, test_truth):
 
     # split ROC curves by lepton pT
     lep_pT_boundaries = [0, 10, 15, 20, 1000]
-    for i in range(len(lep_pT_boundaries)-1):
+    for i in range(len(lep_pT_boundaries) - 1):
         low_lep_pT = lep_pT_boundaries[i]
-        high_lep_pT = lep_pT_boundaries[i+1]
+        high_lep_pT = lep_pT_boundaries[i + 1]
         for key in options["baseline_features"]:
             fpr, tpr, thresholds = metrics.roc_curve(isolated, baselines[key])
             # roc_auc = metrics.auc(fpr, tpr)
@@ -81,6 +81,7 @@ def plot_ROC(options, test_raw_results, test_truth):
     plt.ylabel("True Positive Rate")
     plt.grid("on", linestyle="--")
     plt.title("ROC Curves for Classification")
-    plt.legend(loc="lower right")
+    plt.legend(loc=7)
+    # plt.legend(loc="lower right")
 
     return fig

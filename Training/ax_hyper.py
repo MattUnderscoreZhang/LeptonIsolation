@@ -36,7 +36,7 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/small_data.root"
+options["input_data"] = "/public/data/RNN/large_data.root"
 options["run_location"] = "/public/data/RNN/runs"
 options["run_label"] = 'anil_hp_test'
 options["tree_name"] = "NormalizedTree"
@@ -57,7 +57,7 @@ options["ignore_features"] = ["baseline_topoetcone20", "baseline_topoetcone30",
                               "baseline_eflowcone20_over_pt", "trk_vtx_type"]
 options["training_split"] = 0.7
 options["batch_size"] = 256
-options["n_epochs"] = 30
+options["n_epochs"] = 1
 options["n_layers"] = 3
 options["hidden_neurons"] = 256
 options["intrinsic_dimensions"] = 1024  # only matters for deep sets
@@ -190,12 +190,15 @@ if __name__ == '__main__':
         parameters=[
             {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
             {"name": "dropout", "type": "range", "bounds": [0.01, 0.5], "log_scale": True},
+            {"name": "training_split", "type": "range", "bounds": [0.7, 0.9], "log_scale": True},
+            # {"name": "intrinsic_dimensions", "type": "range", "bounds": [256, 2048], "log_scale": False},
+            {"name": "batch_size", "type": "choice", "values": [32, 64, 128, 256, 512]},
         ],
         evaluation_function=train_evaluate,
         objective_name='accuracy',
     )
     # import pdb; pdb.set_trace()
-    print(best_parameters, values[1])
+    print(best_parameters, values[0])
     best_objectives = np.array([[trial.objective_mean * 100 for trial in experiment.trials.values()]])
     best_objective_plot = optimization_trace_single_method(
         y=np.maximum.accumulate(best_objectives, axis=1),

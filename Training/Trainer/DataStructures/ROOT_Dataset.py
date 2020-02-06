@@ -63,10 +63,10 @@ class ROOT_Dataset(Dataset):
         n_additional_features = len(options["additional_appended_features"])
         n_natural_lep_features = len(options["lep_features"]) - n_additional_features
         if n_additional_features > 0:
-            etcone_vars = np.array([i[0][-n_additional_features:].cpu().numpy() for i in tree_info])
-            etcone_var_means = np.append(np.zeros(n_natural_lep_features), np.mean(etcone_vars, axis=0))
-            etcone_var_stds = np.append(np.ones(n_natural_lep_features), np.std(etcone_vars, axis=0))
-            tree_info = [(torch.from_numpy((i.cpu().numpy() - etcone_var_means) / etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
+            additional_vars = np.array([i[0][-n_additional_features:].cpu().numpy() for i in tree_info])
+            additional_var_means = np.append(np.zeros(n_natural_lep_features), np.mean(additional_vars, axis=0))
+            additional_var_stds = np.append(np.ones(n_natural_lep_features), np.std(additional_vars, axis=0))
+            tree_info = [(torch.from_numpy((i.cpu().numpy()-additional_var_means)/additional_var_stds).float(), j, k, l, m) for (i, j, k, l, m) in tree_info]
 
         return tree_info
 

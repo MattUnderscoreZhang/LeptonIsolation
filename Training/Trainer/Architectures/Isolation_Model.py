@@ -55,7 +55,7 @@ class InvLinear(nn.Module):
         batch_size, max_n_vectors, _ = vectors.shape
         device = vectors.device
         out = torch.zeros(batch_size, self.out_features).to(device)
-        mask = torch.Tensor([[1]*i+[0]*(max_n_vectors-i) for i in vector_length.numpy()]).int()  # which elements in vectors are valid
+        mask = torch.Tensor([[1] * i + [0] * (max_n_vectors - i) for i in vector_length.numpy()]).int()  # which elements in vectors are valid
 
         if self.reduction == 'mean':
             sizes = mask.float().sum(dim=1).unsqueeze(1)
@@ -109,7 +109,7 @@ class Model(nn.Module):
         self.intrinsic_dimensions = options["intrinsic_dimensions"]
         self.n_lep_features = options["n_lep_features"]
         self.output_size = options["output_neurons"]
-        self.learning_rate = options["learning_rate"]
+        self.learning_rate = options["lr"]
         self.batch_size = options["batch_size"]
         self.rnn_dropout = options["dropout"]
         self.device = options["device"]
@@ -280,8 +280,9 @@ class Model(nn.Module):
             max_pool_cal = F.adaptive_max_pool1d(output_cal.permute(1, 2, 0), 1).view(-1, self.hidden_size)
             out_cal = self.fc_pooled(torch.cat([hidden_cal[-1], avg_pool_cal, max_pool_cal], dim=1))
             # combining rnn outputs
-            out = self.fc_trk_cal(torch.cat([out_cal[[sorted_indices_cal.argsort()]], out_tracks[[sorted_indices_tracks.argsort()]]], dim=1))
-
+            out = self.fc_trk_cal(torch.cat([out_cal[sorted_indices_cal.argsort()], out_tracks[sorted_indices_tracks.argsort()]], dim=1))
+            F.relu_(out)
+            out = self.dropout(out)
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
         out = self.relu_final(out)
         out = self.dropout_final(out)
@@ -297,6 +298,9 @@ class Model(nn.Module):
                                             contains:
                                                 * track_info
                                                 * lepton_info
+                                                * cal_info
+                                                * track lengths
+                                                * cal lengths
                                                 * truth
             do_training (bool, True by default): flags whether the model is to be run in
                                                 training or evaluation mode

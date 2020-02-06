@@ -8,7 +8,6 @@ Attributes:
 """
 
 import torch
-import torch.optim as optim
 from ROOT import TFile
 from ax.service.managed_loop import optimize
 from torch.utils.data import DataLoader
@@ -38,7 +37,7 @@ else:
 options = {}
 options["input_data"] = "/public/data/RNN/small_data.root"
 options["run_location"] = "/public/data/RNN/runs"
-options["run_label"] = 'anil_test'
+options["run_label"] = 'anil_hp_test'
 options["tree_name"] = "NormalizedTree"
 options["output_folder"] = "./Outputs/"
 options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -66,20 +65,20 @@ options["device"] = args.device
 
 
 def set_features(options):
-        """Modifies options dictionary with branch name info."""
-        data_file = TFile(options["input_data"])
-        data_tree = getattr(data_file, options["tree_name"])
-        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
-        options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
-        options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
-        options["lep_features"] += options["additional_appended_features"]
-        options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
-        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
-        options["n_lep_features"] = len(options["lep_features"])
-        options["n_trk_features"] = len(options["trk_features"])
-        options["n_calo_features"] = len(options["calo_features"])
-        data_file.Close()
-        return options
+    """Modifies options dictionary with branch name info."""
+    data_file = TFile(options["input_data"])
+    data_tree = getattr(data_file, options["tree_name"])
+    options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
+    options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
+    options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
+    options["lep_features"] += options["additional_appended_features"]
+    options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
+    options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+    options["n_lep_features"] = len(options["lep_features"])
+    options["n_trk_features"] = len(options["trk_features"])
+    options["n_calo_features"] = len(options["calo_features"])
+    data_file.Close()
+    return options
 
 
 class HyperTune:
@@ -116,7 +115,7 @@ class HyperTune:
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.config, shuffle_indices=False)
-            truth_values = [data[-1].bool().item() for data in full_dataset]
+            truth_values = [data[-2].bool().item() for data in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
@@ -160,7 +159,7 @@ class HyperTune:
 
     def train(self):
         self.model.do_train(self.train_loader)
-        test_loss, test_acc, _, _ = self.model.do_eval(self.test_loader)
+        test_loss, test_acc, _, _, _ = self.model.do_eval(self.test_loader)
         return test_acc
 
     def _save(self, checkpoint_dir):
@@ -171,23 +170,26 @@ class HyperTune:
     def _restore(self, checkpoint_path):
         self.model.load_state_dict(checkpoint_path)
 
-def train_evaulate(parameters):
+
+def train_evaluate(parameters):
     """
     evaluation function for the Ax hp tuner
     """
     options.update(parameters)
-    h = HyperTune(option)
-    return h._train()
+    h = HyperTune(options)
+    return h.train()
+
 
 if __name__ == '__main__':
     options = set_features(options)
+    # import pdb; pdb.set_trace()
     h = HyperTune(options)
+    # import pdb; pdb.set_trace()
     best_parameters, values, experiment, model = optimize(
-            parameters=[
-                {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
-                ],
-            evaluation_function = train_evaluate,
-            objective_name = 'accuracy',
-            )
+        parameters=[
+            {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
+        ],
+        evaluation_function=train_evaluate,
+        objective_name='accuracy',
+    )
     print(best_parameters)
-

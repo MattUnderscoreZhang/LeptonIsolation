@@ -106,14 +106,14 @@ class HyperTune:
                 train_loader, test_loader
             """
             # load data files
-            print("Loading data")
+            # print("Loading data")
             data_file = TFile(data_filename)
             data_tree = getattr(data_file, self.config["tree_name"])
             n_events = data_tree.GetEntries()
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
-            print("Balancing classes")
+            # print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.config, shuffle_indices=False)
             truth_values = [data[-2].bool().item() for data in full_dataset]
@@ -127,7 +127,7 @@ class HyperTune:
             del full_dataset
 
             # split test and train
-            print("Splitting and processing test and train events")
+            # print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.config["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]
@@ -135,16 +135,16 @@ class HyperTune:
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.config)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.config)
 
-            # kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
+            kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
             # prepare the data loaders
-            print("Prepping data loaders")
+            # print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
                 batch_size=self.config["batch_size"],
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                # **kwargs
+                **kwargs
             )
             test_loader = DataLoader(
                 test_set,
@@ -152,7 +152,7 @@ class HyperTune:
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                # **kwargs
+                **kwargs
             )
             return train_loader, test_loader
 
@@ -178,7 +178,9 @@ def train_evaluate(parameters):
     """
     options.update(parameters)
     h = HyperTune(options)
-    return h.train()
+    acc = h.train()
+    print(parameters, "test accuracy:", acc)
+    return acc
 
 
 if __name__ == '__main__':
@@ -187,12 +189,13 @@ if __name__ == '__main__':
     best_parameters, values, experiment, model = optimize(
         parameters=[
             {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
+            {"name": "dropout", "type": "range", "bounds": [0.01, 0.5], "log_scale": True},
         ],
         evaluation_function=train_evaluate,
         objective_name='accuracy',
     )
     # import pdb; pdb.set_trace()
-    print(best_parameters, values)
+    print(best_parameters, values[1])
     best_objectives = np.array([[trial.objective_mean * 100 for trial in experiment.trials.values()]])
     best_objective_plot = optimization_trace_single_method(
         y=np.maximum.accumulate(best_objectives, axis=1),

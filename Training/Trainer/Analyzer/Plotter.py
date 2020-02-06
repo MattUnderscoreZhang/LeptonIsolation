@@ -70,7 +70,8 @@ def plot_ROC(options, test_raw_results, test_truth, test_lep_pT):
     plt.ylabel("True Positive Rate")
     plt.grid("on", linestyle="--")
     plt.title("ROC Curves for Classification")
-    plt.legend(loc="lower right")
+    plt.legend(loc=7)
+    # plt.legend(loc="lower right")
 
     ROC_Fig = namedtuple('ROC_Fig', ['label', 'image'])
     figs = [ROC_Fig('ROC', fig)]
@@ -81,12 +82,12 @@ def plot_ROC(options, test_raw_results, test_truth, test_lep_pT):
     test_truth = np.array(test_truth)
     test_raw_results = np.array(test_raw_results)
 
-    for i in range(len(lep_pT_boundaries)-1):
+    for i in range(len(lep_pT_boundaries) - 1):
         fig = plt.figure()
         plt.clf()
 
         low_pT = lep_pT_boundaries[i]
-        high_pT = lep_pT_boundaries[i+1]
+        high_pT = lep_pT_boundaries[i + 1]
 
         pT_slice = np.array([i > low_pT and i < high_pT for i in slicing_pT])
         isolated_pT_slice = isolated[pT_slice]
@@ -110,6 +111,6 @@ def plot_ROC(options, test_raw_results, test_truth, test_lep_pT):
         plt.title("ROC Curves for Classification")
         plt.legend(loc="lower right")
 
-        figs.append(ROC_Fig('ROC slice - pT ' + str(int(low_pT/1000)) + ' to ' + str(int(high_pT/1000)), fig))
+        figs.append(ROC_Fig('ROC slice - pT ' + str(int(low_pT / 1000)) + ' to ' + str(int(high_pT / 1000)), fig))
 
     return figs

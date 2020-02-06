@@ -163,6 +163,7 @@ class Isolation_Agent:
             test_loss, test_acc, test_raw_results, test_truth, test_lep_pT = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
+
             ROC_figs = Plotter.plot_ROC(self.options, test_raw_results, test_truth, test_lep_pT)
             for ROC_fig in ROC_figs:
                 self.history_logger.add_figure(ROC_fig.label, ROC_fig.image)

@@ -66,14 +66,14 @@ class ROOT_Dataset(Dataset):
             etcone_vars = np.array([i[0][-n_additional_features:].cpu().numpy() for i in tree_info])
             etcone_var_means = np.append(np.zeros(n_natural_lep_features), np.mean(etcone_vars, axis=0))
             etcone_var_stds = np.append(np.ones(n_natural_lep_features), np.std(etcone_vars, axis=0))
-            tree_info = [(torch.from_numpy((i.cpu().numpy()-etcone_var_means)/etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
+            tree_info = [(torch.from_numpy((i.cpu().numpy() - etcone_var_means) / etcone_var_stds).float(), j, k) for (i, j, k) in tree_info]
 
         return tree_info
 
     def __getitem__(self, index):
         """Returns the data at a given index."""
         lepton, tracks, clusters, truth, lep_pT = self.data_tree[index]
-        return tracks, tracks.shape[0], clusters, clusters.shape[0], lepton, truth, lep_pT
+        return tracks.cpu().numpy(), tracks.shape[0], clusters.cpu().numpy(), clusters.shape[0], lepton, truth, lep_pT
 
     def __len__(self):
         return len(self.event_order)
@@ -95,12 +95,12 @@ def collate(batch):
     """
     batch = np.array(batch)
     track_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_track_size = track_length.max()
+    max_track_size = track_length.max().item()
     cluster_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_cluster_size = cluster_length.max()
-    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(event[0]) for event in batch]  # pads the data with 0's
+    max_cluster_size = cluster_length.max().item()
+    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(torch.from_numpy(event[0])) for event in batch]  # pads the data with 0's
     tracks_batch = torch.stack(tracks_batch)
-    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(event[2]) for event in batch]  # pads the data with 0's
+    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(torch.from_numpy(event[2])) for event in batch]  # pads the data with 0's
     clusters_batch = torch.stack(clusters_batch)
     lepton_batch = torch.stack(batch[:, -3].tolist())
     truth_batch = torch.from_numpy(batch[:, -2].astype(int))

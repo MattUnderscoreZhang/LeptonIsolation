@@ -4,12 +4,13 @@
 Attributes:
     *--disable-cuda : runs the code only on cpu even if gpu is available
     *--continue-training : loads in a previous model to continue training
-    *--smoke-test : Finish quickly for testing purposes
 """
 
 import torch
 from ROOT import TFile
 from ax.service.managed_loop import optimize
+from ax.plot.trace import optimization_trace_single_method
+from ax.utils.notebook.plotting import render
 from torch.utils.data import DataLoader
 import argparse
 import numpy as np
@@ -183,8 +184,6 @@ def train_evaluate(parameters):
 if __name__ == '__main__':
     options = set_features(options)
     # import pdb; pdb.set_trace()
-    h = HyperTune(options)
-    # import pdb; pdb.set_trace()
     best_parameters, values, experiment, model = optimize(
         parameters=[
             {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
@@ -192,4 +191,12 @@ if __name__ == '__main__':
         evaluation_function=train_evaluate,
         objective_name='accuracy',
     )
-    print(best_parameters)
+    # import pdb; pdb.set_trace()
+    print(best_parameters, values)
+    best_objectives = np.array([[trial.objective_mean * 100 for trial in experiment.trials.values()]])
+    best_objective_plot = optimization_trace_single_method(
+        y=np.maximum.accumulate(best_objectives, axis=1),
+        title="Model performance vs. # of iterations",
+        ylabel="Classification Accuracy, %",
+    )
+    render(best_objective_plot)

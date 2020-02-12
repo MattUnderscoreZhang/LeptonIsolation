@@ -10,6 +10,7 @@ class MAB(nn.Module):
     '''
     Multihead Attention block as described in https://arxiv.org/pdf/1810.00825.pdf
     '''
+
     def __init__(self, dim_Q, dim_K, dim_V, num_heads, ln=False):
         super(MAB, self).__init__()
         self.dim_V = dim_V
@@ -32,11 +33,11 @@ class MAB(nn.Module):
         V_ = torch.cat(V.split(dim_split, 2), 0)
 
         A = torch.softmax(Q_.bmm(K_.transpose(1, 2)) / math.sqrt(self.dim_V), 2)
-        o = torch.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
-        o = o if getattr(self, 'ln0', None) is None else self.ln0(o)
-        o = o + F.relu(self.fc_o(o))
-        o = o if getattr(self, 'ln1', None) is None else self.ln1(o)
-        return o
+        out = torch.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
+        out = out if getattr(self, 'ln0', None) is None else self.ln0(out)
+        out = out + F.relu(self.fc_o(out))
+        out = out if getattr(self, 'ln1', None) is None else self.ln1(out)
+        return out
 
 
 class SAB(nn.Module):
@@ -45,6 +46,7 @@ class SAB(nn.Module):
     SAB(X) := MAB(X,X)
     Takes a set and performs self-attention between the elements in the set returning a set of equal size
     '''
+
     def __init__(self, dim_in, dim_out, num_heads, ln=False):
         '''
         Arguments:
@@ -66,6 +68,7 @@ class ISAB(nn.Module):
     ISAB(X) = MAB(X,H) ∈ R^{n×d}, where H = MAB(I,X) ∈ R^{m×d}
     changes the time complexity from O(n^2) to O(nm)
     '''
+
     def __init__(self, dim_in, dim_out, num_heads, num_inds, ln=False):
         '''
         Arguments:
@@ -76,13 +79,13 @@ class ISAB(nn.Module):
             ln: toggle layer normalization
         '''
         super(ISAB, self).__init__()
-        self.I = nn.Parameter(torch.Tensor(1, num_inds, dim_out))
-        init.xavier_uniform_(self.I)
+        self.inducing_pts = nn.Parameter(torch.Tensor(1, num_inds, dim_out))
+        init.xavier_uniform_(self.inducing_pts)
         self.mab0 = MAB(dim_out, dim_in, dim_out, num_heads, ln=ln)
         self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, ln=ln)
 
     def forward(self, X):
-        H = self.mab0(self.I.repeat(X.size(0), 1, 1), X)
+        H = self.mab0(self.inducing_pts.repeat(X.size(0), 1, 1), X)
         return self.mab1(X, H)
 
 
@@ -91,6 +94,7 @@ class PMA(nn.Module):
     Pooling by multihead attention (permutation invariant)
     PMAk(Z) = MAB(S,rFF(Z))
     '''
+
     def __init__(self, dim, num_heads, num_seeds, ln=False):
         '''
         Arguments:
@@ -112,6 +116,7 @@ class SetTransformer(nn.Module):
     '''
     Set transformer consisting of an encoder and decoder
     '''
+
     def __init__(self, dim_input, num_outputs, dim_output,
                  num_inds=32, dim_hidden=128, num_heads=4, ln=False):
         '''
@@ -152,7 +157,7 @@ class Model(BaseModel):
     """
 
     def __init__(self, options):
-        super().__init__()
+        super().__init__(options)
         self.num_heads = 4
         self.trk_SetTransformer = SetTransformer(self.n_trk_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
         self.calo_SetTransformer = SetTransformer(self.n_calo_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
@@ -169,7 +174,14 @@ class Model(BaseModel):
         Returns:
             prepared data
         '''
-        pass
+
+        batch_size, max_n_tracks, n_track_features = track_info.shape
+        unpadded_tracks = [track_info[i][:track_length[i]] for i in range(len(track_length))]
+
+        batch_size, max_n_calos, n_calo_features = calo_info.shape
+        unpadded_calo = [calo_info[i][:calo_length[i]] for i in range(len(calo_length))]
+
+        return track_info, track_length, lepton_info, calo_info, calo_length, unpadded_tracks, unpadded_calo
 
     def forward(self, input_batch):
         r"""Takes event data and passes through different layers depending on the architecture.
@@ -179,30 +191,17 @@ class Model(BaseModel):
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
         Args:
-            
+
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
-        # move tensors to either CPU or GPU
-        track_info = track_info.to(self.device)
-        lepton_info = lepton_info.to(self.device)
-        calo_info = calo_info.to(self.device)
+        track_info, track_length, lepton_info, calo_info, calo_length, unpadded_tracks, unpadded_calo = input_batch
+        import pdb
+        pdb.set_trace()
 
-        # ~~~~~~~~~ WORK IN PROGRESS ~~~~~~~~~
-
-        if self.architecture == "SetTransformer":
-            import pdb; pdb.set_trace()
-            batch_size, max_n_tracks, n_track_features = track_info.shape
-            unpadded_tracks = [track_info[i][:track_length[i]] for i in range(len(track_length))]
-
-            batch_size, max_n_calos, n_calo_features = calo_info.shape
-            unpadded_calo = [calo_info[i][:calo_length[i]] for i in range(len(calo_length))]
-
-            transformed_trk = self.trk_SetTransformer(intrinsic_tracks, track_length)
-            transformed_calo = self.calo_SetTransformer(intrinsic_calos, calo_length)
-            out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=1))
-
-        # ~~~~~~~~~~~ WORK IN PROGRESS ~~~~~~~~
+        transformed_trk = self.trk_SetTransformer()
+        transformed_calo = self.calo_SetTransformer()
+        out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=1))
 
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
         out = self.relu_final(out)

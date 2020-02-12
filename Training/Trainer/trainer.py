@@ -10,6 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
+from .Architectures.SetTransformer import Model as SetTransformer_Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import Plotter
 
@@ -101,6 +102,8 @@ class Isolation_Agent:
             self.model = LSTM_Model(self.options).to(self.options["device"])
         elif options["architecture_type"] == "DeepSets":
             self.model = DeepSets_Model(self.options).to(self.options["device"])
+        elif options["architecture_type"] == "SetTransformer":
+            self.model = SetTransformer_Model(self.options).to(self.options["device"])
         else:
             print("Unrecognized architecture type!")
             exit()

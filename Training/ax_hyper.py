@@ -17,7 +17,8 @@ import argparse
 import numpy as np
 import random
 import os
-from Trainer.Architectures.Isolation_Model import Model
+from Trainer.Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
+from Trainer.Architectures.DeepSets import Model as DeepSets_Model
 from Trainer.DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 
 torch.backends.cudnn.benchmark = True
@@ -37,7 +38,7 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/large_data.root"
+options["input_data"] = "/public/data/RNN/small_data.root"
 options["run_location"] = "/public/data/RNN/runs"
 options["run_label"] = 'anil_hp_test'
 options["tree_name"] = "NormalizedTree"
@@ -96,7 +97,17 @@ class HyperTune:
         super(HyperTune, self).__init__()
         self.config = config
         self.device = config["device"]
-        self.model = Model(config)
+        if config["architecture_type"] == "RNN":
+            self.model = RNN_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "GRU":
+            self.model = GRU_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "LSTM":
+            self.model = LSTM_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "DeepSets":
+            self.model = DeepSets_Model(self.config).to(self.config["device"])
+        else:
+            print("Unrecognized architecture type!")
+            exit()
 
         def _load_data(data_filename):
             """Reads the input data and sets up training and test data loaders.

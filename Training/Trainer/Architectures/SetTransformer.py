@@ -153,10 +153,22 @@ class Model(BaseModel):
 
     def __init__(self, options):
         super().__init__()
-        self.trk_SetTransformer = SetTransformer(self.n_trk_features, 4, self.output_size).to(self.device)  # Work in progress
-        self.calo_SetTransformer = SetTransformer(self.n_calo_features, 4, self.output_size).to(self.device)  # Work in progress
+        self.num_heads = 4
+        self.trk_SetTransformer = SetTransformer(self.n_trk_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
+        self.calo_SetTransformer = SetTransformer(self.n_calo_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
 
-    def prep_for_forward():
+    def prep_for_forward(self, track_info, track_length, lepton_info, calo_info, calo_length):
+        '''
+        Preps data for passing through the net
+        Args:
+            track_info: variable length information about the track
+            lepton_info: fixed length information about the lepton
+            calo_info: variable length information about caloclusters
+            track_length: unpadded length of tracks
+            calo_length: unpadded length of caloclusters
+        Returns:
+            prepared data
+        '''
         pass
 
     def forward(self, input_batch):

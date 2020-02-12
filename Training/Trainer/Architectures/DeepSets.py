@@ -113,7 +113,7 @@ class Model(BaseModel):
 
     def forward(self, input_batch):
         track_info, calo_info, track_length, calo_length, lepton_info = input_batch
-
+        import pdb; pdb.set_trace()
         batch_size, max_n_tracks, n_track_features = track_info.shape
         track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
         intrinsic_tracks = self.trk_feature_extractor(track_info).view(batch_size, max_n_tracks, -1)

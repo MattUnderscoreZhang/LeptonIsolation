@@ -8,7 +8,10 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-from .Architectures.Isolation_Model import Model
+
+from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
+from .Architectures.DeepSets import Model as DeepSets_Model
+
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 from .Analyzer import Plotter
 
@@ -91,7 +94,19 @@ class Isolation_Agent:
             return train_loader, test_loader
 
         self.options = options
-        self.model = Model(self.options).to(self.options["device"])
+
+        if options["architecture_type"] == "RNN":
+            self.model = RNN_Model(self.options).to(self.options["device"])
+        elif options["architecture_type"] == "GRU":
+            self.model = GRU_Model(self.options).to(self.options["device"])
+        elif options["architecture_type"] == "LSTM":
+            self.model = LSTM_Model(self.options).to(self.options["device"])
+        elif options["architecture_type"] == "DeepSets":
+            self.model = DeepSets_Model(self.options).to(self.options["device"])
+        else:
+            print("Unrecognized architecture type!")
+            exit()
+
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
 
         logdir = 'run_' + time.strftime('%y-%m-%d_%H-%M-%S') + '_' + self.options["run_label"]

@@ -32,12 +32,12 @@ if __name__ == "__main__":
 
     options["input_data"] = "/public/data/RNN/small_data.root"
     options["run_location"] = "/public/data/RNN/runs"
-    options["run_label"] = 'anil_lep_DL1'
+    options["run_label"] = 'anil_set_test'
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
-    options["architecture_type"] = "GRU"  # RNN, LSTM, GRU, DeepSets
+    options["architecture_type"] = "SetTransformer"  # RNN, LSTM, GRU, DeepSets, SetTransformer
     options["dropout"] = 0.3
     options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
     # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]

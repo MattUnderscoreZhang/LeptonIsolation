@@ -9,6 +9,7 @@ Attributes:
 import torch
 from ROOT import TFile
 from ax.service.managed_loop import optimize
+from ax.plot.contour import plot_contour
 from ax.plot.trace import optimization_trace_single_method
 from ax.utils.notebook.plotting import render
 from torch.utils.data import DataLoader
@@ -57,7 +58,7 @@ options["ignore_features"] = ["baseline_topoetcone20", "baseline_topoetcone30",
                               "baseline_eflowcone20_over_pt", "trk_vtx_type"]
 options["training_split"] = 0.7
 options["batch_size"] = 256
-options["n_epochs"] = 1
+options["n_epochs"] = 30
 options["n_layers"] = 3
 options["hidden_neurons"] = 256
 options["intrinsic_dimensions"] = 1024  # only matters for deep sets
@@ -106,14 +107,14 @@ class HyperTune:
                 train_loader, test_loader
             """
             # load data files
-            # print("Loading data")
+            print("Loading data")
             data_file = TFile(data_filename)
             data_tree = getattr(data_file, self.config["tree_name"])
             n_events = data_tree.GetEntries()
             data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
-            # print("Balancing classes")
+            print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.config, shuffle_indices=False)
             truth_values = [data[-2].bool().item() for data in full_dataset]
@@ -127,7 +128,7 @@ class HyperTune:
             del full_dataset
 
             # split test and train
-            # print("Splitting and processing test and train events")
+            print("Splitting and processing test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.config["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]
@@ -135,16 +136,16 @@ class HyperTune:
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.config)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.config)
 
-            kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
+            # kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
             # prepare the data loaders
-            # print("Prepping data loaders")
+            print("Prepping data loaders")
             train_loader = DataLoader(
                 train_set,
                 batch_size=self.config["batch_size"],
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             test_loader = DataLoader(
                 test_set,
@@ -152,7 +153,7 @@ class HyperTune:
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             return train_loader, test_loader
 
@@ -196,8 +197,12 @@ if __name__ == '__main__':
         ],
         evaluation_function=train_evaluate,
         objective_name='accuracy',
+        # generation_strategy=ax.models.random.sobol.SobolGenerator,
     )
     # import pdb; pdb.set_trace()
+
+    render(plot_contour(model=model, param_x='lr', param_y='training_split', metric_name='accuracy'))
+
     print(best_parameters, values[0])
     best_objectives = np.array([[trial.objective_mean * 100 for trial in experiment.trials.values()]])
     best_objective_plot = optimization_trace_single_method(

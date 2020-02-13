@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     options["input_data"] = "/public/data/RNN/small_data.root"
     options["run_location"] = "/public/data/RNN/runs"
-    options["run_label"] = 'anil_lep_DL1'
+    options["run_label"] = 'matt_test'
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -51,12 +51,13 @@ if __name__ == "__main__":
                                   "baseline_eflowcone20_over_pt", "trk_vtx_type"]
     options["training_split"] = 0.7
     options["batch_size"] = 256
-    options["n_epochs"] = 30
+    options["n_epochs"] = 5
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets
     options["output_neurons"] = 2
     options["device"] = args.device
+    options["save_model"] = False
 
     t0 = time.time()
     print("number of epochs planned:", options["n_epochs"])

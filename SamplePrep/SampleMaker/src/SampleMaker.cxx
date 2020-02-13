@@ -32,7 +32,6 @@
 using namespace std;
 
 int main (int argc, char *argv[]) {
-
     //--- Open input files - all argv after argv[0] are file names
     std::vector<std::string> inputFileNames;
     for (int i=1; i < argc; i++) inputFileNames.push_back(argv[i]);
@@ -171,7 +170,6 @@ int main (int argc, char *argv[]) {
     }
 
     auto process_lepton = [&] (const xAOD::IParticle* lepton, const xAOD::Vertex *primary_vertex, const vector<const xAOD::TrackParticle*> &filtered_tracks, vector<const xAOD::CaloCluster*> &filtered_calo_clusters, vector<const xAOD::Jet*> &filtered_jets, bool is_electron) {
-
         //--- Get lepton's associated track particle
         const xAOD::TrackParticle* track_particle; 
         if (is_electron) track_particle = ((xAOD::Electron*)lepton)->trackParticle(); 
@@ -367,7 +365,6 @@ int main (int argc, char *argv[]) {
     ObjectFilters object_filters;
 
     for (entry_n = 0; entry_n < entries; ++entry_n) {
-
         //--- Get event
         if (entry_n%500 == 0) cout << "Processing event " << entry_n << "/" << entries << "\n";
         event.getEntry(entry_n);
@@ -458,7 +455,6 @@ int main (int argc, char *argv[]) {
     Long64_t treeEntries = unnormedTree->GetEntries();
 
     for (int i=0; i<myBranches->GetEntries(); i++) {
-
         //--- Get branch
         string currentBranchName = myBranches->At(i)->GetName();
         TBranch* currentBranch = unnormedTree->GetBranch((TString)currentBranchName);

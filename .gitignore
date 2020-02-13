@@ -1,16 +1,3 @@
-/Plots*
-<<<<<<< HEAD
-/Output
-/runs
-*/runs
-/Training/runs
-=======
-/Outputs
-<<<<<<< HEAD
-/runs
->>>>>>> fcf2f15d37608126192f97ca689b488ca3adf554
-=======
->>>>>>> d9183ce1679f25357317ebefcbc09ccac12acf5e
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__
@@ -18,13 +5,12 @@
 */.DS_Store
 */*.pyc
 */*/*.pyc
-<<<<<<< HEAD
-<<<<<<< HEAD
-Training/runs
+
+/Plots*
+/Output
+/runs
+*/runs
+/Training/runs
+
 SamplePrep/.asetup.save
-=======
->>>>>>> fcf2f15d37608126192f97ca689b488ca3adf554
-=======
-Training/runs
-SamplePrep/.asetup.save
->>>>>>> d9183ce1679f25357317ebefcbc09ccac12acf5e
+MiscScripts/Tests/test.onnx

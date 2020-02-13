@@ -105,4 +105,14 @@ def collate(batch):
     lepton_batch = torch.stack(batch[:, -3].tolist())
     truth_batch = torch.from_numpy(batch[:, -2].astype(int))
     lep_pT_batch = torch.from_numpy(batch[:, -1].astype(float))
-    return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch, lep_pT_batch]
+
+    collated_batch = {}
+    collated_batch["track_info"] = tracks_batch
+    collated_batch["track_length"] = track_length
+    collated_batch["calo_info"] = clusters_batch
+    collated_batch["calo_length"] = cluster_length
+    collated_batch["lepton_info"] = lepton_batch
+    collated_batch["truth"] = truth_batch
+    collated_batch["lepton_pT"] = lep_pT_batch
+
+    return collated_batch

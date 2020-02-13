@@ -8,6 +8,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
+import onnxruntime
 
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
@@ -192,6 +193,33 @@ class Isolation_Agent:
             pathlib.Path(self.options["output_folder"]).mkdir(parents=True)
         # self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
+
+        if (self.options["save_model"]):
+            print("Saving model")
+            dummy_test_batch = self.model.prep_for_forward(next(iter(self.test_loader)))
+            input_names = ["track_info", "track_length", "lepton_info", "calo_info", "calo_length"]
+
+            self.model.eval()
+            torch.onnx.export(
+                self.model, dummy_test_batch, "test.onnx", verbose=False,
+                export_params=True, do_constant_folding=True,
+                input_names=input_names, output_names=["output"],
+                dynamic_axes={'track_info': {0: 'batch_size'},
+                              'track_length': {0: 'batch_size'},
+                              'lepton_info': {0: 'batch_size'},
+                              'calo_info': {0: 'batch_size'},
+                              'calo_length': {0: 'batch_size'},
+                              'output': {0: 'batch_size'}}
+            )
+
+            session = onnxruntime.InferenceSession("test.onnx")
+
+            inputs = {}
+            for name, value in zip(input_names, dummy_test_batch):
+                inputs[name] = dummy_test_batch.detach().numpy()
+            outputs = session.run(None, inputs)
+            import pdb; pdb.set_trace()  # NOQA
+            print(outputs)
 
 
 def train(options):

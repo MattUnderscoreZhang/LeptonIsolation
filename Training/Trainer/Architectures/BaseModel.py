@@ -46,7 +46,7 @@ class BaseModel(nn.Module):
         self.loss_function = nn.BCEWithLogitsLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def prep_for_forward(self, track_info, track_length, lepton_info, calo_info, calo_length):
+    def prep_for_forward(self, batch):
         r"""Takes event data and preps it for forwarding through the net.
             * padding variable-length tracks and calo hits with zeros
             * sorting events by number of tracks and calo hits
@@ -59,6 +59,12 @@ class BaseModel(nn.Module):
         Returns:
             prepared data
         """
+        track_info = batch["track_info"]
+        track_length = batch["track_length"]
+        lepton_info = batch["lepton_info"]
+        calo_info = batch["calo_info"]
+        calo_length = batch["calo_length"]
+
         # move tensors to either CPU or GPU
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
@@ -132,10 +138,9 @@ class BaseModel(nn.Module):
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
-            track_info, track_length, calo_info, calo_length, lepton_info, truth, lepton_pT = batch
-            input_batch = self.prep_for_forward(track_info, track_length, lepton_info, calo_info, calo_length)
+            input_batch = self.prep_for_forward(batch)
             output = self.forward(input_batch)
-            truth = truth.to(self.device)
+            truth = batch["truth"].to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -151,8 +156,8 @@ class BaseModel(nn.Module):
             )
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
-            all_truth += truth.cpu().detach().tolist()
-            lep_pT += lepton_pT.cpu().detach().tolist()
+            all_truth += batch["truth"].cpu().detach().tolist()
+            lep_pT += batch["lepton_pT"].cpu().detach().tolist()
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size

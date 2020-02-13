@@ -29,9 +29,9 @@ class RNN_Model(BaseModel):
         padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info = input_batch
         output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
         output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
         output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
-        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
@@ -72,9 +72,9 @@ class LSTM_Model(BaseModel):
         padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info = input_batch
         output_track, hidden_track, cellstate_track = self.trk_rnn(padded_track_seq, self.h_0)
         output_cal, hidden_cal, cellstate_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
         output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
-        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))
@@ -115,9 +115,9 @@ class GRU_Model(BaseModel):
         padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info = input_batch
         output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
         output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         output_track, lengths_track = pad_packed_sequence(output_track, batch_first=False)
         output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
-        # Pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
         avg_pool_track = F.adaptive_avg_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         max_pool_track = F.adaptive_max_pool1d(output_track.permute(1, 2, 0), 1).view(-1, self.hidden_size)
         out_tracks = self.fc_pooled(torch.cat([hidden_track[-1], avg_pool_track, max_pool_track], dim=1))

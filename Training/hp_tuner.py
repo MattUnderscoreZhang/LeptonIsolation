@@ -45,7 +45,7 @@ options["tree_name"] = "NormalizedTree"
 options["output_folder"] = "./Outputs/"
 options["model_path"] = options["output_folder"] + "saved_model.pt"
 options["continue_training"] = args.continue_training
-options["architecture_type"] = "GRU"  # RNN, LSTM, GRU, DeepSets
+options["architecture_type"] = "DeepSets"  # RNN, LSTM, GRU, DeepSets
 options["dropout"] = 0.3
 options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
 # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
@@ -201,9 +201,9 @@ if __name__ == '__main__':
     best_parameters, values, experiment, model = optimize(
         parameters=[
             {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
-            {"name": "dropout", "type": "range", "bounds": [0.01, 0.5], "log_scale": True},
+            # {"name": "dropout", "type": "range", "bounds": [0.01, 0.5], "log_scale": True},
             {"name": "training_split", "type": "range", "bounds": [0.7, 0.9], "log_scale": True},
-            # {"name": "intrinsic_dimensions", "type": "range", "bounds": [256, 2048], "log_scale": False},
+            {"name": "intrinsic_dimensions", "type": "range", "bounds": [256, 2048], "log_scale": False},
             {"name": "batch_size", "type": "choice", "values": [32, 64, 128, 256, 512]},
         ],
         evaluation_function=train_evaluate,

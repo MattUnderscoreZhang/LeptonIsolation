@@ -30,7 +30,6 @@ class BaseModel(nn.Module):
         self.batch_size = options["batch_size"]
         self.rnn_dropout = options["dropout"]
         self.device = options["device"]
-        self.architecture = options["architecture_type"]
         self.h_0 = nn.Parameter(
             torch.zeros(
                 self.n_layers, self.batch_size, self.hidden_size

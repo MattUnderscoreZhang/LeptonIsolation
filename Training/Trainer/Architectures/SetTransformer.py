@@ -144,23 +144,15 @@ class SetTransformer(nn.Module):
 
 
 class Model(BaseModel):
-    r"""Model class implementing rnn inheriting structure from pytorch nn module
-
-    Attributes:
-        options (dict) : configuration for the nn
-
-    Methods:
-        forward: steps through the neural net once
-        do_train: takes in data and passes the batches to forward to train
-        do_eval: runs the neural net on the data after setting it up for evaluation
-        get_model: returns the model and its optimizer
-    """
-
+    '''
+    Set Transformer model class inheriting structure from BaseModel
+    '''
     def __init__(self, options):
         super().__init__(options)
         self.num_heads = 4
-        self.trk_SetTransformer = SetTransformer(self.n_trk_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
-        self.calo_SetTransformer = SetTransformer(self.n_calo_features, self.num_heads, self.output_size).to(self.device)  # Work in progress
+        self.trk_SetTransformer = SetTransformer(self.n_trk_features, self.num_heads, self.hidden_size).to(self.device)
+        self.calo_SetTransformer = SetTransformer(self.n_calo_features, self.num_heads, self.hidden_size).to(self.device)
+        self.output_layer = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
 
     def prep_for_forward(self, track_info, track_length, lepton_info, calo_info, calo_length):
         '''
@@ -177,8 +169,6 @@ class Model(BaseModel):
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)
         calo_info = calo_info.to(self.device)
-        batch_size, max_n_tracks, n_track_features = track_info.shape
-        batch_size, max_n_calos, n_calo_features = calo_info.shape
 
         return track_info, track_length, lepton_info, calo_info, calo_length
 
@@ -195,11 +185,10 @@ class Model(BaseModel):
             the probability of particle beng prompt or heavy flavor
         """
         track_info, track_length, lepton_info, calo_info, calo_length = input_batch
-        import pdb
-        pdb.set_trace()
+        import pdb; pdb.set_trace()
 
-        transformed_trk = self.trk_SetTransformer()
-        transformed_calo = self.calo_SetTransformer()
+        transformed_trk = self.trk_SetTransformer(track_info)
+        transformed_calo = self.calo_SetTransformer(calo_info)
         out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=1))
 
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))

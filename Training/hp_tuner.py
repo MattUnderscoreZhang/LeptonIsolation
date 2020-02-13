@@ -38,7 +38,7 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/small_data.root"
+options["input_data"] = "/public/data/RNN/large_data.root"
 options["run_location"] = "/public/data/RNN/runs"
 options["run_label"] = 'anil_hp_test'
 options["tree_name"] = "NormalizedTree"

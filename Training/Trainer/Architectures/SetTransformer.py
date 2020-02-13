@@ -174,28 +174,27 @@ class Model(BaseModel):
         Returns:
             prepared data
         '''
-
+        track_info = track_info.to(self.device)
+        lepton_info = lepton_info.to(self.device)
+        calo_info = calo_info.to(self.device)
         batch_size, max_n_tracks, n_track_features = track_info.shape
-        unpadded_tracks = [track_info[i][:track_length[i]] for i in range(len(track_length))]
-
         batch_size, max_n_calos, n_calo_features = calo_info.shape
-        unpadded_calo = [calo_info[i][:calo_length[i]] for i in range(len(calo_length))]
 
-        return track_info, track_length, lepton_info, calo_info, calo_length, unpadded_tracks, unpadded_calo
+        return track_info, track_length, lepton_info, calo_info, calo_length
 
     def forward(self, input_batch):
-        r"""Takes event data and passes through different layers depending on the architecture.
-            SetTransformer:
+        r"""Takes prepared data and passes it through the set transformer
             *
             *
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
         Args:
+            * input_batch: processed input from prep_for_forward
 
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
-        track_info, track_length, lepton_info, calo_info, calo_length, unpadded_tracks, unpadded_calo = input_batch
+        track_info, track_length, lepton_info, calo_info, calo_length = input_batch
         import pdb
         pdb.set_trace()
 

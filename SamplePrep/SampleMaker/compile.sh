@@ -1,3 +1,4 @@
+#!/bin/bash
 # compile SampleMaker
 lsetup cmake
 mkdir build/

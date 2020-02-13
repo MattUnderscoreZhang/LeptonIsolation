@@ -149,8 +149,8 @@ class Model(BaseModel):
     '''
     def __init__(self, options):
         super().__init__(options)
-        self.num_heads = 4
-        self.trk_SetTransformer = SetTransformer(self.n_trk_features, self.num_heads, self.hidden_size).to(self.device)
+        self.num_heads = 1
+        self.trk_SetTransformer = SetTransformer(self.n_trk_features, num_outputs=self.num_heads, dim_output=self.hidden_size).to(self.device)
         self.calo_SetTransformer = SetTransformer(self.n_calo_features, self.num_heads, self.hidden_size).to(self.device)
         self.output_layer = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
 
@@ -174,8 +174,8 @@ class Model(BaseModel):
 
     def forward(self, input_batch):
         r"""Takes prepared data and passes it through the set transformer
-            *
-            *
+            * Set transformer for track and calorimeter information
+            * Combine set transformer output with lepton information
             * a fully connected layer to get it to the right output size
             * a softmax to get a probability
         Args:
@@ -185,12 +185,17 @@ class Model(BaseModel):
             the probability of particle beng prompt or heavy flavor
         """
         track_info, track_length, lepton_info, calo_info, calo_length = input_batch
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
+        # batch_size, max_n_tracks, n_track_features = track_info.shape
+        # track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
 
         transformed_trk = self.trk_SetTransformer(track_info)
-        transformed_calo = self.calo_SetTransformer(calo_info)
-        out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=1))
 
+        # batch_size, max_n_calos, n_calo_features = calo_info.shape
+        # calo_info = calo_info.view(batch_size * max_n_calos, n_calo_features)
+        transformed_calo = self.calo_SetTransformer(calo_info)
+        out = self.output_layer(torch.cat([transformed_trk, transformed_calo], axis=2))
+        out = out[:, 0]
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
         out = self.relu_final(out)
         out = self.softmax(out)

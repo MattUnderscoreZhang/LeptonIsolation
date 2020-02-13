@@ -29,11 +29,8 @@ static SG::AuxElement::ConstAccessor<char> cacc_lhmedium("DFCommonElectronsLHMed
 static SG::AuxElement::ConstAccessor<char> cacc_lhloos("DFCommonElectronsLHLoose");
 static SG::AuxElement::ConstAccessor<char> cacc_lhtight("DFCommonElectronLHTight");
 class ObjectFilters {
-
     public:
-
         ObjectFilters() {
-
             //m_electronLHMediumSelectionTool = new AsgElectronLikelihoodTool("ElectronLHMediumSelectionTool");
             //m_electronLHMediumSelectionTool->setProperty("WorkingPoint", "MediumLHElectron");
             //m_electronLHMediumSelectionTool->initialize();
@@ -206,10 +203,8 @@ class ObjectFilters {
         }
 
     private:
-
         CP::MuonSelectionTool* m_muonSelectionTool;
         //AsgElectronLikelihoodTool* m_electronLHMediumSelectionTool ;
         //AsgElectronLikelihoodTool* m_electronLHLooseSelectionTool ;
         InDet::InDetTrackSelectionTool *m_trkseltool;
-
 };

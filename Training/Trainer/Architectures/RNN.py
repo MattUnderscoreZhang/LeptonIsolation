@@ -23,7 +23,7 @@ class RNN_Model(BaseModel):
         ).to(self.device)
 
     def forward(self, batch):
-        self.recurrent_forward(batch)
+        return self.recurrent_forward(batch)
 
 
 class LSTM_Model(BaseModel):
@@ -47,7 +47,7 @@ class LSTM_Model(BaseModel):
         ).to(self.device)
 
     def forward(self, batch):
-        self.recurrent_forward(batch)
+        return self.recurrent_forward(batch)
 
 
 class GRU_Model(BaseModel):
@@ -71,4 +71,4 @@ class GRU_Model(BaseModel):
         ).to(self.device)
 
     def forward(self, batch):
-        self.recurrent_forward(batch)
+        return self.recurrent_forward(batch)

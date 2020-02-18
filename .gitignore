@@ -1,8 +1,3 @@
-/Plots*
-/Output
-/runs
-*/runs
-/Training/runs
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__
@@ -11,3 +6,9 @@
 */*.pyc
 */*/*.pyc
 SamplePrep/.asetup.save
+/Plots*
+/Output
+/runs
+*/runs
+/Training/runs
+MiscScripts/Tests/test.onnx

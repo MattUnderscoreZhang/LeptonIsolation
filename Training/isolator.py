@@ -66,13 +66,14 @@ if __name__ == "__main__":
         "trk_vtx_type",
     ]
     options["training_split"] = 0.7
-    options["batch_size"] = 200
+    options["batch_size"] = 256
     options["n_epochs"] = 30
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets
     options["output_neurons"] = 2
     options["device"] = args.device
+    options["save_model"] = False
 
     t0 = time.time()
     print("number of epochs planned:", options["n_epochs"])

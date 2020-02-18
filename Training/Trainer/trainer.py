@@ -8,6 +8,8 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
+import onnxruntime
+
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
 from .Architectures.SetTransformer import Model as SetTransformer_Model
@@ -55,7 +57,7 @@ class Isolation_Agent:
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
-            truth_values = [data[-2].bool().item() for data in full_dataset]
+            truth_values = [event.truth for event in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
@@ -66,11 +68,12 @@ class Isolation_Agent:
             del full_dataset
 
             # split test and train
-            print("Splitting and processing test and train events")
+            print("Splitting test and train events")
             random.shuffle(balanced_event_indices)
             n_training_events = int(self.options["training_split"] * n_balanced_events)
             train_event_indices = balanced_event_indices[:n_training_events]
             test_event_indices = balanced_event_indices[n_training_events:]
+            print("Preprocessing test and train events")
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.options)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.options)
 
@@ -193,6 +196,32 @@ class Isolation_Agent:
             pathlib.Path(self.options["output_folder"]).mkdir(parents=True)
         # self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
+
+        if (self.options["save_model"]):
+            print("Saving model")
+            dummy_test_batch = self.model.prep_for_forward(next(iter(self.test_loader)))
+            input_names = list(dummy_test_batch.keys())
+            dynamic_axes = {}
+            for name in input_names:
+                dynamic_axes[name] = {0: 'batch_size'}
+            dynamic_axes['output'] = {0: 'batch_size'}
+
+            self.model.eval()
+            torch.onnx.export(
+                self.model, dummy_test_batch, "test.onnx", verbose=False,
+                export_params=True, do_constant_folding=True,
+                input_names=input_names, output_names=["output"],
+                dynamic_axes=dynamic_axes
+            )
+
+            session = onnxruntime.InferenceSession("test.onnx")
+
+            print("Testing saved model")
+            inputs = {}
+            for name in input_names:
+                inputs[name] = dummy_test_batch[name].cpu().numpy()
+            outputs = session.run(None, inputs)
+            print(outputs)
 
 
 def train(options):

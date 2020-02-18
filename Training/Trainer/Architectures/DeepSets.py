@@ -105,7 +105,13 @@ class Model(BaseModel):
         self.inv_layer = InvLinear(30, 30, bias=True)
         self.output_layer = nn.Sequential(nn.ReLU(inplace=True), nn.Linear(60, self.hidden_size))
 
-    def prep_for_forward(self, track_info, track_length, lepton_info, calo_info, calo_length):
+    def prep_for_forward(self, batch):
+        track_info = batch["track_info"]
+        track_length = batch["track_length"]
+        lepton_info = batch["lepton_info"]
+        calo_info = batch["calo_info"]
+        calo_length = batch["calo_length"]
+
         # move tensors to either CPU or GPU
         track_info = track_info.to(self.device)
         lepton_info = lepton_info.to(self.device)

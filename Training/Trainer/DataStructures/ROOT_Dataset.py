@@ -3,6 +3,7 @@ import numpy as np
 import random
 from torch.utils.data import Dataset
 from ROOT import TFile
+import pandas as pd
 
 
 class ROOT_Dataset(Dataset):
@@ -73,7 +74,24 @@ class ROOT_Dataset(Dataset):
     def __getitem__(self, index):
         """Returns the data at a given index."""
         lepton, tracks, clusters, truth, lep_pT = self.data_tree[index]
-        return tracks.cpu().numpy(), tracks.shape[0], clusters.cpu().numpy(), clusters.shape[0], lepton, truth, lep_pT
+        event = pd.Series([
+                    tracks.cpu().numpy(),
+                    tracks.shape[0],
+                    clusters.cpu().numpy(),
+                    clusters.shape[0],
+                    lepton,
+                    bool(truth),
+                    lep_pT
+                ], index=[
+                    'track_info',
+                    'track_length',
+                    'calo_info',
+                    'calo_length',
+                    'lepton_info',
+                    'truth',
+                    'lepton_pT'
+                ])
+        return event
 
     def __len__(self):
         return len(self.event_order)
@@ -83,26 +101,28 @@ def collate(batch):
     """Zero-pads batches.
 
     Args:
-        batch (list): each element of the batch is a three-Tensor tuple consisting of (tracks, lepton, truth)
+        batch (list): each element of the list is a pandas dataframe with event information
     Returns:
-        [tracks_batch,
-         track_length,
-         clusters_batch,
-         cluster_length,
-         lepton_batch,
-         truth_batch]: tracks_batch and clusters_batch is a 3D Tensor,
-         lepton_batch is 2D, and truth_batch, track_length, cluster_length are 1D
+        pandas dataframe with batched event information
     """
-    batch = np.array(batch)
-    track_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_track_size = track_length.max().item()
-    cluster_length = torch.from_numpy(batch[:, 1].astype(int))
-    max_cluster_size = cluster_length.max().item()
-    tracks_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event[1]))(torch.from_numpy(event[0])) for event in batch]  # pads the data with 0's
-    tracks_batch = torch.stack(tracks_batch)
-    clusters_batch = [torch.nn.ZeroPad2d((0, 0, 0, max_cluster_size - event[3]))(torch.from_numpy(event[2])) for event in batch]  # pads the data with 0's
-    clusters_batch = torch.stack(clusters_batch)
-    lepton_batch = torch.stack(batch[:, -3].tolist())
-    truth_batch = torch.from_numpy(batch[:, -2].astype(int))
-    lep_pT_batch = torch.from_numpy(batch[:, -1].astype(float))
-    return [tracks_batch, track_length, clusters_batch, cluster_length, lepton_batch, truth_batch, lep_pT_batch]
+
+    def _zero_pad_track(event, max_track_size):
+        return torch.nn.ZeroPad2d((0, 0, 0, max_track_size - event.track_length))(torch.from_numpy(event.track_info))
+
+    def _zero_pad_calo(event, max_calo_size):
+        return torch.nn.ZeroPad2d((0, 0, 0, max_calo_size - event.calo_length))(torch.from_numpy(event.calo_info))
+
+    batch = pd.concat(batch, axis=1).transpose()
+    max_track_size = batch.track_length.max()
+    max_calo_size = batch.calo_length.max()
+
+    collated_batch = pd.Series()
+    collated_batch["track_info"] = torch.stack(tuple(batch.apply(_zero_pad_track, args=(max_track_size,), axis=1)))
+    collated_batch["calo_info"] = torch.stack(tuple(batch.apply(_zero_pad_calo, args=(max_calo_size,), axis=1)))
+    collated_batch["lepton_info"] = torch.stack(tuple(batch.lepton_info))
+    collated_batch["track_length"] = torch.tensor(batch.track_length.values.astype(int))
+    collated_batch["calo_length"] = torch.tensor(batch.calo_length.values.astype(int))
+    collated_batch["truth"] = torch.tensor(tuple(batch.truth))
+    collated_batch["lepton_pT"] = torch.tensor(tuple(batch.lepton_pT))
+
+    return collated_batch.to_dict()

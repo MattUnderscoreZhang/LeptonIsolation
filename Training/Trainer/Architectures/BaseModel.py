@@ -59,9 +59,9 @@ class BaseModel(nn.Module):
         Returns:
             prepared data
         """
-        batch.track_info = batch.track_info.to(self.device)
-        batch.lepton_info = batch.lepton_info.to(self.device)
-        batch.calo_info = batch.calo_info.to(self.device)
+        batch["track_info"] = batch["track_info"].to(self.device)
+        batch["lepton_info"] = batch["lepton_info"].to(self.device)
+        batch["calo_info"] = batch["calo_info"].to(self.device)
 
         # track_info = batch.track_info
         # track_length = batch.track_length
@@ -116,11 +116,11 @@ class BaseModel(nn.Module):
         exit()
 
     def recurrent_forward(self, batch):
-        track_info = batch.track_info
-        track_length = batch.track_length
-        lepton_info = batch.lepton_info
-        calo_info = batch.calo_info
-        calo_length = batch.calo_length
+        track_info = batch["track_info"]
+        track_length = batch["track_length"]
+        lepton_info = batch["lepton_info"]
+        calo_info = batch["calo_info"]
+        calo_length = batch["calo_length"]
 
         untrimmed_output_track, untrimmed_hidden_track = self.trk_rnn(track_info, self.h_0)
         untrimmed_output_calo, untrimmed_hidden_calo = self.cal_rnn(calo_info, self.h_0)
@@ -186,7 +186,7 @@ class BaseModel(nn.Module):
             self.optimizer.zero_grad()
             input_batch = self.prep_for_forward(batch)
             output = self.forward(input_batch)
-            truth = batch.truth.to(self.device)
+            truth = batch["truth"].to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -202,7 +202,7 @@ class BaseModel(nn.Module):
             )
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
-            all_truth += batch.truth.cpu().detach().tolist()
+            all_truth += batch["truth"].cpu().detach().tolist()
             lep_pT += batch["lepton_pT"].cpu().detach().tolist()
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size

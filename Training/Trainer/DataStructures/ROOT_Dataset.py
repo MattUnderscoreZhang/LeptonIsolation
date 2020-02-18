@@ -120,9 +120,9 @@ def collate(batch):
     collated_batch["track_info"] = torch.stack(tuple(batch.apply(_zero_pad_track, args=(max_track_size,), axis=1)))
     collated_batch["calo_info"] = torch.stack(tuple(batch.apply(_zero_pad_calo, args=(max_calo_size,), axis=1)))
     collated_batch["lepton_info"] = torch.stack(tuple(batch.lepton_info))
-    collated_batch["track_length"] = batch.track_length.values
-    collated_batch["calo_length"] = batch.calo_length.values
+    collated_batch["track_length"] = torch.tensor(batch.track_length.values.astype(int))
+    collated_batch["calo_length"] = torch.tensor(batch.calo_length.values.astype(int))
     collated_batch["truth"] = torch.tensor(tuple(batch.truth))
     collated_batch["lepton_pT"] = torch.tensor(tuple(batch.lepton_pT))
 
-    return collated_batch
+    return collated_batch.to_dict()

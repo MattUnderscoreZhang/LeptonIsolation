@@ -198,29 +198,27 @@ class Isolation_Agent:
         if (self.options["save_model"]):
             print("Saving model")
             dummy_test_batch = self.model.prep_for_forward(next(iter(self.test_loader)))
-            input_names = dummy_test_batch.keys()
+            input_names = list(dummy_test_batch.keys())
+            dynamic_axes = {}
+            for name in input_names:
+                dynamic_axes[name] = {0: 'batch_size'}
+            dynamic_axes['output'] = {0: 'batch_size'}
 
             self.model.eval()
-            import pdb; pdb.set_trace()  # NOQA
             torch.onnx.export(
                 self.model, dummy_test_batch, "test.onnx", verbose=False,
                 export_params=True, do_constant_folding=True,
                 input_names=input_names, output_names=["output"],
-                dynamic_axes={'track_info': {0: 'batch_size'},
-                              'track_length': {0: 'batch_size'},
-                              'lepton_info': {0: 'batch_size'},
-                              'calo_info': {0: 'batch_size'},
-                              'calo_length': {0: 'batch_size'},
-                              'output': {0: 'batch_size'}}
+                dynamic_axes=dynamic_axes
             )
 
             session = onnxruntime.InferenceSession("test.onnx")
 
+            print("Testing saved model")
             inputs = {}
-            for name, value in zip(input_names, dummy_test_batch):
-                inputs[name] = dummy_test_batch.detach().numpy()
+            for name in input_names:
+                inputs[name] = dummy_test_batch[name].cpu().numpy()
             outputs = session.run(None, inputs)
-            import pdb; pdb.set_trace()  # NOQA
             print(outputs)
 
 

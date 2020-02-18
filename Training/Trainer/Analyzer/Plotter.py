@@ -9,7 +9,8 @@ from collections import namedtuple
 
 
 class ROCPlot(object):
-    """docstring for ROCPlot"""
+    """plotting class for the isolation
+    takes the raw results and actual truth values to compute and plot ROC curves for different pT values"""
 
     def __init__(self, options, test_raw_results, test_truth, test_lep_pT):
         super(ROCPlot, self).__init__()
@@ -31,6 +32,7 @@ class ROCPlot(object):
         self.figs = []
 
     def _normalize(self):
+        """normalize baseline input"""
         for key in self.options["baseline_features"]:
             max_key = max(self.baselines[key])
             min_key = min(self.baselines[key])
@@ -40,7 +42,7 @@ class ROCPlot(object):
             ]  # larger value = less isolated
 
     def _get_data(self):
-        # open file
+        """open file to get necessary data from events"""
         data_filename = self.options["input_data"]
         data_file = TFile(data_filename)  # keep this open to prevent segfault
         data_tree = getattr(data_file, self.options["tree_name"])
@@ -63,6 +65,7 @@ class ROCPlot(object):
         return truth_type, slicing_pT, np.array(isolated), baselines
 
     def _remove_nans(self):
+        """remove unusable features with NaNs"""
         good_features = []
         for key in self.options["baseline_features"]:
             if not np.isnan(self.baselines[key]).any():
@@ -70,7 +73,7 @@ class ROCPlot(object):
         self.options["baseline_features"] = good_features
 
     def ComparisionPlots(self):
-        # make ROC comparison plots
+        """make ROC comparison plots"""
         for key in self.options["baseline_features"]:
             fpr, tpr, thresholds = metrics.roc_curve(self.isolated, self.baselines[key])
             plt.plot(fpr, tpr, lw=2, label=key)
@@ -90,7 +93,7 @@ class ROCPlot(object):
         self.figs.append(self.ROC_Fig("ROC", self.fig))
 
     def pTsplitPlots(self):
-        # split ROC curves by lepton pT
+        """split ROC curves by lepton pT"""
         lep_pT_boundaries = np.array([0, 10, 15, 20, 1000]) * 1000
 
         for i in range(len(lep_pT_boundaries) - 1):
@@ -139,6 +142,7 @@ class ROCPlot(object):
             )
 
     def run(self):
+        """runs the plotting code to return procesed roc plots"""
         self.ComparisionPlots()
         self.pTsplitPlots()
         return self.figs

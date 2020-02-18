@@ -34,7 +34,6 @@
 using namespace std;
 
 int main (int argc, char *argv[]) {
-
     // parse input
     const char* ALG = argv[0];
     string inputFilename = argv[1];
@@ -69,7 +68,6 @@ int main (int argc, char *argv[]) {
 
     cout << "\nProcessing leptons" << endl;
     for (entry_n = 0; entry_n < entries; ++entry_n) {
-
         // Print some status
         if ( ! (entry_n % 500)) {
             cout << "Processing " << entry_n << "/" << entries << "\n";

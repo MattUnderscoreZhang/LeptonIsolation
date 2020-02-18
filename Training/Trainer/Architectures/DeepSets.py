@@ -47,6 +47,7 @@ class InvLinear(nn.Module):
         Reduces set of input vectors to a single output vector.
         Inputs:
             vectors: tensor with shape (batch_size, max_n_vectors, in_features)
+            vector_length: actual length of the vectors
         Outputs:
             out: tensor with shape (batch_size, out_features)
         """
@@ -58,7 +59,8 @@ class InvLinear(nn.Module):
         if self.reduction == 'mean':
             sizes = mask.float().sum(dim=1).unsqueeze(1)
             Z = vectors * mask.unsqueeze(2).float()
-            out = (Z.sum(dim=1) @ self.beta) / sizes
+            out = Z.sum(dim=1) @ self.beta
+            out /= sizes
 
         elif self.reduction == 'sum':
             Z = vectors * mask.unsqueeze(2).float()
@@ -91,13 +93,13 @@ class Model(BaseModel):
         self.trk_feature_extractor = nn.Sequential(
             nn.Linear(options["n_trk_features"], self.intrinsic_dimensions),
             nn.ReLU(inplace=True),
-            nn.Linear(300, 30),
+            nn.Linear(self.intrinsic_dimensions, 30),
             nn.ReLU(inplace=True)
         )
         self.calo_feature_extractor = nn.Sequential(
             nn.Linear(options["n_calo_features"], self.intrinsic_dimensions),
             nn.ReLU(inplace=True),
-            nn.Linear(300, 30),
+            nn.Linear(self.intrinsic_dimensions, 30),
             nn.ReLU(inplace=True)
         )
         self.inv_layer = InvLinear(30, 30, bias=True)
@@ -119,7 +121,6 @@ class Model(BaseModel):
 
     def forward(self, input_batch):
         track_info, calo_info, track_length, calo_length, lepton_info = input_batch
-
         batch_size, max_n_tracks, n_track_features = track_info.shape
         track_info = track_info.view(batch_size * max_n_tracks, n_track_features)
         intrinsic_tracks = self.trk_feature_extractor(track_info).view(batch_size, max_n_tracks, -1)

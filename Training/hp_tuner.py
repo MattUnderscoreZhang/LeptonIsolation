@@ -4,23 +4,21 @@
 Attributes:
     *--disable-cuda : runs the code only on cpu even if gpu is available
     *--continue-training : loads in a previous model to continue training
-    *--smoke-test : Finish quickly for testing purposes
 """
 
 import torch
-import torch.optim as optim
 from ROOT import TFile
-import ray
-from ray import tune
-from ray.tune import Trainable
-from ray.tune.schedulers import ASHAScheduler
+from ax.service.managed_loop import optimize
+from ax.plot.contour import plot_contour
+from ax.plot.trace import optimization_trace_single_method
+from ax.utils.notebook.plotting import render
 from torch.utils.data import DataLoader
-# from filelock import FileLock
 import argparse
 import numpy as np
 import random
 import os
-from Trainer.Architectures.Isolation_Model import Model
+from Trainer.Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
+from Trainer.Architectures.DeepSets import Model as DeepSets_Model
 from Trainer.DataStructures.ROOT_Dataset import ROOT_Dataset, collate
 
 torch.backends.cudnn.benchmark = True
@@ -40,25 +38,29 @@ else:
     args.device = torch.device("cpu")
 
 options = {}
-options["input_data"] = "/public/data/RNN/backup/small_data.root"
+options["input_data"] = "/public/data/RNN/large_data.root"
 options["run_location"] = "/public/data/RNN/runs"
-options["run_label"] = 'anil_relu_dropout'
+options["run_label"] = 'anil_hp_test'
 options["tree_name"] = "NormalizedTree"
 options["output_folder"] = "./Outputs/"
 options["model_path"] = options["output_folder"] + "saved_model.pt"
 options["continue_training"] = args.continue_training
-options["architecture_type"] = "GRU"  # RNN, LSTM, GRU, DeepSets
+options["architecture_type"] = "DeepSets"  # RNN, LSTM, GRU, DeepSets
 options["dropout"] = 0.3
 options["track_ordering"] = "low-to-high-pt"  # None, "high-to-low-pt", "low-to-high-pt", "near-to-far", "far-to-near"
 # options["additional_appended_features"] = ["baseline_topoetcone20", "baseline_topoetcone30", "baseline_topoetcone40", "baseline_eflowcone20", "baseline_ptcone20", "baseline_ptcone30", "baseline_ptcone40", "baseline_ptvarcone20", "baseline_ptvarcone30", "baseline_ptvarcone40"]
 options["additional_appended_features"] = []
-# options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_x", "trk_vtx_y", "trk_vtx_z", "trk_vtx_type"]
-options["ignore_features"] = ["baseline_eflowcone20", "baseline_eflowcone20_over_pt", "trk_vtx_type"]
-# options["lr"] = 0.001
+options["lr"] = 0.001
+options["ignore_features"] = ["baseline_topoetcone20", "baseline_topoetcone30",
+                              "baseline_topoetcone40", "baseline_eflowcone20",
+                              "baseline_ptcone20", "baseline_ptcone30",
+                              "baseline_ptcone40", "baseline_ptvarcone20",
+                              "baseline_ptvarcone30", "baseline_ptvarcone40",
+                              "baseline_eflowcone20_over_pt", "trk_vtx_type"]
 options["training_split"] = 0.7
 options["batch_size"] = 256
-options["n_epochs"] = 50
-options["n_layers"] = 2
+options["n_epochs"] = 30
+options["n_layers"] = 3
 options["hidden_neurons"] = 256
 options["intrinsic_dimensions"] = 1024  # only matters for deep sets
 options["output_neurons"] = 2
@@ -66,23 +68,23 @@ options["device"] = args.device
 
 
 def set_features(options):
-        """Modifies options dictionary with branch name info."""
-        data_file = TFile(options["input_data"])
-        data_tree = getattr(data_file, options["tree_name"])
-        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
-        options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
-        options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
-        options["lep_features"] += options["additional_appended_features"]
-        options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
-        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
-        options["n_lep_features"] = len(options["lep_features"])
-        options["n_trk_features"] = len(options["trk_features"])
-        options["n_calo_features"] = len(options["calo_features"])
-        data_file.Close()
-        return options
+    """Modifies options dictionary with branch name info."""
+    data_file = TFile(options["input_data"])
+    data_tree = getattr(data_file, options["tree_name"])
+    options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
+    options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
+    options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
+    options["lep_features"] += options["additional_appended_features"]
+    options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
+    options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+    options["n_lep_features"] = len(options["lep_features"])
+    options["n_trk_features"] = len(options["trk_features"])
+    options["n_calo_features"] = len(options["calo_features"])
+    data_file.Close()
+    return options
 
 
-class HyperTune(Trainable):
+class HyperTune:
     """Hyperparameter tuning for lepton isolation model
 
     Attributes:
@@ -91,17 +93,21 @@ class HyperTune(Trainable):
     Methods:
     """
 
-    def _setup(self, config):
-        """Sets up a new agent, or loads a saved agent if training is being resumed.
-
-        Args:
-            config (dict): configuration config
-        Returns:
-            None
-        """
-        # import pdb; pdb.set_trace()
+    def __init__(self, config):
+        super(HyperTune, self).__init__()
+        self.config = config
         self.device = config["device"]
-        self.model = Model(config)
+        if config["architecture_type"] == "RNN":
+            self.model = RNN_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "GRU":
+            self.model = GRU_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "LSTM":
+            self.model = LSTM_Model(self.config).to(self.config["device"])
+        elif config["architecture_type"] == "DeepSets":
+            self.model = DeepSets_Model(self.config).to(self.config["device"])
+        else:
+            print("Unrecognized architecture type!")
+            exit()
 
         def _load_data(data_filename):
             """Reads the input data and sets up training and test data loaders.
@@ -122,7 +128,7 @@ class HyperTune(Trainable):
             print("Balancing classes")
             event_indices = np.array(range(n_events))
             full_dataset = ROOT_Dataset(data_filename, event_indices, self.config, shuffle_indices=False)
-            truth_values = [data[-1].bool().item() for data in full_dataset]
+            truth_values = [data[-2].bool().item() for data in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
@@ -141,7 +147,7 @@ class HyperTune(Trainable):
             train_set = ROOT_Dataset(data_filename, train_event_indices, self.config)
             test_set = ROOT_Dataset(data_filename, test_event_indices, self.config)
 
-            kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
+            # kwargs = {"num_workers": 1, "pin_memory": True} if self.config["device"] == torch.device("cuda") else {}
             # prepare the data loaders
             print("Prepping data loaders")
             train_loader = DataLoader(
@@ -150,7 +156,7 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             test_loader = DataLoader(
                 test_set,
@@ -158,16 +164,16 @@ class HyperTune(Trainable):
                 collate_fn=collate,
                 shuffle=True,
                 drop_last=True,
-                **kwargs
+                # **kwargs
             )
             return train_loader, test_loader
 
         self.train_loader, self.test_loader = _load_data(self.config["input_data"])
 
-    def _train(self):
+    def train(self):
         self.model.do_train(self.train_loader)
-        test_loss, test_acc, _, _ = self.model.do_eval(self.test_loader)
-        return {"mean_accuracy": test_acc}
+        test_loss, test_acc, _, _, _ = self.model.do_eval(self.test_loader)
+        return test_acc
 
     def _save(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "model.pth")
@@ -178,48 +184,41 @@ class HyperTune(Trainable):
         self.model.load_state_dict(checkpoint_path)
 
 
-# class CustomStopper(Stopper):
-#     """docstring for CustomStopper"""
-
-#     def __init__(self):
-#         self.should_stop = False
-
-#     def __call__(self, trial_id, result):
-#         max_iter = 5 if args.smoke_test else 100
-#         if not self.should_stop and result["mean_accuracy"] > 0.96:
-#             self.should_stop = True
-#         return self.should_stop or result["training_iteration"] >= max_iter
-
-#     def stop_all(self):
-#         return self.should_stop
+def train_evaluate(parameters):
+    """
+    evaluation function for the Ax hp tuner
+    """
+    options.update(parameters)
+    h = HyperTune(options)
+    acc = h.train()
+    print(parameters, "test accuracy:", acc)
+    return acc
 
 
 if __name__ == '__main__':
     options = set_features(options)
-    ray.init(local_mode=True)
-    import pdb; pdb.set_trace()
-    # import faulthandler; faulthandler.enable()
-    sched = ASHAScheduler(metric="mean_accuracy")
-    # stopper = CustomStopper()
-    analysis = tune.run(
-        HyperTune,
-        scheduler=sched,
-        stop={
-            "mean_accuracy": 0.95,
-            "training_iteration": 3 if args.smoke_test else 1,
-        },
-        resources_per_trial={
-            "cpu": 3,
-            "gpu": 1,
-        },
-        num_samples=1 if args.smoke_test else 1,
-        checkpoint_at_end=True,
-        checkpoint_freq=3,
-        config={
-            "lr": tune.sample_from(lambda spec: 10**(-10 * np.random.rand())),
-            **options
-        },
-        queue_trials=True,
-        )
+    # import pdb; pdb.set_trace()
+    best_parameters, values, experiment, model = optimize(
+        parameters=[
+            {"name": "lr", "type": "range", "bounds": [1e-6, 0.4], "log_scale": True},
+            # {"name": "dropout", "type": "range", "bounds": [0.01, 0.5], "log_scale": True},
+            {"name": "training_split", "type": "range", "bounds": [0.7, 0.9], "log_scale": True},
+            {"name": "intrinsic_dimensions", "type": "range", "bounds": [256, 2048], "log_scale": False},
+            {"name": "batch_size", "type": "choice", "values": [32, 64, 128, 256, 512]},
+        ],
+        evaluation_function=train_evaluate,
+        objective_name='accuracy',
+        # generation_strategy=ax.models.random.sobol.SobolGenerator,
+    )
+    # import pdb; pdb.set_trace()
 
-    print("Best config is:", analysis.get_best_config(metric="mean_accuracy"))
+    render(plot_contour(model=model, param_x='lr', param_y='training_split', metric_name='accuracy'))
+
+    print(best_parameters, values[0])
+    best_objectives = np.array([[trial.objective_mean * 100 for trial in experiment.trials.values()]])
+    best_objective_plot = optimization_trace_single_method(
+        y=np.maximum.accumulate(best_objectives, axis=1),
+        title="Model performance vs. # of iterations",
+        ylabel="Classification Accuracy, %",
+    )
+    render(best_objective_plot)

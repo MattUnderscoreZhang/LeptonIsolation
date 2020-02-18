@@ -5,12 +5,10 @@
 */.DS_Store
 */*.pyc
 */*/*.pyc
-
+SamplePrep/.asetup.save
 /Plots*
 /Output
 /runs
 */runs
 /Training/runs
-
-SamplePrep/.asetup.save
 MiscScripts/Tests/test.onnx

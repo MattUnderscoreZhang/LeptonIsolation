@@ -1,3 +1,5 @@
+[![CodeFactor](https://www.codefactor.io/repository/github/particularlypythonicbs/leptonisolation/badge)](https://www.codefactor.io/repository/github/particularlypythonicbs/leptonisolation)
+
 ## SamplePrep
 
 Run on lxplus in order to convert ROOT files to a data format suitable for training in Python.

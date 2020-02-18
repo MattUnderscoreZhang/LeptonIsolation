@@ -14,7 +14,7 @@ from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
 from .Architectures.SetTransformer import Model as SetTransformer_Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
-from .Analyzer.RocPlot import ROCPlot as Plotter
+from .Analyzer.Plotter import ROCPlot as Plotter
 
 
 class Isolation_Agent:

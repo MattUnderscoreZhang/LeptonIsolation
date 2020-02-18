@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -59,38 +59,46 @@ class BaseModel(nn.Module):
         Returns:
             prepared data
         """
-        track_info = batch["track_info"]
-        track_length = batch["track_length"]
-        lepton_info = batch["lepton_info"]
-        calo_info = batch["calo_info"]
-        calo_length = batch["calo_length"]
+        batch.track_info = batch.track_info.to(self.device)
+        batch.lepton_info = batch.lepton_info.to(self.device)
+        batch.calo_info = batch.calo_info.to(self.device)
+
+        # track_info = batch.track_info
+        # track_length = batch.track_length
+        # lepton_info = batch.lepton_info
+        # calo_info = batch.calo_info
+        # calo_length = batch.calo_length
 
         # move tensors to either CPU or GPU
-        track_info = track_info.to(self.device)
-        lepton_info = lepton_info.to(self.device)
-        calo_info = calo_info.to(self.device)
+        # track_info = track_info.to(self.device)
+        # lepton_info = lepton_info.to(self.device)
+        # calo_info = calo_info.to(self.device)
 
-        self.trk_rnn.flatten_parameters()
-        self.cal_rnn.flatten_parameters()
+        # self.trk_rnn.flatten_parameters()
+        # self.cal_rnn.flatten_parameters()
 
-        # sort and pack padded sequences for tracks and calo clusters
-        sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
-        sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
-        sorted_n_tracks = sorted_n_tracks.detach().cpu()
+        # # sort and pack padded sequences for tracks and calo clusters
+        # sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
+        # sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
+        # sorted_n_tracks = sorted_n_tracks.detach().cpu()
 
-        sorted_n_cal, sorted_indices_cal = torch.sort(calo_length, descending=True)
-        sorted_cal = calo_info[sorted_indices_cal].to(self.device)
-        sorted_n_cal = sorted_n_cal.detach().cpu()
+        # sorted_n_cal, sorted_indices_cal = torch.sort(calo_length, descending=True)
+        # sorted_cal = calo_info[sorted_indices_cal].to(self.device)
+        # sorted_n_cal = sorted_n_cal.detach().cpu()
 
-        torch.set_default_tensor_type(torch.FloatTensor)
-        padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
-        if self.device == torch.device("cuda"):
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        padded_track_seq.to(self.device)
-        padded_cal_seq.to(self.device)
+        # import pdb; pdb.set_trace()
+        # torch.set_default_tensor_type(torch.FloatTensor)
+        # padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
+        # padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
+        # if self.device == torch.device("cuda"): torch.set_default_tensor_type(torch.cuda.FloatTensor)
+        # padded_track_seq.to(self.device)
+        # padded_cal_seq.to(self.device)
 
-        return (padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info)
+        # return (padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info)
+
+        prepped_batch = batch
+
+        return prepped_batch
 
     def forward(self, input_batch):
         r"""Takes event data and passes through different layers depending on the architecture.
@@ -106,6 +114,44 @@ class BaseModel(nn.Module):
         padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info = input_batch
         print("Unimplemented net - please implement in child")
         exit()
+
+    def recurrent_forward(self, batch):
+        track_info = batch.track_info
+        track_length = batch.track_length
+        lepton_info = batch.lepton_info
+        calo_info = batch.calo_info
+        calo_length = batch.calo_length
+
+        untrimmed_output_track, untrimmed_hidden_track = self.trk_rnn(track_info, self.h_0)
+        untrimmed_output_calo, untrimmed_hidden_calo = self.cal_rnn(calo_info, self.h_0)
+
+        out_tracks = self.trim_rnn_outputs(untrimmed_output_track, track_length)
+        out_cal = self.trim_rnn_outputs(untrimmed_output_calo, calo_length)
+
+        # combining rnn outputs
+        out = self.fc_trk_cal(torch.cat([out_cal, out_tracks], dim=1))
+        F.relu_(out)
+        out = self.dropout(out)
+        out = self.fc_final(torch.cat([out, lepton_info], dim=1))
+        out = self.relu_final(out)
+        out = self.softmax(out)
+
+        return out
+
+    def concat_pooling(self, output_rnn, hidden_rnn):
+        # Concat pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
+        output_rnn = output_rnn.permute(0, 2, 1)  # converted to BxHxW, W=#words B=batch_size H=#neurons_hidden_layer
+        # hidden_rnn already in form LxBxH, L=#layers
+        avg_pool_rnn = F.adaptive_avg_pool1d(output_rnn, 1).view(-1, self.hidden_size)
+        max_pool_rnn = F.adaptive_max_pool1d(output_rnn, 1).view(-1, self.hidden_size)
+        concat_output = torch.cat([hidden_rnn[-1], avg_pool_rnn, max_pool_rnn], dim=1)
+        out_rnns = self.fc_pooled(concat_output)
+        return out_rnns
+
+    def trim_rnn_outputs(self, output_rnn, sentence_length):
+        output_rnn = output_rnn.permute(0, 2, 1)  # converted to BxHxW, W=#words B=batch_size H=hidden_size
+        trimmed_out = output_rnn[range(output_rnn.shape[0]), :, (sentence_length-1).tolist()]
+        return trimmed_out
 
     def do_train(self, batches, do_training=True):
         r"""Runs the neural net on batches of data passed into it
@@ -140,7 +186,7 @@ class BaseModel(nn.Module):
             self.optimizer.zero_grad()
             input_batch = self.prep_for_forward(batch)
             output = self.forward(input_batch)
-            truth = batch["truth"].to(self.device)
+            truth = batch.truth.to(self.device)
             output = output[:, 0]
             loss = self.loss_function(output, truth.float())
 
@@ -156,7 +202,7 @@ class BaseModel(nn.Module):
             )
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()
-            all_truth += batch["truth"].cpu().detach().tolist()
+            all_truth += batch.truth.cpu().detach().tolist()
             lep_pT += batch["lepton_pT"].cpu().detach().tolist()
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size

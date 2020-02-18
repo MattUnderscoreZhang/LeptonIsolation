@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     options = {}
 
-    options["input_data"] = "/public/data/RNN/large_data.root"
+    options["input_data"] = "/public/data/RNN/small_data.root"
     options["run_location"] = "/public/data/RNN/runs"
     options["run_label"] = "anil_set_test"
     options["tree_name"] = "NormalizedTree"
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ]
     options["training_split"] = 0.7
     options["batch_size"] = 256
-    options["n_epochs"] = 30
+    options["n_epochs"] = 1
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets

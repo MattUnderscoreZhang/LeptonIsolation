@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class BaseModel(nn.Module):
@@ -31,14 +32,20 @@ class BaseModel(nn.Module):
         self.rnn_dropout = options["dropout"]
         self.device = options["device"]
         self.h_0 = nn.Parameter(
-            torch.zeros(
-                self.n_layers, self.batch_size, self.hidden_size
-            ).to(self.device)
+            torch.zeros(self.n_layers, self.batch_size, self.hidden_size).to(
+                self.device
+            )
         )
 
-        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(self.device)
-        self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(self.device)
-        self.fc_final = nn.Linear(self.hidden_size + self.n_lep_features, self.output_size).to(self.device)
+        self.fc_pooled = nn.Linear(self.hidden_size * 3, self.hidden_size).to(
+            self.device
+        )
+        self.fc_trk_cal = nn.Linear(self.hidden_size * 2, self.hidden_size).to(
+            self.device
+        )
+        self.fc_final = nn.Linear(
+            self.hidden_size + self.n_lep_features, self.output_size
+        ).to(self.device)
         self.relu_final = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=options["dropout"])
         self.softmax = nn.Softmax(dim=1).to(self.device)
@@ -58,74 +65,71 @@ class BaseModel(nn.Module):
         Returns:
             prepared data
         """
-        batch["track_info"] = batch["track_info"].to(self.device)
-        batch["lepton_info"] = batch["lepton_info"].to(self.device)
-        batch["calo_info"] = batch["calo_info"].to(self.device)
+        track_info = batch["track_info"].to(self.device)
+        lepton_info = batch["lepton_info"].to(self.device)
+        calo_info = batch["calo_info"].to(self.device)
+        calo_length = batch["calo_length"].to(self.device)
+        track_length = batch["track_length"].to(self.device)
 
-        # track_info = batch.track_info
-        # track_length = batch.track_length
-        # lepton_info = batch.lepton_info
-        # calo_info = batch.calo_info
-        # calo_length = batch.calo_length
+        # sort and pack padded sequences for tracks and calo clusters
+        sorted_n_tracks, sorted_indices_tracks = torch.sort(
+            track_length, descending=True
+        )
+        sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
+        sorted_n_tracks = sorted_n_tracks.detach().cpu()
+        sorted_n_cal, sorted_indices_cal = torch.sort(calo_length, descending=True)
+        sorted_cal = calo_info[sorted_indices_cal].to(self.device)
+        sorted_n_cal = sorted_n_cal.detach().cpu()
 
-        # move tensors to either CPU or GPU
-        # track_info = track_info.to(self.device)
-        # lepton_info = lepton_info.to(self.device)
-        # calo_info = calo_info.to(self.device)
+        torch.set_default_tensor_type(torch.FloatTensor)
+        padded_track_seq = pack_padded_sequence(
+            sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True
+        )
+        padded_cal_seq = pack_padded_sequence(
+            sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True
+        )
+        if self.device == torch.device("cuda"):
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
-        # self.trk_rnn.flatten_parameters()
-        # self.cal_rnn.flatten_parameters()
-
-        # # sort and pack padded sequences for tracks and calo clusters
-        # sorted_n_tracks, sorted_indices_tracks = torch.sort(track_length, descending=True)
-        # sorted_tracks = track_info[sorted_indices_tracks].to(self.device)
-        # sorted_n_tracks = sorted_n_tracks.detach().cpu()
-
-        # sorted_n_cal, sorted_indices_cal = torch.sort(calo_length, descending=True)
-        # sorted_cal = calo_info[sorted_indices_cal].to(self.device)
-        # sorted_n_cal = sorted_n_cal.detach().cpu()
-
-        # import pdb; pdb.set_trace()
-        # torch.set_default_tensor_type(torch.FloatTensor)
-        # padded_track_seq = pack_padded_sequence(sorted_tracks, sorted_n_tracks, batch_first=True, enforce_sorted=True)
-        # padded_cal_seq = pack_padded_sequence(sorted_cal, sorted_n_cal, batch_first=True, enforce_sorted=True)
-        # if self.device == torch.device("cuda"): torch.set_default_tensor_type(torch.cuda.FloatTensor)
-        # padded_track_seq.to(self.device)
-        # padded_cal_seq.to(self.device)
-
-        # return (padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info)
-
-        prepped_batch = batch
+        padded_track_seq.to(self.device)
+        padded_cal_seq.to(self.device)
+        prepped_batch = padded_track_seq, padded_cal_seq, lepton_info
 
         return prepped_batch
 
     def forward(self, input_batch):
-        r"""Takes event data and passes through different layers depending on the architecture.
-            * pool the rnn output to utilize more information than the final layer
-            * concatenate all interesting information
-            * a fully connected layer to get it to the right output size
-            * a softmax to get a probability
+        r""" processes the batch through the derived model
         Args:
             input_batch: event data
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
-        padded_track_seq, padded_cal_seq, sorted_indices_tracks, sorted_indices_cal, lepton_info = input_batch
+        (
+            padded_track_seq,
+            padded_cal_seq,
+            sorted_indices_tracks,
+            sorted_indices_cal,
+            lepton_info,
+        ) = input_batch
         print("Unimplemented net - please implement in child")
         exit()
 
     def recurrent_forward(self, batch):
-        track_info = batch["track_info"]
-        track_length = batch["track_length"]
-        lepton_info = batch["lepton_info"]
-        calo_info = batch["calo_info"]
-        calo_length = batch["calo_length"]
+        padded_track_seq, padded_cal_seq, lepton_info = batch
 
-        untrimmed_output_track, untrimmed_hidden_track = self.trk_rnn(track_info, self.h_0)
-        untrimmed_output_calo, untrimmed_hidden_calo = self.cal_rnn(calo_info, self.h_0)
+        self.trk_rnn.flatten_parameters()
+        self.cal_rnn.flatten_parameters()
 
-        out_tracks = self.trim_rnn_outputs(untrimmed_output_track, track_length)
-        out_cal = self.trim_rnn_outputs(untrimmed_output_calo, calo_length)
+        output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
+        output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
+
+        output_track, lengths_track = pad_packed_sequence(
+            output_track, batch_first=False
+        )
+        output_cal, lengths_cal = pad_packed_sequence(output_cal, batch_first=False)
+
+        out_cal = self.concat_pooling(output_cal, hidden_cal)
+        out_tracks = self.concat_pooling(output_track, hidden_track)
 
         # combining rnn outputs
         out = self.fc_trk_cal(torch.cat([out_cal, out_tracks], dim=1))
@@ -138,19 +142,24 @@ class BaseModel(nn.Module):
         return out
 
     def concat_pooling(self, output_rnn, hidden_rnn):
-        # Concat pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
-        output_rnn = output_rnn.permute(0, 2, 1)  # converted to BxHxW, W=#words B=batch_size H=#neurons_hidden_layer
+        """
+        Pools and contatenates rnn output to suggest permutation invariance
+        Concat pooling idea from: https://arxiv.org/pdf/1801.06146.pdf
+
+        Args:
+            pad_packed_sequence output and final hidden layer
+
+        Returns: processed output
+        """
+        output_rnn = output_rnn.permute(
+            1, 2, 0
+        )  # converted to BxHxW, W=#words B=batch_size H=#neurons_hidden_layer
         # hidden_rnn already in form LxBxH, L=#layers
         avg_pool_rnn = F.adaptive_avg_pool1d(output_rnn, 1).view(-1, self.hidden_size)
         max_pool_rnn = F.adaptive_max_pool1d(output_rnn, 1).view(-1, self.hidden_size)
         concat_output = torch.cat([hidden_rnn[-1], avg_pool_rnn, max_pool_rnn], dim=1)
         out_rnns = self.fc_pooled(concat_output)
         return out_rnns
-
-    def trim_rnn_outputs(self, output_rnn, sentence_length):
-        output_rnn = output_rnn.permute(0, 2, 1)  # converted to BxHxW, W=#words B=batch_size H=hidden_size
-        trimmed_out = output_rnn[range(output_rnn.shape[0]), :, (sentence_length-1).tolist()]
-        return trimmed_out
 
     def do_train(self, batches, do_training=True):
         r"""Runs the neural net on batches of data passed into it
@@ -196,8 +205,12 @@ class BaseModel(nn.Module):
             predicted = torch.round(output)
 
             accuracy = float(
-                np.array((predicted.data.cpu().detach() ==
-                          truth.data.cpu().detach()).sum().float() / len(truth))
+                np.array(
+                    (predicted.data.cpu().detach() == truth.data.cpu().detach())
+                    .sum()
+                    .float()
+                    / len(truth)
+                )
             )
             total_acc += accuracy
             raw_results += output.cpu().detach().tolist()

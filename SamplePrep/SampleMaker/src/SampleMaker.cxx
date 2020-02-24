@@ -130,8 +130,8 @@ int main (int argc, char *argv[]) {
     vector<float>* calo_cluster_lep_dEta = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dEta", "vector<float>", &calo_cluster_lep_dEta);
     vector<float>* calo_cluster_lep_dPhi = new vector<float>; unnormedTree->Branch("calo_cluster_lep_dPhi", "vector<float>", &calo_cluster_lep_dPhi);
 
-    //--- Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/impact_params/isolation]
-    int cutflow_table[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+    //--- Cutflow table [HF_electron/isolated_electron/HF_muon/isolated_muon][truth_type/medium/low-pT/impact_params/isolation]
+    int cutflow_table[4][5] = {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}};
 
     auto update_cutflow = [&] (vector<pair<const xAOD::Electron*, int>> electrons, vector<pair<const xAOD::Muon*, int>> muons, int stage) {
         //cout << "Stage " << stage << " " << electrons.size() << " " << muons.size() << endl;
@@ -150,7 +150,10 @@ int main (int argc, char *argv[]) {
     auto print_cutflow = [&] () {
         cout << "Printing cutflow table:" << endl;
         for (int i=0; i<4; i++) {
-            cout << cutflow_table[i][0] << " " << cutflow_table[i][1] << " " << cutflow_table[i][2] << " " << cutflow_table[i][3] << endl;
+            for (int j=0; j<5; j++) {
+                cout << cutflow_table[i][j] << " ";
+            }
+            cout << endl;
         }
     };
 
@@ -394,6 +397,9 @@ int main (int argc, char *argv[]) {
         filtered_electrons = object_filters.filter_electrons_medium(filtered_electrons);
         filtered_muons = object_filters.filter_muons_tight(filtered_muons);
         update_cutflow(filtered_electrons, filtered_muons, 1);
+        filtered_electrons = object_filters.filter_electrons_low_pT(filtered_electrons);
+        filtered_muons = object_filters.filter_muons_low_pT(filtered_muons);
+        update_cutflow(filtered_electrons, filtered_muons, 2);
         vector<const xAOD::CaloCluster*> filtered_calo_clusters = object_filters.filter_calo_clusters(calo_clusters);
         vector<const xAOD::Jet*> filtered_jets = object_filters.filter_jets(jets);
 
@@ -416,7 +422,7 @@ int main (int argc, char *argv[]) {
             new_filtered_muons.push_back(muon_info);
             unnormedTree->Fill();
         }
-        update_cutflow(new_filtered_electrons, new_filtered_muons, 2);
+        update_cutflow(new_filtered_electrons, new_filtered_muons, 3);
 
         //--- Additional cutflow step for comparison - what does a ptvarcone40/lep_pT cut identify as isolated?
         vector<pair<const xAOD::Electron*, int>> isolated_filtered_electrons;
@@ -439,7 +445,7 @@ int main (int argc, char *argv[]) {
             if (temp_ptvarcone40/temp_lep_pT < 0.1)
                 isolated_filtered_muons.push_back(muon_info);
         }
-        update_cutflow(isolated_filtered_electrons, isolated_filtered_muons, 3);
+        update_cutflow(isolated_filtered_electrons, isolated_filtered_muons, 4);
     }
 
     cout << "\n" << endl;

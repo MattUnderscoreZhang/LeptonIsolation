@@ -8,13 +8,12 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
-import onnxruntime
 
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
 from .Architectures.SetTransformer import Model as SetTransformer_Model
 from .DataStructures.ROOT_Dataset import ROOT_Dataset, collate
-from .Analyzer import Plotter
+from .Analyzer.Plotter import ROCPlot as Plotter
 
 
 class Isolation_Agent:
@@ -37,6 +36,7 @@ class Isolation_Agent:
         Returns:
             None
         """
+
         def _load_data(data_filename):
             """Reads the input data and sets up training and test data loaders.
 
@@ -56,14 +56,18 @@ class Isolation_Agent:
             # perform class balancing
             print("Balancing classes")
             event_indices = np.array(range(n_events))
-            full_dataset = ROOT_Dataset(data_filename, event_indices, self.options, shuffle_indices=False)
+            full_dataset = ROOT_Dataset(
+                data_filename, event_indices, self.options, shuffle_indices=False
+            )
             truth_values = [event.truth for event in full_dataset]
             class_0_indices = list(event_indices[truth_values])
             class_1_indices = list(event_indices[np.invert(truth_values)])
             n_each_class = min(len(class_0_indices), len(class_1_indices))
             random.shuffle(class_0_indices)
             random.shuffle(class_1_indices)
-            balanced_event_indices = class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
+            balanced_event_indices = (
+                class_0_indices[:n_each_class] + class_1_indices[:n_each_class]
+            )
             n_balanced_events = len(balanced_event_indices)
             del full_dataset
 
@@ -113,9 +117,19 @@ class Isolation_Agent:
 
         self.train_loader, self.test_loader = _load_data(self.options["input_data"])
 
-        logdir = 'run_' + time.strftime('%y-%m-%d_%H-%M-%S') + '_' + self.options["run_label"]
-        self.history_logger = SummaryWriter(os.path.join(self.options["run_location"], logdir))
-        shutil.copyfile("isolator.py", os.path.join(self.options["run_location"], logdir + "/isolator.py"))
+        logdir = (
+            "run_"
+            + time.strftime("%y-%m-%d_%H-%M-%S")
+            + "_"
+            + self.options["run_label"]
+        )
+        self.history_logger = SummaryWriter(
+            os.path.join(self.options["run_location"], logdir)
+        )
+        shutil.copyfile(
+            "isolator.py",
+            os.path.join(self.options["run_location"], logdir + "/isolator.py"),
+        )
 
         # load previous state if training is resuming
         self.resumed_epoch_n = 0
@@ -126,13 +140,13 @@ class Isolation_Agent:
             # else:
             #     run_number=max([int(s.split('run_')[1]) for s in previous_runs]) + 1
             saved_agent = torch.load(self.options["model_path"])
-            self.model.load_state_dict(saved_agent['model_state_dict'])
-            self.model.optimizer.load_state_dict(saved_agent['optimizer_state_dict'])
-            self.resumed_epoch_n = saved_agent['epoch']
+            self.model.load_state_dict(saved_agent["model_state_dict"])
+            self.model.optimizer.load_state_dict(saved_agent["optimizer_state_dict"])
+            self.resumed_epoch_n = saved_agent["epoch"]
 
         # print("Model parameters:\n{}".format(self.model.parameters))
         # for name, param in self.model.named_parameters():
-            # print(name, np.isnan(param.detach().cpu()).any())
+        # print(name, np.isnan(param.detach().cpu()).any())
 
     def train_and_test(self, do_print=True):
         """Trains and tests the model.
@@ -142,6 +156,7 @@ class Isolation_Agent:
         Returns:
             None
         """
+
         def _train(Print=True):
             """Trains the model and saves training history to history logger.
 
@@ -150,15 +165,27 @@ class Isolation_Agent:
             Returns:
                 None
             """
-            for epoch_n in range(self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n):
-                train_loss, train_acc, _, train_truth, _ = self.model.do_train(self.train_loader)
-                test_loss, test_acc, _, test_truth, _ = self.model.do_eval(self.test_loader)
-                self.history_logger.add_scalar("Accuracy/Train Accuracy", train_acc, epoch_n)
-                self.history_logger.add_scalar("Accuracy/Test Accuracy", test_acc, epoch_n)
+            for epoch_n in range(
+                self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n
+            ):
+                train_loss, train_acc, _, train_truth, _ = self.model.do_train(
+                    self.train_loader
+                )
+                test_loss, test_acc, _, test_truth, _ = self.model.do_eval(
+                    self.test_loader
+                )
+                self.history_logger.add_scalar(
+                    "Accuracy/Train Accuracy", train_acc, epoch_n
+                )
+                self.history_logger.add_scalar(
+                    "Accuracy/Test Accuracy", test_acc, epoch_n
+                )
                 self.history_logger.add_scalar("Loss/Train Loss", train_loss, epoch_n)
                 self.history_logger.add_scalar("Loss/Test Loss", test_loss, epoch_n)
                 for name, param in self.model.named_parameters():
-                    self.history_logger.add_histogram(name, param.clone().cpu().data.cpu().numpy(), epoch_n)
+                    self.history_logger.add_histogram(
+                        name, param.clone().cpu().data.cpu().numpy(), epoch_n
+                    )
 
                 if Print:
                     print(
@@ -167,23 +194,33 @@ class Isolation_Agent:
                         % (epoch_n, train_loss, train_acc, test_loss, test_acc)
                     )
                 if (epoch_n) % 10 == 0:
-                    torch.save({
-                        'epoch': epoch_n,
-                        'model_state_dict': self.model.state_dict(),
-                        'optimizer_state_dict': self.model.optimizer.state_dict(),
-                        'train_loss': train_loss,
-                        'test_loss': test_loss,
-                        'train_accuracy': train_acc,
-                        'test_accuracy': test_acc,
-                    }, self.options["model_path"])
+                    torch.save(
+                        {
+                            "epoch": epoch_n,
+                            "model_state_dict": self.model.state_dict(),
+                            "optimizer_state_dict": self.model.optimizer.state_dict(),
+                            "train_loss": train_loss,
+                            "test_loss": test_loss,
+                            "train_accuracy": train_acc,
+                            "test_accuracy": test_acc,
+                        },
+                        self.options["model_path"],
+                    )
 
         def _test():
             """Evaluates the model on testing batches and saves ROC curve to history logger."""
-            test_loss, test_acc, test_raw_results, test_truth, test_lep_pT = self.model.do_eval(self.test_loader)
+            (
+                test_loss,
+                test_acc,
+                test_raw_results,
+                test_truth,
+                test_lep_pT,
+            ) = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
 
-            ROC_figs = Plotter.plot_ROC(self.options, test_raw_results, test_truth, test_lep_pT)
+            plots = Plotter(self.options, test_raw_results, test_truth, test_lep_pT)
+            ROC_figs = plots.run()
             for ROC_fig in ROC_figs:
                 self.history_logger.add_figure(ROC_fig.label, ROC_fig.image)
 
@@ -197,31 +234,9 @@ class Isolation_Agent:
         # self.history_logger.export_scalars_to_json(self.options["output_folder"] + "/all_scalars.json")
         self.history_logger.close()
 
-        if (self.options["save_model"]):
-            print("Saving model")
-            dummy_test_batch = self.model.prep_for_forward(next(iter(self.test_loader)))
-            input_names = list(dummy_test_batch.keys())
-            dynamic_axes = {}
-            for name in input_names:
-                dynamic_axes[name] = {0: 'batch_size'}
-            dynamic_axes['output'] = {0: 'batch_size'}
-
-            self.model.eval()
-            torch.onnx.export(
-                self.model, dummy_test_batch, "test.onnx", verbose=False,
-                export_params=True, do_constant_folding=True,
-                input_names=input_names, output_names=["output"],
-                dynamic_axes=dynamic_axes
-            )
-
-            session = onnxruntime.InferenceSession("test.onnx")
-
-            print("Testing saved model")
-            inputs = {}
-            for name in input_names:
-                inputs[name] = dummy_test_batch[name].cpu().numpy()
-            outputs = session.run(None, inputs)
-            print(outputs)
+        if self.options["save_model"]:
+            print("model saving feature not currently implemented")
+            pass
 
 
 def train(options):
@@ -232,16 +247,29 @@ def train(options):
     Returns:
          None
     """
+
     def _set_features(options):
         """Modifies options dictionary with branch name info."""
         data_file = TFile(options["input_data"])
         data_tree = getattr(data_file, options["tree_name"])
-        options["branches"] = [i.GetName() for i in data_tree.GetListOfBranches() if i.GetName() not in options["ignore_features"]]
-        options["baseline_features"] = [i for i in options["branches"] if i.startswith("baseline_")]
-        options["lep_features"] = [i for i in options["branches"] if i.startswith("lep_")]
+        options["branches"] = [
+            i.GetName()
+            for i in data_tree.GetListOfBranches()
+            if i.GetName() not in options["ignore_features"]
+        ]
+        options["baseline_features"] = [
+            i for i in options["branches"] if i.startswith("baseline_")
+        ]
+        options["lep_features"] = [
+            i for i in options["branches"] if i.startswith("lep_")
+        ]
         options["lep_features"] += options["additional_appended_features"]
-        options["trk_features"] = [i for i in options["branches"] if i.startswith("trk_")]
-        options["calo_features"] = [i for i in options["branches"] if i.startswith("calo_cluster_")]
+        options["trk_features"] = [
+            i for i in options["branches"] if i.startswith("trk_")
+        ]
+        options["calo_features"] = [
+            i for i in options["branches"] if i.startswith("calo_cluster_")
+        ]
         options["n_lep_features"] = len(options["lep_features"])
         options["n_trk_features"] = len(options["trk_features"])
         options["n_calo_features"] = len(options["calo_features"])

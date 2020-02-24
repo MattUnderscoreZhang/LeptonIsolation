@@ -75,7 +75,8 @@ class ROOT_Dataset(Dataset):
                 [int(truth) in [2, 6]]
             )  # 'truth_type': 2/6=prompt; 3/7=HF
             lep_pT = torch.Tensor([getattr(tree, "ROC_slicing_lep_pT")])
-            tree_info.append((lepton, tracks, clusters, truth, lep_pT))
+            baseline_PLT = torch.Tensor([getattr(tree, "baseline_PLT")])
+            tree_info.append((lepton, tracks, clusters, truth, lep_pT, baseline_PLT))
 
         n_additional_features = len(options["additional_appended_features"])
         n_natural_lep_features = len(options["lep_features"]) - n_additional_features
@@ -90,23 +91,18 @@ class ROOT_Dataset(Dataset):
                 np.ones(n_natural_lep_features), np.std(additional_vars, axis=0)
             )
             tree_info = [
-                (
-                    torch.from_numpy(
-                        (i.cpu().numpy() - additional_var_means) / additional_var_stds
-                    ).float(),
-                    j,
-                    k,
-                    l,
-                    m,
-                )
-                for (i, j, k, l, m) in tree_info
+                (torch.from_numpy(
+                    (i[0].cpu().numpy() - additional_var_means) / additional_var_stds
+                ).float())
+                + i[1:]
+                for i in tree_info
             ]
 
         return tree_info
 
     def __getitem__(self, index):
         """Returns the data at a given index."""
-        lepton, tracks, clusters, truth, lep_pT = self.data_tree[index]
+        lepton, tracks, clusters, truth, lep_pT, baseline_PLT = self.data_tree[index]
         event = pd.Series(
             [
                 tracks.cpu().numpy(),
@@ -116,6 +112,7 @@ class ROOT_Dataset(Dataset):
                 lepton,
                 bool(truth),
                 lep_pT,
+                baseline_PLT,
             ],
             index=[
                 "track_info",
@@ -125,6 +122,7 @@ class ROOT_Dataset(Dataset):
                 "lepton_info",
                 "truth",
                 "lepton_pT",
+                "baseline_PLT",
             ],
         )
         return event
@@ -168,5 +166,6 @@ def collate(batch):
     collated_batch["calo_length"] = torch.tensor(batch.calo_length.values.astype(int))
     collated_batch["truth"] = torch.tensor(tuple(batch.truth))
     collated_batch["lepton_pT"] = torch.tensor(tuple(batch.lepton_pT))
+    collated_batch["baseline_PLT"] = torch.tensor(tuple(batch.baseline_PLT))
 
     return collated_batch.to_dict()

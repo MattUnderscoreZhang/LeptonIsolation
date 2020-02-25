@@ -50,6 +50,9 @@ class ROOT_Dataset(Dataset):
         tree_info = []
         for index in event_order:
             tree.GetEntry(index)
+            n_calo_clusters = len(list(getattr(tree, options["calo_features"][0])))
+            if n_calo_clusters == 0:
+                continue
             lepton = [
                 getattr(tree, lep_feature) for lep_feature in options["lep_features"]
             ]

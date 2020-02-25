@@ -57,7 +57,10 @@ class Isolation_Agent:
 
             # perform class balancing
             print("Balancing classes")
-            event_indices = np.array(range(n_events))
+            dummy_dataset = ROOT_Dataset(
+                data_filename, None, self.options, shuffle_indices=False
+            )
+            event_indices = dummy_dataset.get_readable_events()
             full_dataset = ROOT_Dataset(
                 data_filename, event_indices, self.options, shuffle_indices=False
             )

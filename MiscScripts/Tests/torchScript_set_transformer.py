@@ -3,7 +3,10 @@ import torch.nn as nn
 from torch.nn import init
 import torch.nn.functional as F
 import math
-from .BaseModel import BaseModel
+
+"""
+Testing script for using torchScript for set transformers
+"""
 
 
 class MAB(torch.jit.ScriptModule):
@@ -40,9 +43,9 @@ class MAB(torch.jit.ScriptModule):
 
         A = torch.softmax(Q_.bmm(K_.transpose(1, 2)) / math.sqrt(self.dim_V), 2)
         out = torch.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
-        out = out  # if getattr(self, "ln0", None) is None else self.ln0(out)
+        out = out  # if getattr(self, "ln0") is None else self.ln0(out)
         out = out + F.relu(self.fc_o(out))
-        out = out  # if getattr(self, "ln1", None) is None else self.ln1(out)
+        out = out  # if getattr(self, "ln1") is None else self.ln1(out)
         return out
 
 
@@ -163,49 +166,66 @@ class SetTransformer(torch.jit.ScriptModule):
         return self.dec(self.enc(X))
 
 
-class Model(BaseModel):
+class Model(torch.jit.ScriptModule):
     """
-    Set Transformer model class inheriting structure from BaseModel
+    Set Transformer model class
     """
 
-    __constants__ = ["num_heads"]
+    __constants__ = [
+        "hidden_size",
+        "num_heads",
+        "n_trk_features",
+        "n_calo_features",
+        "n_lep_features",
+        "output_size",
+    ]
 
-    def __init__(self, options):
-        super().__init__(options)
-        self.num_heads = 1
+    def __init__(self):
+        super(Model, self).__init__()
+        # self.device = torch.device("cpu")
+        self.num_heads: Final[int] = 1
+        self.hidden_size: Final[int] = 12
+        self.n_trk_features: Final[int] = 6
+        self.n_calo_features: Final[int] = 6
+        self.n_lep_features: Final[int] = 10
+        self.output_size: Final[int] = 2
         self.trk_SetTransformer = SetTransformer(
             self.n_trk_features, num_outputs=self.num_heads, dim_output=self.hidden_size
-        ).to(self.device)
+        )  # .to(self.device)
         self.calo_SetTransformer = SetTransformer(
             self.n_calo_features, self.num_heads, self.hidden_size
-        ).to(self.device)
-        self.output_layer = nn.Linear(self.hidden_size * 2, self.hidden_size).to(
-            self.device
-        )
+        )  # .to(self.device)
+        self.output_layer = nn.Linear(
+            self.hidden_size * 2, self.hidden_size
+        )  # .to(self.device)
+        self.fc_final = nn.Linear(
+            self.hidden_size + self.n_lep_features, self.output_size
+        )  # .to(self.device)
+        self.relu_final = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout(p=0.3)
+        self.softmax = nn.Softmax(dim=1)
+        self.loss_function = nn.BCEWithLogitsLoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
 
     @torch.jit.ignore
-    def prep_for_forward(self, batch):
+    def mock_prep_for_forward(self):
         """
-        Preps data for passing through the net
-        Args:
-            track_info: variable length information about the track
-            lepton_info: fixed length information about the lepton
-            calo_info: variable length information about caloclusters
-            track_length: unpadded length of tracks
-            calo_length: unpadded length of caloclusters
+        Preps dummy data for passing through the net
+
         Returns:
-            prepared data
+            prepared mock data
         """
+        import dummy_data
 
-        track_info = batch["track_info"]
-        track_length = batch["track_length"]
-        lepton_info = batch["lepton_info"]
-        calo_info = batch["calo_info"]
-        calo_length = batch["calo_length"]
+        track_info = dummy_data.dummy_batch["track_info"]
+        track_length = dummy_data.dummy_batch["track_length"]
+        lepton_info = dummy_data.dummy_batch["lepton_info"]
+        calo_info = dummy_data.dummy_batch["calo_info"]
+        calo_length = dummy_data.dummy_batch["calo_length"]
 
-        track_info = track_info.to(self.device)
-        lepton_info = lepton_info.to(self.device)
-        calo_info = calo_info.to(self.device)
+        track_info = track_info  # .to(self.device)
+        lepton_info = lepton_info  # .to(self.device)
+        calo_info = calo_info  # .to(self.device)
 
         return track_info, track_length, lepton_info, calo_info, calo_length
 
@@ -226,10 +246,39 @@ class Model(BaseModel):
 
         transformed_trk = self.trk_SetTransformer(track_info)
         transformed_calo = self.calo_SetTransformer(calo_info)
-        out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=2))
+        out = torch.cat(list((transformed_trk, transformed_calo)), dim=2)
+        out = self.output_layer(out)
         out = out[:, 0]
         out = self.fc_final(torch.cat([out, lepton_info], dim=1))
         out = self.relu_final(out)
         out = self.softmax(out)
 
         return out
+
+    def save_to_pytorch(self, output_path):
+        torch.jit.save(self, output_path)
+
+
+if __name__ == "__main__":
+    # Testing
+    model = Model()
+    print(model(*model.mock_prep_for_forward()))
+    (
+        track_info,
+        track_length,
+        lepton_info,
+        calo_info,
+        calo_length,
+    ) = model.mock_prep_for_forward()
+    script = torch.jit.script(
+        model, (track_info, track_length, lepton_info, calo_info, calo_length)
+    )
+
+    model.to(torch.device("cuda"))
+    model.save_to_pytorch("test_set_transformer_gpu.zip")
+
+    # script.save('set_transformer.zip')
+
+    loaded = torch.jit.load("test_set_transformer_gpu.zip")
+
+    print(loaded)

@@ -23,13 +23,31 @@ class ROOT_Dataset(Dataset):
         super().__init__()
         self.data_file = TFile(data_filename)  # keep this open to prevent segfault
         self.data_tree_on_disk = self.data_file.Get(options["tree_name"])
+        self.options = options
+        if readable_event_indices is None:
+            return
         self.event_order = readable_event_indices
         if shuffle_indices:
             random.shuffle(self.event_order)
-        self.options = options
         self.data_tree = self._store_tree_in_memory(
             self.data_tree_on_disk, self.event_order, self.options
         )
+
+    def get_readable_events(self):
+        tree = self.data_tree_on_disk
+        event_indices = list(range(tree.GetEntries()))
+        bad_indices = []
+        for i, event in enumerate(tree):
+            # filter events with no calo clusters
+            n_calo_clusters = len(
+                list(getattr(event, self.options["calo_features"][0]))
+            )
+            if n_calo_clusters == 0 or i in [2, 14, 52]:
+                bad_indices.append(i)
+        bad_indices.reverse()
+        for i in bad_indices:
+            event_indices.pop(i)
+        return np.array(event_indices)
 
     def _store_tree_in_memory(self, tree, event_order, options):
         def _sort_tracks(tracks, track_ordering, track_features):

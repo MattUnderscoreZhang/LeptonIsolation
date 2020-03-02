@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
 
+
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
 from .Architectures.SetTransformer import Model as SetTransformer_Model
@@ -45,17 +46,13 @@ class Isolation_Agent:
             Returns:
                 train_loader, test_loader
             """
-            # load data files
-
-            print("Loading data")
-            data_file = TFile(data_filename)
-            data_tree = getattr(data_file, self.options["tree_name"])
-            n_events = data_tree.GetEntries()
-            data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
             print("Balancing classes")
-            event_indices = np.array(range(n_events))
+            dummy_dataset = ROOT_Dataset(
+                data_filename, None, self.options, shuffle_indices=False
+            )
+            event_indices = dummy_dataset.get_readable_events()
             full_dataset = ROOT_Dataset(
                 data_filename, event_indices, self.options, shuffle_indices=False
             )
@@ -235,8 +232,11 @@ class Isolation_Agent:
         self.history_logger.close()
 
         if self.options["save_model"]:
-            print("model saving feature not currently implemented")
-            pass
+            print("Saving model")
+            self.model.save_to_pytorch(self.options["model_save_path"])
+            print("Testing saved model")
+            loaded = torch.jit.load(self.options["model_save_path"])
+            print(loaded)
 
 
 def train(options):

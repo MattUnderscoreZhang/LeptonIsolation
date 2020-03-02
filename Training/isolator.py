@@ -38,7 +38,7 @@ if __name__ == "__main__":
     options["input_data"] = "/public/data/RNN/Samples/InclusivePt/large_data.root"
     assert path.exists(options["input_data"]) is True, "invalid input_data path"
     options["run_location"] = "/public/data/RNN/runs"
-    options["run_label"] = "anil_set_test"
+    options["run_label"] = "matt_test"
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     options["device"] = args.device
     options["save_model"] = True
     options["model_save_path"] = options["output_folder"] + "test_gru_model.zip"
-
+    options["train_BDT"] = True
     t0 = time.time()
     print("number of epochs planned:", options["n_epochs"])
     print("input data:", options["input_data"].split("/")[-1])

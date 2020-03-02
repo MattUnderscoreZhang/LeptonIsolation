@@ -8,6 +8,8 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from ROOT import TFile
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import AdaBoostClassifier
 
 from .Architectures.RNN import RNN_Model, GRU_Model, LSTM_Model
 from .Architectures.DeepSets import Model as DeepSets_Model
@@ -164,10 +166,10 @@ class Isolation_Agent:
             for epoch_n in range(
                 self.resumed_epoch_n, self.options["n_epochs"] + self.resumed_epoch_n
             ):
-                train_loss, train_acc, _, train_truth, _ = self.model.do_train(
+                train_loss, train_acc, _, train_truth, _, _ = self.model.do_train(
                     self.train_loader
                 )
-                test_loss, test_acc, _, test_truth, _ = self.model.do_eval(
+                test_loss, test_acc, _, test_truth, _, _ = self.model.do_eval(
                     self.test_loader
                 )
                 self.history_logger.add_scalar(
@@ -211,6 +213,7 @@ class Isolation_Agent:
                 test_raw_results,
                 test_truth,
                 test_lep_pT,
+                test_PLT,
             ) = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
@@ -236,6 +239,47 @@ class Isolation_Agent:
             print("Testing saved model")
             loaded = torch.jit.load(self.options["model_save_path"])
             print(loaded)
+
+        if self.options["train_BDT"]:
+            print("Training BDT")
+            tree = DecisionTreeClassifier(max_depth=2)
+            bdt = AdaBoostClassifier(
+                base_estimator=tree, algorithm="SAMME", n_estimators=300
+            )
+
+            # train BDT
+            (
+                _,
+                _,
+                train_raw_results,
+                train_truth,
+                train_lep_pT,
+                train_PLT,
+            ) = self.model.do_eval(self.train_loader)
+            X = [i for i in zip(train_raw_results, train_PLT)]
+            y = train_truth
+            bdt.fit(X, y)
+
+            # test BDT
+            (
+                _,
+                _,
+                test_raw_results,
+                test_truth,
+                test_lep_pT,
+                test_PLT,
+            ) = self.model.do_eval(self.test_loader)
+            X = [i for i in zip(test_raw_results, test_PLT)]
+            y = test_truth
+            test_score = bdt.score(X, y)
+            bdt_scores = [i[1] for i in bdt.predict_proba(X)]
+            print(f"BDT score is {test_score}")
+
+            # save ROC comparison
+            plots = Plotter(self.options, bdt_scores, test_truth, test_lep_pT)
+            ROC_figs = plots.run()
+            for ROC_fig in ROC_figs:
+                self.history_logger.add_figure("BDT_" + ROC_fig.label, ROC_fig.image)
 
 
 def train(options):

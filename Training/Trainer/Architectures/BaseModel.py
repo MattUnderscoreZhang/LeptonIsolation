@@ -91,6 +91,7 @@ class BaseModel(torch.jit.ScriptModule):
         raw_results = []
         all_truth = []
         lep_pT = []
+        PLT = []
 
         for i, batch in enumerate(batches, 1):
             self.optimizer.zero_grad()
@@ -118,11 +119,12 @@ class BaseModel(torch.jit.ScriptModule):
             raw_results += output.cpu().detach().tolist()
             all_truth += batch["truth"].cpu().detach().tolist()
             lep_pT += batch["lepton_pT"].cpu().detach().tolist()
+            PLT += batch["baseline_PLT"].cpu().detach().tolist()
 
         total_loss = total_loss / len(batches.dataset) * self.batch_size
         total_acc = total_acc / len(batches.dataset) * self.batch_size
         total_loss = torch.tensor(total_loss)
-        return total_loss, total_acc, raw_results, all_truth, lep_pT
+        return total_loss, total_acc, raw_results, all_truth, lep_pT, PLT
 
     @torch.jit.ignore
     def do_eval(self, batches, do_training=False):

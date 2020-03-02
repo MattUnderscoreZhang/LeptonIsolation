@@ -18,7 +18,7 @@ PackedSequence_.__annotations__ = {
 
 
 class BaseModel(torch.jit.ScriptModule):
-    r"""Model class implementing rnn inheriting structure from pytorch nn module
+    r"""Model class inheriting structure from pytorch nn module implementing universal training structure
 
     Attributes:
         options (dict) : configuration for the nn
@@ -28,6 +28,7 @@ class BaseModel(torch.jit.ScriptModule):
         do_train: takes in data and passes the batches to forward to train
         do_eval: runs the neural net on the data after setting it up for evaluation
         get_model: returns the model and its optimizer
+        save_to_pytorch: saves the model as a torchscript file
     """
 
     __constants__ = [

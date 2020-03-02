@@ -20,7 +20,17 @@ PackedSequence_.__annotations__ = {
 
 
 class RecurrentModel(BaseModel):
-    """docstring for RecurrentModel"""
+    r"""Model class inheriting structure from basemodel implementing dataprocessing and forward for recurrent models
+
+    Attributes:
+        options (dict) : configuration for the nn
+
+    Methods:
+        _pad: annotated pad_packed_sequence for torchscript
+        prep_for_forward: takes batches and converts to form accessible by forward
+        forward: steps through the neural net once
+        concat_pooling: pools and concatenates rnn output to mimic permutation invariance
+    """
 
     __constants__ = [
         "n_layers",
@@ -103,7 +113,20 @@ class RecurrentModel(BaseModel):
         padded_cal_seq: PackedSequence_,
         lepton_info,
     ):
-
+        r"""Takes event data and passes through different layers depending on the architecture.
+            RNN / LSTM / GRU:
+            * padding variable-length tracks with zeros
+            * pool the rnn output to utilize more information than the final layer
+            * concatenate all interesting information
+            * a fully connected layer to get it to the right output size
+            * a softmax to get a probability
+        Args:
+            padded_track_seq: PackedSequence_,
+            padded_cal_seq: PackedSequence_,
+            lepton_info,
+        Returns:
+            the probability of particle beng prompt or heavy flavor
+        """
         output_track, hidden_track = self.trk_rnn(padded_track_seq, self.h_0)
         output_cal, hidden_cal = self.cal_rnn(padded_cal_seq, self.h_0)
 

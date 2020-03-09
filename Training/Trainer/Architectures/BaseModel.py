@@ -150,4 +150,5 @@ class BaseModel(torch.jit.ScriptModule):
         return self, self.optimizer
 
     def save_to_pytorch(self, output_path):
+        self.eval()
         torch.jit.save(self, output_path)

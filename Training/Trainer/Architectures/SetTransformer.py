@@ -222,8 +222,6 @@ class Model(BaseModel):
         Returns:
             the probability of particle beng prompt or heavy flavor
         """
-        # track_info, track_length, lepton_info, calo_info, calo_length = input_batch
-
         transformed_trk = self.trk_SetTransformer(track_info)
         transformed_calo = self.calo_SetTransformer(calo_info)
         out = self.output_layer(torch.cat([transformed_trk, transformed_calo], dim=2))

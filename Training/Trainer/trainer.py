@@ -47,13 +47,6 @@ class Isolation_Agent:
             Returns:
                 train_loader, test_loader
             """
-            # load data files
-
-            print("Loading data")
-            data_file = TFile(data_filename)
-            data_tree = getattr(data_file, self.options["tree_name"])
-            n_events = data_tree.GetEntries()
-            data_file.Close()  # we want each ROOT_Dataset to open its own file and extract its own tree
 
             # perform class balancing
             print("Balancing classes")
@@ -220,7 +213,7 @@ class Isolation_Agent:
                 test_raw_results,
                 test_truth,
                 test_lep_pT,
-                test_PLT
+                test_PLT,
             ) = self.model.do_eval(self.test_loader)
             self.history_logger.add_scalar("Accuracy/Test Accuracy (Final)", test_acc)
             self.history_logger.add_scalar("Loss/Test Loss (Final)", test_loss)
@@ -241,22 +234,41 @@ class Isolation_Agent:
         self.history_logger.close()
 
         if self.options["save_model"]:
-            print("model saving feature not currently implemented")
-            pass
+            print("Saving model")
+            self.model.save_to_pytorch(self.options["model_save_path"])
+            print("Testing saved model")
+            loaded = torch.jit.load(self.options["model_save_path"])
+            print(loaded)
 
-        if (self.options["train_BDT"]):
+        if self.options["train_BDT"]:
             print("Training BDT")
             tree = DecisionTreeClassifier(max_depth=2)
-            bdt = AdaBoostClassifier(base_estimator=tree, algorithm="SAMME", n_estimators=300)
+            bdt = AdaBoostClassifier(
+                base_estimator=tree, algorithm="SAMME", n_estimators=300
+            )
 
             # train BDT
-            _, _, train_raw_results, train_truth, train_lep_pT, train_PLT = self.model.do_eval(self.train_loader)
+            (
+                _,
+                _,
+                train_raw_results,
+                train_truth,
+                train_lep_pT,
+                train_PLT,
+            ) = self.model.do_eval(self.train_loader)
             X = [i for i in zip(train_raw_results, train_PLT)]
             y = train_truth
             bdt.fit(X, y)
 
             # test BDT
-            _, _, test_raw_results, test_truth, test_lep_pT, test_PLT = self.model.do_eval(self.test_loader)
+            (
+                _,
+                _,
+                test_raw_results,
+                test_truth,
+                test_lep_pT,
+                test_PLT,
+            ) = self.model.do_eval(self.test_loader)
             X = [i for i in zip(test_raw_results, test_PLT)]
             y = test_truth
             test_score = bdt.score(X, y)

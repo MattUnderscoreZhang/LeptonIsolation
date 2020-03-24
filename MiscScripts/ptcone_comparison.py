@@ -4,38 +4,6 @@ import matplotlib.pyplot as plt
 
 data = h5.File("output.h5")
 
-
-def feature_hist(LeptonName, features):
-    for (index, feature) in features:
-        values = np.array(
-            [
-                i[index]
-                for j in data[LeptonName + "s"]
-                for i in j
-                if not np.isnan(i[index])
-            ]
-        )
-        truth_type = np.array(
-            [i[17] for j in data[LeptonName + "s"] for i in j if not np.isnan(i[index])]
-        )
-        plt.clf()
-        plt.hist(
-            values[truth_type == 3],
-            histtype="step",
-            bins=np.arange(-20000, 100000, 2000),
-            label="non-iso",
-        )
-        plt.hist(
-            values[truth_type == 2],
-            histtype="step",
-            bins=np.arange(-20000, 100000, 2000),
-            label="isolated",
-        )
-        plt.title(LeptonName + " " + feature)
-        plt.legend()
-        plt.savefig(LeptonName + "_" + feature + ".eps")
-
-
 plot_names = [
     "ptcone20",
     "ptcone30",

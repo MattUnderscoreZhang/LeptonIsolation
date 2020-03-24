@@ -6,6 +6,7 @@ Attributes:
     *--continue-training : loads in a previous model to continue training
 """
 from Trainer import trainer as trainer
+from os import path
 import argparse
 import torch
 import time
@@ -34,9 +35,10 @@ if __name__ == "__main__":
 
     options = {}
 
-    options["input_data"] = "/public/data/RNN/small_data.root"
+    options["input_data"] = "/public/data/RNN/Samples/InclusivePt/small_data.root"
+    assert path.exists(options["input_data"]) is True, "invalid input_data path"
     options["run_location"] = "/public/data/RNN/runs"
-    options["run_label"] = "matt_test"
+    options["run_label"] = "anil_test"
     options["tree_name"] = "NormalizedTree"
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
@@ -64,16 +66,16 @@ if __name__ == "__main__":
         "trk_vtx_type",
     ]
     options["training_split"] = 0.7
-    options["batch_size"] = 256
-    options["n_epochs"] = 3
+    options["batch_size"] = 32
+    options["n_epochs"] = 10
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets
     options["output_neurons"] = 2
     options["device"] = args.device
     options["save_model"] = True
+    options["model_save_path"] = options["output_folder"] + "test_gru_model.pth"
     options["train_BDT"] = True
-
     t0 = time.time()
     print("number of epochs planned:", options["n_epochs"])
     print("input data:", options["input_data"].split("/")[-1])

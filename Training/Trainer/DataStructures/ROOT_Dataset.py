@@ -39,7 +39,9 @@ class ROOT_Dataset(Dataset):
         bad_indices = []
         for i, event in enumerate(tree):
             # filter events with no calo clusters
-            n_calo_clusters = len(list(getattr(event, self.options["calo_features"][0])))
+            n_calo_clusters = len(
+                list(getattr(event, self.options["calo_features"][0]))
+            )
             if n_calo_clusters == 0 or i in [2, 14, 52]:
                 bad_indices.append(i)
         bad_indices.reverse()
@@ -110,9 +112,12 @@ class ROOT_Dataset(Dataset):
                 np.ones(n_natural_lep_features), np.std(additional_vars, axis=0)
             )
             tree_info = [
-                (torch.from_numpy(
-                    (i[0].cpu().numpy() - additional_var_means) / additional_var_stds
-                ).float())
+                (
+                    torch.from_numpy(
+                        (i[0].cpu().numpy() - additional_var_means)
+                        / additional_var_stds
+                    ).float()
+                )
                 + i[1:]
                 for i in tree_info
             ]

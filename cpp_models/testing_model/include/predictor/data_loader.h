@@ -4,7 +4,11 @@
 #include <tuple>
 #include <torch/torch.h>
 // #include <opencv2/opencv.hpp>
-// #include "TFile.h"
+#include "TFile.h"
+#include "TTree.h"
+
+TFile *f=new TFile("/home/particularlypythonic/Public/data/RNN/Samples/InclusivePt/small_data.root");
+TTree *tr=(TTree*)f->Get("NormalizedTree");
 
 //
 // class CustomDataset : public torch::data::Dataset<CustomDataset>

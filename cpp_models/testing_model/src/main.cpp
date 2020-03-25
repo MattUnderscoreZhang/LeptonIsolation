@@ -2,8 +2,8 @@
 #include <iostream>
 #include <memory>
 #include "TFile.h"
-
-// #include "predictor/data_loader.h"
+#include "TTree.h"
+#include "predictor/data_loader.h"
 
 int main(int argc, const char* argv[]) {
   if (argc != 2) {

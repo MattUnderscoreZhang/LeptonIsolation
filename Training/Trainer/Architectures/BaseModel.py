@@ -43,7 +43,8 @@ class BaseModel(torch.jit.ScriptModule):
     ]
 
     def __init__(self, options):
-        super().__init__(options)
+        super().__init__()
+        self.options = options
         self.n_trk_features = options["n_trk_features"]
         self.n_calo_features = options["n_calo_features"]
         self.hidden_size = options["hidden_neurons"]

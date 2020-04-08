@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ]
     options["training_split"] = 0.7
     options["batch_size"] = 32
-    options["n_epochs"] = 10
+    options["n_epochs"] = 2
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets

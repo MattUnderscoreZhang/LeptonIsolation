@@ -1,4 +1,4 @@
-name: rnn
+name: rnn_new
 channels:
   - pytorch
   - defaults

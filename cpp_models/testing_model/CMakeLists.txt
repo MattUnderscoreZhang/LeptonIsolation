@@ -16,7 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} ${ROOT_CXX_FLAGS}")
 include(${ROOT_USE_FILE})
 
 separate_arguments(ROOT_EXE_LINKER_FLAGS)
-string(STRIP ${SOURCES} SOURCES)
+# string(STRIP ${SOURCES} SOURCES)
 add_executable(predict ${SOURCES})
 target_link_libraries(predict PUBLIC ${TORCH_LIBRARIES} ${ROOT_LIBRARIES})
 set_property(TARGET predict PROPERTY CXX_STANDARD 14)

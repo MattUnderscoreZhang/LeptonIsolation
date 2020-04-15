@@ -17,10 +17,14 @@ class ROOT_Dataset : public torch::data::Dataset<ROOT_Dataset>
         /*constructors and destructors*/
         explicit ROOT_Dataset(std::string& file_location, std::string& tree_name);
         //load root files and trees
-        ~ROOT_Dataset() // closes TFile
+        ~ROOT_Dataset(); // closes TFile
 
         /*methods*/
-        torch::optional<size_t> size() const override; // create override for datasize
+        void read_data();
+        torch::optional<size_t> size() const override
+        {
+            // return 0;
+        }; // create override for datasize
         torch::data::Example<> get(size_t index) override;// create override for getting data item
         // create list of readable events
         // store tree in _store_tree_in_memory

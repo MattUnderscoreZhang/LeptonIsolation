@@ -20,7 +20,15 @@ int main(int argc, const char* argv[]) {
   catch (const c10::Error& e) {
     std::cerr << "error loading the model\n";
     return -1;
-  }
+    }
+  // open the file
+   TFile *f = TFile::Open("/public/data/RNN/Samples/InclusivePt/small_data.root");
+   if (f == 0) {
+      // if we cannot open the file, print an error message and return immediatly
+      printf("Error: cannot open input data!\n");
+      return -1;
+   }
 
   std::cout << "ok\n";
+  return 0;
 }

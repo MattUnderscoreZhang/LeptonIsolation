@@ -5,7 +5,8 @@ ROOT_Dataset::ROOT_Dataset(std::string& file_location, std::string& tree_name)
     //load root files and trees
     {
         TFile *file = TFile::Open(file_location.c_str());
-        TTree *tree=(TTree*)file->Get(tree_name.c_str());
+        TTree *tree= nullptr;
+        file->GetObject(tree_name.c_str(),tree);
     };
 
 ROOT_Dataset::~ROOT_Dataset()
@@ -14,13 +15,15 @@ ROOT_Dataset::~ROOT_Dataset()
 };
 void ROOT_Dataset::read_data()
 {
-    this->tree;
+    tree->GetEntry(0);
+    TBranch *pT = tree->GetBranch("calo_cluster_pT");
+    std::vector<float> calo_cluster_pT;
+    tree->SetBranchAddress("calo_cluster_pT", &calo_cluster_pT);
 };
 
 torch::data::Example<> ROOT_Dataset::get(size_t index)
 {
-
-    // return 0;
+    tree->GetEntry(index);
 };
 
 // // Generate your data set. At this point you can add transforms to you data set, e.g. stack your

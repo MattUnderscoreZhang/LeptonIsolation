@@ -5,6 +5,9 @@
 #include <torch/torch.h>
 #include "TFile.h"
 #include "TTree.h"
+#include "TH1F.h"
+#include "TTreeReader.h"
+#include "TTreeReaderValue.h"
 
 class ROOT_Dataset : public torch::data::Dataset<ROOT_Dataset>
 {
@@ -25,10 +28,8 @@ class ROOT_Dataset : public torch::data::Dataset<ROOT_Dataset>
         {
             // return 0;
         }; // create override for datasize
+
         torch::data::Example<> get(size_t index) override;// create override for getting data item
         // create list of readable events
         // store tree in _store_tree_in_memory
-
-
-
 };

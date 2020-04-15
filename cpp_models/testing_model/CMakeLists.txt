@@ -11,7 +11,7 @@ include_directories(include libs)
 file(GLOB SOURCES "src/*.cpp")
 find_package(Torch REQUIRED)
 find_package(ROOT CONFIG REQUIRED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} ${ROOT_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} ${ROOT_CXX_FLAGS} -lTreePlayer")
 
 include(${ROOT_USE_FILE})
 

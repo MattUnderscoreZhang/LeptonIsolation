@@ -43,7 +43,7 @@ if __name__ == "__main__":
     options["output_folder"] = "./Outputs/"
     options["model_path"] = options["output_folder"] + "saved_model.pt"
     options["continue_training"] = args.continue_training
-    options["architecture_type"] = "GRU"  # RNN, LSTM, GRU, DeepSets, SetTransformer
+    options["architecture_type"] = "SetTransformer"  # RNN, LSTM, GRU, DeepSets, SetTransformer
     options["dropout"] = 0.3
     options[
         "track_ordering"
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ]
     options["training_split"] = 0.7
     options["batch_size"] = 32
-    options["n_epochs"] = 10
+    options["n_epochs"] = 2
     options["n_layers"] = 3
     options["hidden_neurons"] = 256
     options["intrinsic_dimensions"] = 1024  # only matters for deep sets

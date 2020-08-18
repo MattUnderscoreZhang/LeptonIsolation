@@ -243,6 +243,20 @@ int main (int argc, char *argv[]) {
 
         if (lep_has_associated_jet) {
             double lep_DL1r_double = 0.0;
+            //--- Extract pb, pc, and pu values for jet
+            double dl1_pb(-10.), dl1_pc(-10.), dl1_pu(-10.);
+            const xAOD::BTagging* btag = jet.btagging();
+            btag->pb("DL1r", dl1_pb);
+            btag->pc("DL1r", dl1_pc);
+            btag->pu("DL1r", dl1_pu);
+            bool valid_input = (!std::isnan(pu) && pb>0 && pc>0 && pu>0):
+            if (!valid_input) {
+                lep_DL1r = 0.0;
+                continue;
+                // NOTE: check whether or not to actually use this lepton
+                //return false;
+            }
+            //--- Perform b-tagging if jet is valid
             m_bTagSel_DL1r->getTaggerWeight(*nearest_jet, lep_DL1r_double);
             lep_DL1r = lep_DL1r_double;
         }
